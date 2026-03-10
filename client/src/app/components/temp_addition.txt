@@ -1,0 +1,10 @@
+
+      {/* Login Required Modal */}
+      <LoginRequiredModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onLoginClick={() => {
+          setShowLoginModal(false);
+          window.dispatchEvent(new CustomEvent('openLoginModal'));
+        }}
+      />
