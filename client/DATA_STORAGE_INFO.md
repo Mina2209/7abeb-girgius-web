@@ -1,3 +1,5 @@
+########### Figma's OUTDATED DATA_STORAGE_INFO
+
 # Data Storage Information
 
 ## Current Implementation: 100% LocalStorage & Mock Data
