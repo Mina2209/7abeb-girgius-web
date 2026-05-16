@@ -2,16 +2,7 @@ import { X, Save } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { TagMultiSelect } from './TagMultiSelect';
 import { useUniversalTopics } from '../hooks/useUniversalTopics';
-
-interface Saying {
-  id: number;
-  quote: string;
-  author: string;
-  authorImage: string;
-  tags: string[];
-  source: string;
-  dateAdded: string;
-}
+import type { Saying } from '../types/content';
 
 interface AdminEditSayingModalProps {
   isOpen: boolean;

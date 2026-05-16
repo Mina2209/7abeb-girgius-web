@@ -2,27 +2,7 @@ import { X, Save, Video, FileVideo, Presentation, FileAudio, Upload, Trash2 } fr
 import { useState, useEffect, useRef } from 'react';
 import { TagMultiSelect } from './TagMultiSelect';
 import { useUniversalTopics } from '../hooks/useUniversalTopics';
-
-type FileType = 'Video montage' | 'Video PowerPoint' | 'PowerPoint file' | 'Music';
-
-interface HymnFile {
-  type: FileType;
-  name: string;
-  url: string; // base64 or URL
-  size?: number;
-}
-
-interface Hymn {
-  id: number;
-  title: string;
-  duration: string;
-  tags: string[];
-  createdAt: string;
-  updatedAt: string;
-  fileTypes: FileType[];
-  lyrics: string;
-  files?: HymnFile[]; // Array of uploaded files
-}
+import type { Hymn, HymnFile, HymnFileType as FileType } from '../types/content';
 
 interface AdminEditHymnModalProps {
   isOpen: boolean;
@@ -246,7 +226,7 @@ export function AdminEditHymnModal({
               value={formData.lyrics}
               onChange={(e) => setFormData({ ...formData, lyrics: e.target.value })}
               className="w-full px-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[200px] resize-y font-mono"
-              placeholder="أدخل كلمات الترني��ة..."
+              placeholder="أدخل كلمات الترنيمة..."
             />
             {errors.lyrics && <p className="text-red-500 text-sm mt-1">{errors.lyrics}</p>}
           </div>

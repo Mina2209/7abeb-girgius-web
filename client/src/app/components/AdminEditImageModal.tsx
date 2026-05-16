@@ -2,18 +2,7 @@ import { X, Save, Upload, Image as ImageIcon, Trash2, ChevronDown } from 'lucide
 import { useState, useEffect, useRef } from 'react';
 import { TagMultiSelect } from './TagMultiSelect';
 import { useUniversalTopics } from '../hooks/useUniversalTopics';
-
-interface GalleryImage {
-  id: number;
-  src: string;
-  title: string;
-  tags: string[];
-  artist: string;
-  type: string;
-  aiGenerated: boolean;
-  uploadDate: string;
-  published: boolean;
-}
+import type { GalleryImage } from '../types/content';
 
 interface AdminEditImageModalProps {
   isOpen: boolean;
