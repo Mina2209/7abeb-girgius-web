@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Heart, Trash2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { FlatIcon } from './icons/FlatIcon';
-import { getDefaultBookCover } from './BooksSection';
+import { useHymnsData } from '../hooks/useHymnsData';
+import { useGalleryImagesData } from '../hooks/useGalleryImagesData';
+import { useSayingsData } from '../hooks/useSayingsData';
 
 // Icon wrapper components for Flaticon (matching navigation icons)
 const MusicIcon = (props: any) => <FlatIcon iconClass="fi-ss-music-alt" {...props} />;
@@ -12,9 +14,16 @@ const QuoteIcon = (props: any) => <FlatIcon iconClass="fi-sr-comment-quote" {...
 
 type FavoriteTab = 'hymns' | 'images' | 'books' | 'sayings';
 
+function idListed(id: unknown, list: readonly unknown[]) {
+  return list.some((x) => String(x) === String(id));
+}
+
 export function FavoritesPage() {
   const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState<FavoriteTab>('hymns');
+  const { hymns, loading: hymnsLoading } = useHymnsData();
+  const { images, loading: imagesLoading } = useGalleryImagesData();
+  const { sayings, loading: sayingsLoading } = useSayingsData();
 
   if (!profile) {
     return (
@@ -26,44 +35,58 @@ export function FavoritesPage() {
     );
   }
 
-  // Get favorites from localStorage
-  const favoriteHymnIds = JSON.parse(localStorage.getItem('favoriteHymns') || '[]');
-  const favoriteImageIds = JSON.parse(localStorage.getItem('favoriteImages') || '[]');
-  const favoriteBookIds = JSON.parse(localStorage.getItem('user_favorites') || '{"books":[]}').books || [];
-  const favoriteSayingIds = JSON.parse(localStorage.getItem('favoriteSayings') || '[]');
+  const favoriteHymnIds: unknown[] = [];
+  const favoriteImageIds: unknown[] = [];
+  const favoriteBookIds: unknown[] = [];
+  const favoriteSayingIds: unknown[] = [];
 
-  // Mock data for display (in real app, this would fetch from the actual data arrays)
-  const mockHymns = [
-    { id: 1, title: 'تينثينو', occasion: 'تسبحة نصف الليل' },
-    { id: 2, title: 'بي اويك', occasion: 'مديحة للعذراء' },
-    { id: 4, title: 'شيري ني ماريا', occasion: 'مديحة للعذراء' },
-  ];
+  const catalogLoading =
+    (hymnsLoading && hymns.length === 0) ||
+    (imagesLoading && images.length === 0) ||
+    (sayingsLoading && sayings.length === 0);
 
-  const mockImages = [
-    { id: 1, url: 'https://images.unsplash.com/photo-1513279922550-d21f55b45469?w=400', title: 'فرح الطفولة' },
-    { id: 3, url: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=400', title: 'الصلاة في الكنيسة' },
-    { id: 5, url: 'https://images.unsplash.com/photo-1545231027-637d2f6210f8?w=400', title: 'التسبيح' },
-    { id: 8, url: 'https://images.unsplash.com/photo-1438032005730-c779502df39b?w=400', title: 'الفرح الروحي' },
-  ];
+  if (catalogLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen text-muted-foreground">
+        جاري تحميل المفضلات...
+      </div>
+    );
+  }
+
+  const favoriteHymns = hymns
+    .filter((h) => idListed(h.id, favoriteHymnIds))
+    .map((h) => ({
+      id: h.id,
+      title: h.title,
+      occasion: h.tags[0] ?? '',
+    }));
+
+  const favoriteImages = images
+    .filter((img) => idListed(img.id, favoriteImageIds))
+    .map((img) => ({
+      id: img.id,
+      url: img.src,
+      title: img.title,
+    }));
+
+  const favoriteSayingsResolved = sayings
+    .filter((s) => idListed(s.id, favoriteSayingIds))
+    .map((s) => ({
+      id: s.id,
+      text: s.quote,
+      author: s.author,
+    }));
 
   const mockBooks = [
     { id: '1', title: 'حياة الصلاة الأرثوذكسية', author: 'متى المسكين', coverImage: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400' },
     { id: '2', title: 'تاريخ الكنيسة القبطية', author: 'إيريس حبيب المصري', coverImage: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400' },
   ];
 
-  const mockSayings = [
-    { id: 1, text: 'من يضرب الحديد وهو بارد لا ينجح في عمله، كذلك من يتراخى في جهاده.', author: 'القديس الأنبا أنطونيوس' },
-    { id: 3, text: 'الصلاة هي نور النفس، وحياة الروح، وباب السماء.', author: 'القديس يوحنا ذهبي الفم' },
-    { id: 5, text: 'ليس شيء يعدل محبة الله، ولا شيء أحلى من محبة القريب.', author: 'القديس مار إسحق السرياني' },
-    { id: 7, text: 'اقرأ الكتاب المقدس كأنك تقرأ رسالة من السماء موجهة إليك شخصياً.', author: 'القديس يوحنا كرونستادت' },
-    { id: 9, text: 'ليس من يبدأ بل من يثبت إلى المنتهى هو الذي يخلص.', author: 'القديس الأنبا أنطونيوس' },
-  ];
-
   const favorites = {
-    hymns: mockHymns.filter(h => favoriteHymnIds.includes(h.id)),
-    images: mockImages.filter(i => favoriteImageIds.includes(i.id)),
-    books: mockBooks.filter(b => favoriteBookIds.includes(b.id)),
-    sayings: mockSayings.filter(s => favoriteSayingIds.includes(s.id)),
+    hymns: favoriteHymns,
+    images: favoriteImages,
+    books: mockBooks.filter((b) => favoriteBookIds.includes(b.id)),
+    sayings: favoriteSayingsResolved,
   };
 
   const stats = {
