@@ -1,0 +1,14 @@
+npx prisma migrate dev --create-only --name add_lyric_model
+
+then the migration file was edited manually, these lines where added:
+
+ALTER TABLE "public"."Lyric" ADD COLUMN "search_vector" tsvector 
+  GENERATED ALWAYS AS (to_tsvector('simple', coalesce(content, ''))) STORED;
+
+-- Create GIN index for fast full-text search on lyrics
+CREATE INDEX "Lyric_search_vector_idx" ON "public"."Lyric" USING GIN (search_vector);
+
+
+____________________________________
+when making a new migration the prizma will drop these lines upove, so make sure you remove
+these files before running npx prisma migrate deploy
