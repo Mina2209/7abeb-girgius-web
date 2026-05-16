@@ -1,20 +1,21 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { loadGalleryImagesData, loadHymnsData, loadSayingsData } from '../services/contentLoaders';
+import { useAuth } from '../contexts/AuthContext';
+import {
+  createTag,
+  DEFAULT_CATEGORY,
+  deleteTag,
+  fetchAllTags,
+  mapTagsToSectionsAndTopics,
+  notifyTagsUpdated,
+  updateTag,
+  type Section,
+  type Topic,
+} from '../services/tagsService';
+import type { GalleryImage, Hymn, Saying } from '../types/content';
 import { Plus, Edit2, Trash2, Search, Tag, AlertTriangle, Save, X, ChevronDown, ChevronUp, FolderOpen, Folder } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-
-interface Section {
-  id: string;
-  name: string;
-  order: number;
-}
-
-interface Topic {
-  id: string;
-  name: string;
-  sectionId: string;
-  order: number; // Order within the section
-}
 
 interface DeleteConfirmation {
   topicId?: string;
@@ -36,8 +37,17 @@ interface TopicWithUsage extends Topic {
 }
 
 export function TopicsManagementPage() {
+  const { accessToken } = useAuth();
   const [sections, setSections] = useState<Section[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [contentCache, setContentCache] = useState<{
+    hymns: Hymn[];
+    sayings: Saying[];
+    images: GalleryImage[];
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [newTopicName, setNewTopicName] = useState('');
   const [newTopicSection, setNewTopicSection] = useState('');
@@ -50,10 +60,31 @@ export function TopicsManagementPage() {
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
 
-  // Load sections and topics from localStorage on mount
-  useEffect(() => {
-    initializeData();
+  const reloadFromApi = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const [tags, hymns, sayings, images] = await Promise.all([
+        fetchAllTags(),
+        loadHymnsData(),
+        loadSayingsData(),
+        loadGalleryImagesData(),
+      ]);
+      const { sections: nextSections, topics: nextTopics } = mapTagsToSectionsAndTopics(tags);
+      setSections(nextSections);
+      setTopics(nextTopics);
+      setContentCache({ hymns, sayings, images });
+      setExpandedSections(new Set(nextSections.map((s) => s.id)));
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Failed to load topics');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    reloadFromApi();
+  }, [reloadFromApi]);
 
   // Handle keyboard shortcuts for delete confirmation
   useEffect(() => {
@@ -76,151 +107,14 @@ export function TopicsManagementPage() {
     };
   }, [deleteConfirmation]);
 
-  const initializeData = () => {
-    const savedSections = localStorage.getItem('topic_sections');
-    const savedTopics = localStorage.getItem('universal_topics');
-
-    if (savedSections && savedTopics) {
-      setSections(JSON.parse(savedSections));
-      const loadedTopics = JSON.parse(savedTopics);
-      // Ensure all topics have proper sequential order values
-      const topicsWithOrder = ensureTopicOrders(loadedTopics, JSON.parse(savedSections));
-      setTopics(topicsWithOrder);
-      if (JSON.stringify(loadedTopics) !== JSON.stringify(topicsWithOrder)) {
-        localStorage.setItem('universal_topics', JSON.stringify(topicsWithOrder));
-      }
-      // Expand all sections by default
-      const allSectionIds = JSON.parse(savedSections).map((s: Section) => s.id);
-      setExpandedSections(new Set(allSectionIds));
-    } else {
-      // Initialize with default sections and migrate existing topics
-      initializeDefaultSections();
-    }
-  };
-
-  // Ensure topics have proper sequential order values within each section
-  const ensureTopicOrders = (topics: Topic[], sections: Section[]): Topic[] => {
-    const updatedTopics = [...topics];
-    
-    sections.forEach(section => {
-      const sectionTopics = updatedTopics
-        .filter(t => t.sectionId === section.id)
-        .sort((a, b) => (a.order || 0) - (b.order || 0));
-      
-      // Reassign sequential orders
-      sectionTopics.forEach((topic, index) => {
-        const topicIndex = updatedTopics.findIndex(t => t.id === topic.id);
-        if (topicIndex !== -1) {
-          updatedTopics[topicIndex] = { ...updatedTopics[topicIndex], order: index + 1 };
-        }
-      });
-    });
-    
-    return updatedTopics;
-  };
-
-  const initializeDefaultSections = () => {
-    const defaultSections: Section[] = [
-      { id: 'section-1', name: 'الأعياد السيدية', order: 1 },
-      { id: 'section-2', name: 'مناسبات كنسية', order: 2 },
-      { id: 'section-3', name: 'أسرار كنسية', order: 3 },
-      { id: 'section-4', name: 'فضائل روحية', order: 4 },
-      { id: 'section-5', name: 'شخصيات كتابية', order: 5 },
-      { id: 'section-6', name: 'مواضيع متنوعة', order: 6 },
-    ];
-
-    // Get existing topics from old structure
-    const oldTopics = localStorage.getItem('universal_topics');
-    let migratedTopics: Topic[] = [];
-
-    if (oldTopics) {
-      const parsedOldTopics = JSON.parse(oldTopics);
-      migratedTopics = parsedOldTopics.map((topic: any) => ({
-        id: topic.id,
-        name: topic.name,
-        sectionId: categorizeTopicToSection(topic.name),
-        order: 1, // Default order
-      }));
-    } else {
-      // If no topics exist, collect from libraries
-      const hymns = JSON.parse(localStorage.getItem('hymns_data') || '[]');
-      const sayings = JSON.parse(localStorage.getItem('sayings_data') || '[]');
-      const images = JSON.parse(localStorage.getItem('gallery_images_data') || '[]');
-
-      const allTags = new Set<string>();
-      hymns.forEach((h: any) => h.tags?.forEach((tag: string) => allTags.add(tag)));
-      sayings.forEach((s: any) => s.tags?.forEach((tag: string) => allTags.add(tag)));
-      images.forEach((i: any) => i.tags?.forEach((tag: string) => allTags.add(tag)));
-
-      migratedTopics = Array.from(allTags).map((tag, index) => ({
-        id: `topic-${index + 1}`,
-        name: tag,
-        sectionId: categorizeTopicToSection(tag),
-        order: 1, // Default order
-      }));
-    }
-
-    setSections(defaultSections);
-    setTopics(migratedTopics);
-    localStorage.setItem('topic_sections', JSON.stringify(defaultSections));
-    localStorage.setItem('universal_topics', JSON.stringify(migratedTopics));
-    
-    // Expand all sections by default
-    const allSectionIds = defaultSections.map(s => s.id);
-    setExpandedSections(new Set(allSectionIds));
-  };
-
-  const categorizeTopicToSection = (topicName: string): string => {
-    const name = topicName.toLowerCase();
-
-    // الأعياد السيدية
-    if (name.includes('قيامة') || name.includes('ميلاد') || name.includes('غطاس') || 
-        name.includes('صعود') || name.includes('عنصرة') || name.includes('تجلي') ||
-        name.includes('عيد') || name.includes('فصح')) {
-      return 'section-1';
-    }
-
-    // مناسبات كنسية
-    if (name.includes('صوم') || name.includes('آلام') || name.includes('خماسين') ||
-        name.includes('كيهك') || name.includes('برمون') || name.includes('نيروز')) {
-      return 'section-2';
-    }
-
-    // أسرار كنسية
-    if (name.includes('معمودية') || name.includes('إفخارستيا') || name.includes('توبة') ||
-        name.includes('اعتراف') || name.includes('مسحة') || name.includes('زيجة') ||
-        name.includes('كهنوت') || name.includes('قنديل')) {
-      return 'section-3';
-    }
-
-    // فضائل روحية
-    if (name.includes('محبة') || name.includes('إيمان') || name.includes('رجاء') ||
-        name.includes('صلاة') || name.includes('صبر') || name.includes('تواضع') ||
-        name.includes('طاعة') || name.includes('نقاوة') || name.includes('وداعة') ||
-        name.includes('سلام') || name.includes('فرح') || name.includes('رحمة')) {
-      return 'section-4';
-    }
-
-    // شخصيات كتابية
-    if (name.includes('مريم') || name.includes('موسى') || name.includes('يوسف') ||
-        name.includes('داود') || name.includes('بولس') || name.includes('بطرس') ||
-        name.includes('يوحنا') || name.includes('مرقس') || name.includes('لوقا') ||
-        name.includes('متى') || name.includes('إبراهيم') || name.includes('يعقوب')) {
-      return 'section-5';
-    }
-
-    // Default: مواضيع متنوعة
-    return 'section-6';
-  };
-
-  const calculateUsageBreakdown = (topicName: string, hymns: any[], sayings: any[], images: any[]): UsageBreakdown => {
+  const calculateUsageBreakdown = (topicName: string, hymns: Hymn[], sayings: Saying[], images: GalleryImage[]): UsageBreakdown => {
     let hymnsCount = 0;
     let sayingsCount = 0;
     let imagesCount = 0;
     
-    hymns.forEach((h: any) => { if (h.tags?.includes(topicName)) hymnsCount++; });
-    sayings.forEach((s: any) => { if (s.tags?.includes(topicName)) sayingsCount++; });
-    images.forEach((i: any) => { if (i.tags?.includes(topicName)) imagesCount++; });
+    hymns.forEach((h) => { if (h.tags?.includes(topicName)) hymnsCount++; });
+    sayings.forEach((s) => { if (s.tags?.includes(topicName)) sayingsCount++; });
+    images.forEach((i) => { if (i.tags?.includes(topicName)) imagesCount++; });
     
     return {
       hymns: hymnsCount,
@@ -230,18 +124,23 @@ export function TopicsManagementPage() {
     };
   };
 
-  const getTopicUsageBreakdown = (topicName: string): UsageBreakdown => {
-    const hymns = JSON.parse(localStorage.getItem('hymns_data') || '[]');
-    const sayings = JSON.parse(localStorage.getItem('sayings_data') || '[]');
-    const images = JSON.parse(localStorage.getItem('gallery_images_data') || '[]');
-    return calculateUsageBreakdown(topicName, hymns, sayings, images);
-  };
+  const getTopicUsageBreakdown = useCallback((topicName: string): UsageBreakdown => {
+    if (!contentCache) {
+      return { hymns: 0, images: 0, sayings: 0, total: 0 };
+    }
+    return calculateUsageBreakdown(
+      topicName,
+      contentCache.hymns,
+      contentCache.sayings,
+      contentCache.images,
+    );
+  }, [contentCache]);
 
   const getSectionTopicsCount = (sectionId: string): number => {
     return topics.filter(t => t.sectionId === sectionId).length;
   };
 
-  // Section Management
+  // Section Management (sections are category names; empty sections exist in UI only)
   const handleAddSection = () => {
     if (!newSectionName.trim()) return;
 
@@ -250,15 +149,14 @@ export function TopicsManagementPage() {
       return;
     }
 
+    const name = newSectionName.trim();
     const newSection: Section = {
-      id: `section-${Date.now()}`,
-      name: newSectionName.trim(),
+      id: name,
+      name,
       order: sections.length + 1,
     };
 
-    const updatedSections = [...sections, newSection];
-    setSections(updatedSections);
-    localStorage.setItem('topic_sections', JSON.stringify(updatedSections));
+    setSections([...sections, newSection]);
     setNewSectionName('');
   };
 
@@ -273,7 +171,6 @@ export function TopicsManagementPage() {
     updatedSections.forEach((s, i) => s.order = i + 1);
     
     setSections(updatedSections);
-    localStorage.setItem('topic_sections', JSON.stringify(updatedSections));
   };
 
   const handleMoveSectionDown = (sectionId: string) => {
@@ -287,7 +184,6 @@ export function TopicsManagementPage() {
     updatedSections.forEach((s, i) => s.order = i + 1);
     
     setSections(updatedSections);
-    localStorage.setItem('topic_sections', JSON.stringify(updatedSections));
   };
 
   const handleStartEditSection = (section: Section) => {
@@ -295,22 +191,48 @@ export function TopicsManagementPage() {
     setEditingSectionName(section.name);
   };
 
-  const handleSaveEditSection = () => {
+  const handleSaveEditSection = async () => {
     if (!editingSectionName.trim() || !editingSectionId) return;
 
-    if (sections.some(s => s.id !== editingSectionId && s.name.toLowerCase() === editingSectionName.toLowerCase())) {
+    const newName = editingSectionName.trim();
+    if (sections.some(s => s.id !== editingSectionId && s.name.toLowerCase() === newName.toLowerCase())) {
       alert('هذا القسم موجود بالفعل');
       return;
     }
 
-    const updatedSections = sections.map(s =>
-      s.id === editingSectionId ? { ...s, name: editingSectionName.trim() } : s
-    );
+    const oldSection = sections.find((s) => s.id === editingSectionId);
+    if (!oldSection || oldSection.name === newName) {
+      setEditingSectionId(null);
+      setEditingSectionName('');
+      return;
+    }
 
-    setSections(updatedSections);
-    localStorage.setItem('topic_sections', JSON.stringify(updatedSections));
-    setEditingSectionId(null);
-    setEditingSectionName('');
+    const tagsInSection = topics.filter((t) => t.sectionId === editingSectionId);
+    if (tagsInSection.length === 0) {
+      setSections(sections.map((s) =>
+        s.id === editingSectionId ? { ...s, id: newName, name: newName } : s,
+      ));
+      setEditingSectionId(null);
+      setEditingSectionName('');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await Promise.all(
+        tagsInSection.map((t) =>
+          updateTag(t.id, { category: newName }, accessToken),
+        ),
+      );
+      await reloadFromApi();
+      notifyTagsUpdated();
+      setEditingSectionId(null);
+      setEditingSectionName('');
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'فشل تحديث القسم');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancelEditSection = () => {
@@ -333,7 +255,7 @@ export function TopicsManagementPage() {
   };
 
   // Topic Management
-  const handleAddTopic = () => {
+  const handleAddTopic = async () => {
     if (!newTopicName.trim()) return;
 
     if (topics.some(t => t.name.toLowerCase() === newTopicName.toLowerCase())) {
@@ -341,24 +263,27 @@ export function TopicsManagementPage() {
       return;
     }
 
-    const targetSectionId = newTopicSection || sections.find(s => s.name === 'مواضيع متنوعة')?.id || sections[sections.length - 1].id;
-    
-    // Find the max order in the target section
-    const sectionTopics = topics.filter(t => t.sectionId === targetSectionId);
-    const maxOrder = sectionTopics.length > 0 ? Math.max(...sectionTopics.map(t => t.order)) : 0;
+    const targetSectionId =
+      newTopicSection ||
+      sections.find((s) => s.name === DEFAULT_CATEGORY)?.id ||
+      sections[sections.length - 1]?.id ||
+      DEFAULT_CATEGORY;
 
-    const newTopic: Topic = {
-      id: `topic-${Date.now()}`,
-      name: newTopicName.trim(),
-      sectionId: targetSectionId,
-      order: maxOrder + 1, // Assign next order in sequence
-    };
-
-    const updatedTopics = [...topics, newTopic];
-    setTopics(updatedTopics);
-    localStorage.setItem('universal_topics', JSON.stringify(updatedTopics));
-    setNewTopicName('');
-    setNewTopicSection('');
+    setSaving(true);
+    try {
+      await createTag(
+        { name: newTopicName.trim(), category: targetSectionId },
+        accessToken,
+      );
+      await reloadFromApi();
+      notifyTagsUpdated();
+      setNewTopicName('');
+      setNewTopicSection('');
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'فشل إضافة الموضوع');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleStartEditTopic = (topic: Topic) => {
@@ -367,31 +292,31 @@ export function TopicsManagementPage() {
     setEditingTopicSection(topic.sectionId);
   };
 
-  const handleSaveEditTopic = () => {
+  const handleSaveEditTopic = async () => {
     if (!editingTopicName.trim() || !editingTopicId) return;
-
-    const oldTopic = topics.find(t => t.id === editingTopicId);
-    if (!oldTopic) return;
 
     if (topics.some(t => t.id !== editingTopicId && t.name.toLowerCase() === editingTopicName.toLowerCase())) {
       alert('هذا الموضوع موجود بالفعل');
       return;
     }
 
-    const updatedTopics = topics.map(t =>
-      t.id === editingTopicId ? { ...t, name: editingTopicName.trim(), sectionId: editingTopicSection } : t
-    );
-
-    // Update the topic name in all libraries if it changed
-    if (oldTopic.name !== editingTopicName.trim()) {
-      updateTopicInAllLibraries(oldTopic.name, editingTopicName.trim());
+    setSaving(true);
+    try {
+      await updateTag(
+        editingTopicId,
+        { name: editingTopicName.trim(), category: editingTopicSection },
+        accessToken,
+      );
+      await reloadFromApi();
+      notifyTagsUpdated();
+      setEditingTopicId(null);
+      setEditingTopicName('');
+      setEditingTopicSection('');
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'فشل تحديث الموضوع');
+    } finally {
+      setSaving(false);
     }
-
-    setTopics(updatedTopics);
-    localStorage.setItem('universal_topics', JSON.stringify(updatedTopics));
-    setEditingTopicId(null);
-    setEditingTopicName('');
-    setEditingTopicSection('');
   };
 
   const handleCancelEditTopic = () => {
@@ -414,71 +339,32 @@ export function TopicsManagementPage() {
     });
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deleteConfirmation) return;
 
     if (deleteConfirmation.type === 'section' && deleteConfirmation.sectionId) {
-      const updatedSections = sections.filter(s => s.id !== deleteConfirmation.sectionId);
-      setSections(updatedSections);
-      localStorage.setItem('topic_sections', JSON.stringify(updatedSections));
-    } else if (deleteConfirmation.type === 'topic' && deleteConfirmation.topicId) {
-      removeTopicFromAllLibraries(deleteConfirmation.name);
-      const updatedTopics = topics.filter(t => t.id !== deleteConfirmation.topicId);
-      setTopics(updatedTopics);
-      localStorage.setItem('universal_topics', JSON.stringify(updatedTopics));
+      setSections(sections.filter((s) => s.id !== deleteConfirmation.sectionId));
+      setDeleteConfirmation(null);
+      return;
     }
 
-    setDeleteConfirmation(null);
+    if (deleteConfirmation.type === 'topic' && deleteConfirmation.topicId) {
+      setSaving(true);
+      try {
+        await deleteTag(deleteConfirmation.topicId, accessToken);
+        await reloadFromApi();
+        notifyTagsUpdated();
+        setDeleteConfirmation(null);
+      } catch (e) {
+        alert(e instanceof Error ? e.message : 'فشل حذف الموضوع');
+      } finally {
+        setSaving(false);
+      }
+    }
   };
 
   const handleCancelDelete = () => {
     setDeleteConfirmation(null);
-  };
-
-  const updateTopicInAllLibraries = (oldName: string, newName: string) => {
-    const hymns = JSON.parse(localStorage.getItem('hymns_data') || '[]');
-    const updatedHymns = hymns.map((h: any) => ({
-      ...h,
-      tags: h.tags?.map((tag: string) => tag === oldName ? newName : tag) || [],
-    }));
-    localStorage.setItem('hymns_data', JSON.stringify(updatedHymns));
-
-    const sayings = JSON.parse(localStorage.getItem('sayings_data') || '[]');
-    const updatedSayings = sayings.map((s: any) => ({
-      ...s,
-      tags: s.tags?.map((tag: string) => tag === oldName ? newName : tag) || [],
-    }));
-    localStorage.setItem('sayings_data', JSON.stringify(updatedSayings));
-
-    const images = JSON.parse(localStorage.getItem('gallery_images_data') || '[]');
-    const updatedImages = images.map((i: any) => ({
-      ...i,
-      tags: i.tags?.map((tag: string) => tag === oldName ? newName : tag) || [],
-    }));
-    localStorage.setItem('gallery_images_data', JSON.stringify(updatedImages));
-  };
-
-  const removeTopicFromAllLibraries = (topicName: string) => {
-    const hymns = JSON.parse(localStorage.getItem('hymns_data') || '[]');
-    const updatedHymns = hymns.map((h: any) => ({
-      ...h,
-      tags: h.tags?.filter((tag: string) => tag !== topicName) || [],
-    }));
-    localStorage.setItem('hymns_data', JSON.stringify(updatedHymns));
-
-    const sayings = JSON.parse(localStorage.getItem('sayings_data') || '[]');
-    const updatedSayings = sayings.map((s: any) => ({
-      ...s,
-      tags: s.tags?.filter((tag: string) => tag !== topicName) || [],
-    }));
-    localStorage.setItem('sayings_data', JSON.stringify(updatedSayings));
-
-    const images = JSON.parse(localStorage.getItem('gallery_images_data') || '[]');
-    const updatedImages = images.map((i: any) => ({
-      ...i,
-      tags: i.tags?.filter((tag: string) => tag !== topicName) || [],
-    }));
-    localStorage.setItem('gallery_images_data', JSON.stringify(updatedImages));
   };
 
   const toggleSectionExpanded = (sectionId: string) => {
@@ -502,7 +388,7 @@ export function TopicsManagementPage() {
       ...topic,
       usage: getTopicUsageBreakdown(topic.name),
     }));
-  }, [filteredTopics]);
+  }, [filteredTopics, getTopicUsageBreakdown]);
 
   const getTopicsForSection = (sectionId: string): TopicWithUsage[] => {
     return topicsWithUsage
@@ -527,7 +413,6 @@ export function TopicsManagementPage() {
     });
 
     setTopics(updatedTopics);
-    localStorage.setItem('universal_topics', JSON.stringify(updatedTopics));
   };
 
   const handleMoveTopicDown = (topicId: string, sectionId: string) => {
@@ -546,8 +431,24 @@ export function TopicsManagementPage() {
     });
 
     setTopics(updatedTopics);
-    localStorage.setItem('universal_topics', JSON.stringify(updatedTopics));
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-6xl mx-auto p-8 text-center text-muted-foreground" dir="rtl">
+        جاري تحميل المواضيع...
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="max-w-6xl mx-auto p-8 text-center" dir="rtl">
+        <p className="text-destructive mb-4">{loadError}</p>
+        <Button onClick={() => reloadFromApi()}>إعادة المحاولة</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto" dir="rtl">
