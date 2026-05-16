@@ -1,11 +1,13 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { logLogin, logLogout } from '../utils/activityLogger';
+import { isApiConfigured } from '../config/api';
+import { apiGetJson } from '../services/apiClient';
 
 /**
  * AuthContext - LocalStorage-Based Authentication System
  * 
  * This context provides authentication functionality using browser localStorage ONLY.
- * No external services (Supabase, Firebase, etc.) are used.
+ * No external auth services are used.
  * 
  * All user data is stored locally in the browser and will persist across sessions
  * but is device/browser-specific (no cloud sync).
@@ -43,6 +45,16 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+type ServerRole = 'ADMIN' | 'EDITOR';
+type LoginResponse = {
+  token: string;
+  user: {
+    id: string;
+    username: string;
+    role: ServerRole;
+  };
+};
+
 // Hard-coded admin and editor emails
 const ADMIN_EMAILS = ['admin@church.com', 'admin@example.com', 'deacon@church.com'];
 const EDITOR_EMAILS = ['editor@church.com']; // Add editor emails here if needed
@@ -52,6 +64,17 @@ function getUserRole(email: string): 'viewer' | 'editor' | 'admin' {
   if (ADMIN_EMAILS.includes(email.toLowerCase())) return 'admin';
   if (EDITOR_EMAILS.includes(email.toLowerCase())) return 'editor';
   return 'viewer';
+}
+
+function mapServerRoleToClient(role: ServerRole): 'editor' | 'admin' {
+  return role === 'ADMIN' ? 'admin' : 'editor';
+}
+
+function normalizeLoginIdentifier(identifier: string): string {
+  const value = identifier.trim();
+  if (!value) return value;
+  // Login modal uses email field; backend expects username.
+  return value.includes('@') ? value.split('@')[0] : value;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -223,52 +246,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+    if (!isApiConfigured()) {
+      throw new Error('VITE_API_BASE_URL is not configured.');
+    }
 
-    // Check if user exists in all_users list
-    const allUsers = JSON.parse(localStorage.getItem('all_users') || '[]');
-    const existingUser = allUsers.find((u: UserProfile) => u.email.toLowerCase() === email.toLowerCase());
+    const username = normalizeLoginIdentifier(email);
+    const result = await apiGetJson<LoginResponse>('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
 
-    const mockUser = {
-      id: existingUser?.id || '1',
-      email: email,
+    const role = mapServerRoleToClient(result.user.role);
+    const normalizedEmail = email.includes('@') ? email : `${result.user.username}@church.com`;
+    const fullName = result.user.username;
+
+    const serverUser = {
+      id: result.user.id,
+      email: normalizedEmail,
+      username: result.user.username,
     };
 
-    // Use existing user profile or create new one
-    const mockProfile: UserProfile = existingUser || {
-      id: '1',
-      email: email,
-      full_name: getUserRole(email) === 'admin' ? 'مسؤول النظام' : 'مستخدم تجريبي',
+    const serverProfile: UserProfile = {
+      id: result.user.id,
+      email: normalizedEmail,
+      full_name: fullName,
       church_name: 'كنيسة السيدة العذراء',
-      church_role: getUserRole(email) === 'admin' ? 'مسؤول' : 'خادم',
+      church_role: role === 'admin' ? 'مسؤول' : 'خادم',
       services: ['خدمة الأعذار'],
       avatar_url: null,
       created_at: new Date().toISOString(),
-      role: getUserRole(email),
+      role,
     };
 
-    const mockToken = 'mock-token-' + Date.now();
+    setUser(serverUser);
+    setProfile(serverProfile);
+    setAccessToken(result.token);
 
-    setUser(mockUser);
-    setProfile(mockProfile);
-    setAccessToken(mockToken);
+    localStorage.setItem('mockUser', JSON.stringify(serverUser));
+    localStorage.setItem('mockProfile', JSON.stringify(serverProfile));
+    localStorage.setItem('mockToken', result.token);
 
-    // Save to localStorage
-    localStorage.setItem('mockUser', JSON.stringify(mockUser));
-    localStorage.setItem('mockProfile', JSON.stringify(mockProfile));
-    localStorage.setItem('mockToken', mockToken);
-
-    // Add mock favorites for testing
-    const mockFavoriteHymns = [1, 2, 4];
-    const mockFavoriteImages = [1, 3, 5, 8];
-    const mockFavoriteSayings = [1, 3, 5, 7, 9];
-
-    localStorage.setItem('favoriteHymns', JSON.stringify(mockFavoriteHymns));
-    localStorage.setItem('favoriteImages', JSON.stringify(mockFavoriteImages));
-    localStorage.setItem('favoriteSayings', JSON.stringify(mockFavoriteSayings));
-
-    // Log login activity
     logLogin();
   };
 

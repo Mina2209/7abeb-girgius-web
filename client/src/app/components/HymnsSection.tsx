@@ -6,122 +6,12 @@ import { LoginRequiredModal } from './LoginRequiredModal';
 import { useIsEditor } from '../utils/adminUtils';
 import { AdminEditHymnModal } from './AdminEditHymnModal';
 import { VideoModal } from './VideoModal';
-
-type FileType = 'Video montage' | 'Video PowerPoint' | 'PowerPoint file' | 'Music';
-
-interface HymnFile {
-  type: FileType;
-  name: string;
-  url: string; // base64 or URL
-  size?: number;
-}
-
-interface Hymn {
-  id: number;
-  title: string;
-  duration: string;
-  tags: string[];
-  createdAt: string;
-  updatedAt: string;
-  fileTypes: FileType[];
-  lyrics: string;
-  files?: HymnFile[]; // Array of uploaded files
-}
-
-const defaultHymns: Hymn[] = [
-  {
-    id: 1,
-    title: 'تينثينو',
-    duration: '4:30',
-    tags: ['تسبحة', 'تسبحة نصف الليل', 'الصلاة'],
-    createdAt: '2023-11-10',
-    updatedAt: '2024-01-15',
-    fileTypes: ['Video PowerPoint', 'PowerPoint file', 'Music'] as FileType[],
-    lyrics: 'نسبحك ونباركك\nونشكرك يا رب\nونتضرع إليك يا إلهنا',
-  },
-  {
-    id: 2,
-    title: 'بي اويك',
-    duration: '3:45',
-    tags: ['مديحة', 'القديسة مريم العذراء', 'لحن كيهكي'],
-    createdAt: '2023-12-05',
-    updatedAt: '2024-02-20',
-    fileTypes: ['Video montage', 'PowerPoint file', 'Music'] as FileType[],
-    lyrics: 'السلام لك يا مريم\nالممتلئة نعمة\nالرب معك',
-  },
-  {
-    id: 3,
-    title: 'افنوتي ناي نان',
-    duration: '5:12',
-    tags: ['تسبحة', 'الرحمة', 'الصلاة'],
-    createdAt: '2023-10-20',
-    updatedAt: '2024-01-10',
-    fileTypes: ['PowerPoint file', 'Music'] as FileType[],
-    lyrics: 'ارحمنا يا الله\nارحمنا بعظم رحمتك\nاستجب لنا يا رب',
-  },
-  {
-    id: 4,
-    title: 'شيري ني ماريا',
-    duration: '3:20',
-    tags: ['مديحة', 'القديسة مريم العذراء', 'لحن سنوي'],
-    createdAt: '2024-01-18',
-    updatedAt: '2024-03-05',
-    fileTypes: ['Video PowerPoint', 'PowerPoint file', 'Music'] as FileType[],
-    lyrics: 'السلام لمريم الملكة\nأم النور الحقيقي\nافرحي يا عروس بلا عيب\n\nيا سلطانة السموات والأرض\nيا أم الرحمة والحنان\nيا شفيعتنا الأمينة\nيا ملجأنا في الشدائد\n\nنسبحك ونمجدك\nونطلب شفاعتك\nأمام عرش النعمة\nفي كل حين وكل أوان\n\nأنت الكرمة الحقيقية\nأنت المدينة المقدسة\nأنت الباب السماوي\nأنت السلم الذي رأى يعقوب\n\nبك دخل الخلاص إلى العالم\nبك انفتحت أبواب الفردوس\nبك نلنا البركة والرحمة\nبك صرنا أبناء الله\n\nيا والدة الإله\nيا أم المخلص\nيا سيدة العالم كله\nاذكرينا في صلواتك\n\nاشفعي فينا عند ابنك الحبيب\nليغفر لنا خطايانا\nويرحمنا في يوم الدينونة\nويقبلنا في ملكوته السماوي\n\nمبارك اسمك في كل جيل\nمبارك اسمك إلى الأبد\nمبارك اسمك يا أم النور\nمبارك اسمك يا ملكة السموات',
-  },
-  {
-    id: 5,
-    title: 'كي ايبرتو',
-    duration: '4:00',
-    tags: ['قيامة', 'عيد القيامة', 'لحن فرايحي'],
-    createdAt: '2024-01-05',
-    updatedAt: '2024-02-28',
-    fileTypes: ['Video PowerPoint', 'Music'] as FileType[],
-    lyrics: 'المسيح قام من بين الأموات\nووطئ الموت بالموت\nووهب الحياة للذين في القبور',
-  },
-  {
-    id: 6,
-    title: 'افلوجيمينوس',
-    duration: '2:50',
-    tags: ['قداس', 'الليتورجيا', 'لحن سنوي'],
-    createdAt: '2023-11-30',
-    updatedAt: '2024-01-25',
-    fileTypes: ['PowerPoint file', 'Music'] as FileType[],
-    lyrics: 'مبارك الآتي باسم الرب\nباركنا من بيت الرب\nالرب إله وقد أضاء علا',
-  },
-  {
-    id: 7,
-    title: 'اجيوس',
-    duration: '3:15',
-    tags: ['قداس', 'الليتورجيا', 'لحن سنوي'],
-    createdAt: '2024-02-12',
-    updatedAt: '2024-03-10',
-    fileTypes: ['Video montage', 'Video PowerPoint', 'PowerPoint file', 'Music'] as FileType[],
-    lyrics: 'قدوس قدوس قدوس\nرب الصباؤوت\nالسماء والأرض مملوءتان من مجدك',
-  },
-  {
-    id: 8,
-    title: 'ذوكسا سي كيريه',
-    duration: '2:30',
-    tags: ['تسبحة', 'الشكر', 'لحن سنوي'],
-    createdAt: '2023-12-20',
-    updatedAt: '2024-02-15',
-    fileTypes: ['PowerPoint file', 'Music'] as FileType[],
-    lyrics: 'المجد لك يا رب\nالمجد لك يا قدوس\nالمجد لك يا ملك',
-  },
-  {
-    id: 9,
-    title: 'يا إلهي أعمق الحب هواك',
-    duration: '3:50',
-    tags: ['ترنيمة', 'المحبة', 'التسبيح'],
-    createdAt: '2024-02-28',
-    updatedAt: '2024-03-15',
-    fileTypes: ['Video montage', 'Video PowerPoint', 'PowerPoint file', 'Music'] as FileType[],
-    lyrics: 'يا إلهي أعمق الحب هواك         يا إلهي لي اشتهاء أن أراك\nلي اشتهاء أن أراك\nفي جمالٍ في بهاءٍ مبهرٍ         في جلالٍ وسط قوات سماك\nأو أرى حسنك في الابن الذي         كل شخص قد رآه قد رآك\nأنت ملءُ العقل والقلب معا         ليس في غربة العمر سواك\nأنا وسط الناس اجذبهم ��ك         أنا في الوحدة استوحي نِداك\nأنت أصل الكون يا رب الورى         كل مجد الكون صاغته يداك\nيا إلهي أنت عوني. أنت حصني         أنت ربي أنا أحيا في حِماك\nفيك ما يُشْبِعُ قلبي دائمًا         إيه ربي متعة القلب رضاك',
-  },
-];
+import { useHymnsData } from '../hooks/useHymnsData';
+import type { ContentId, Hymn, HymnFileType as FileType } from '../types/content';
+import { createHymn, deleteHymn, updateHymn } from '../services/contentWriteService';
 
 type SortOption = 'alpha-asc' | 'alpha-desc' | 'length-asc' | 'length-desc' | 'date-asc' | 'date-desc';
+
 
 const sortOptions = [
   { value: 'alpha-asc' as SortOption, label: 'أبجدياً (أ - ي)' },
@@ -133,8 +23,6 @@ const sortOptions = [
 ];
 
 const allFileTypes: FileType[] = ['Video montage', 'Video PowerPoint', 'PowerPoint file', 'Music'];
-
-const STORAGE_KEY = 'hymns_data';
 
 // Helper function to get icon for file type
 const getFileTypeIcon = (fileType: FileType) => {
@@ -165,14 +53,9 @@ const getFileTypeLabel = (fileType: FileType) => {
 };
 
 export function HymnsSection({ isSidebarCollapsed }: { isSidebarCollapsed: boolean }) {
-  const { user, profile } = useAuth();
+  const { user, profile, accessToken } = useAuth();
   const isEditor = useIsEditor();
-
-  // Load hymns from localStorage or use defaults
-  const [hymns, setHymns] = useState<Hymn[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : defaultHymns;
-  });
+  const { hymns, setHymns, loading: hymnsLoading } = useHymnsData();
 
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedFileTypes, setSelectedFileTypes] = useState<FileType[]>([]);
@@ -180,10 +63,10 @@ export function HymnsSection({ isSidebarCollapsed }: { isSidebarCollapsed: boole
   const [sortBy, setSortBy] = useState<SortOption>('alpha-asc');
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
   const [isFileTypeDropdownOpen, setIsFileTypeDropdownOpen] = useState(false);
-  const [favoritedHymns, setFavoritedHymns] = useState<number[]>([]);
+  const [favoritedHymns, setFavoritedHymns] = useState<ContentId[]>([]);
   const [shareMessage, setShareMessage] = useState<string | null>(null);
-  const [expandedHymnId, setExpandedHymnId] = useState<number | null>(null);
-  const [expandedLyricsIds, setExpandedLyricsIds] = useState<number[]>([]);
+  const [expandedHymnId, setExpandedHymnId] = useState<ContentId | null>(null);
+  const [expandedLyricsIds, setExpandedLyricsIds] = useState<ContentId[]>([]);
   const [isScrolled, setIsScrolled] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -191,7 +74,7 @@ export function HymnsSection({ isSidebarCollapsed }: { isSidebarCollapsed: boole
   
   // Multi-select states
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [selectedHymnIds, setSelectedHymnIds] = useState<number[]>([]);
+  const [selectedHymnIds, setSelectedHymnIds] = useState<ContentId[]>([]);
 
   // Admin states
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -211,20 +94,7 @@ export function HymnsSection({ isSidebarCollapsed }: { isSidebarCollapsed: boole
   // Get unique tags from hymns
   const allTags = useMemo(() => Array.from(new Set(hymns.flatMap(h => h.tags))), [hymns]);
 
-  // Save to localStorage whenever hymns change
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(hymns));
-  }, [hymns]);
-
-  // Load favorites from localStorage on mount
-  useEffect(() => {
-    if (user && profile) {
-      const saved = localStorage.getItem('favoriteHymns');
-      if (saved) {
-        setFavoritedHymns(JSON.parse(saved));
-      }
-    }
-  }, [user, profile]);
+  // Favorites are kept in-memory only.
 
   // Detect scroll to hide title/description
   useEffect(() => {
@@ -280,31 +150,25 @@ export function HymnsSection({ isSidebarCollapsed }: { isSidebarCollapsed: boole
   };
 
   // Toggle favorite
-  const toggleFavorite = (hymnId: number) => {
+  const toggleFavorite = (hymnId: ContentId) => {
     // Check if user is authenticated
     if (!user || !profile) {
       setShowLoginModal(true);
       return;
     }
 
-    setFavoritedHymns(prev =>
-      prev.includes(hymnId)
-        ? prev.filter(id => id !== hymnId)
-        : [...prev, hymnId]
-    );
-
-    // Persist to localStorage
-    const updated = favoritedHymns.includes(hymnId)
-      ? favoritedHymns.filter(id => id !== hymnId)
-      : [...favoritedHymns, hymnId];
-    localStorage.setItem('favoriteHymns', JSON.stringify(updated));
+    setFavoritedHymns((prev) => {
+      const isIn = prev.some((id) => String(id) === String(hymnId));
+      const next = isIn ? prev.filter((id) => String(id) !== String(hymnId)) : [...prev, hymnId];
+      return next;
+    });
   };
 
   // Toggle lyrics expansion
-  const toggleLyricsExpansion = (hymnId: number) => {
-    setExpandedLyricsIds(prev =>
-      prev.includes(hymnId)
-        ? prev.filter(id => id !== hymnId)
+  const toggleLyricsExpansion = (hymnId: ContentId) => {
+    setExpandedLyricsIds((prev) =>
+      prev.some((id) => String(id) === String(hymnId))
+        ? prev.filter((id) => String(id) !== String(hymnId))
         : [...prev, hymnId]
     );
   };
@@ -320,18 +184,31 @@ export function HymnsSection({ isSidebarCollapsed }: { isSidebarCollapsed: boole
     setIsEditModalOpen(true);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: ContentId) => {
     if (confirm('هل أنت متأكد من حذف هذه الترنيمة؟')) {
-      setHymns(prev => prev.filter(h => h.id !== id));
-      setShareMessage('تم الحذف بنجاح');
-      setTimeout(() => setShareMessage(null), 2000);
+      if (typeof id !== 'string') {
+        setShareMessage('لا يمكن حذف عنصر غير متزامن مع الخادم');
+        setTimeout(() => setShareMessage(null), 2000);
+        return;
+      }
+      try {
+        await deleteHymn(id, accessToken);
+        setHymns(prev => prev.filter(h => h.id !== id));
+        setShareMessage('تم الحذف بنجاح');
+      } catch (error) {
+        setShareMessage('فشل الحذف من الخادم');
+      } finally {
+        setTimeout(() => setShareMessage(null), 2000);
+      }
     }
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (selectedHymnIds.length === 0) return;
     if (confirm(`هل أنت متأكد من حذف ${selectedHymnIds.length} ترنيمة؟`)) {
-      setHymns(prev => prev.filter(h => !selectedHymnIds.includes(h.id)));
+      const ids = selectedHymnIds.filter((id): id is string => typeof id === 'string');
+      await Promise.allSettled(ids.map((id) => deleteHymn(id, accessToken)));
+      setHymns((prev) => prev.filter((h) => !ids.includes(String(h.id))));
       setSelectedHymnIds([]);
       setBulkEditMode(false);
       setShareMessage('تم الحذف بنجاح');
@@ -350,17 +227,22 @@ export function HymnsSection({ isSidebarCollapsed }: { isSidebarCollapsed: boole
     }
   };
 
-  const handleSaveHymn = (hymn: Hymn) => {
-    if (editingHymn) {
-      // Update existing
-      setHymns(prev => prev.map(h => h.id === hymn.id ? hymn : h));
-      setShareMessage('تم التحديث بنجاح');
-    } else {
-      // Add new
-      setHymns(prev => [...prev, hymn]);
-      setShareMessage('تمت الإضافة بنجاح');
+  const handleSaveHymn = async (hymn: Hymn) => {
+    try {
+      if (editingHymn && typeof editingHymn.id === 'string') {
+        const updated = await updateHymn(editingHymn.id, hymn, accessToken);
+        setHymns(prev => prev.map(h => h.id === updated.id ? updated : h));
+        setShareMessage('تم التحديث بنجاح');
+      } else {
+        const created = await createHymn(hymn, accessToken);
+        setHymns(prev => [...prev, created]);
+        setShareMessage('تمت الإضافة بنجاح');
+      }
+    } catch {
+      setShareMessage('فشل الحفظ على الخادم');
+    } finally {
+      setTimeout(() => setShareMessage(null), 2000);
     }
-    setTimeout(() => setShareMessage(null), 2000);
   };
 
   const handleExport = () => {
@@ -411,10 +293,10 @@ export function HymnsSection({ isSidebarCollapsed }: { isSidebarCollapsed: boole
   };
 
   // Multi-select helper functions
-  const toggleHymnSelection = (hymnId: number) => {
-    setSelectedHymnIds(prev =>
-      prev.includes(hymnId)
-        ? prev.filter(id => id !== hymnId)
+  const toggleHymnSelection = (hymnId: ContentId) => {
+    setSelectedHymnIds((prev) =>
+      prev.some((id) => String(id) === String(hymnId))
+        ? prev.filter((id) => String(id) !== String(hymnId))
         : [...prev, hymnId]
     );
   };
@@ -433,7 +315,7 @@ export function HymnsSection({ isSidebarCollapsed }: { isSidebarCollapsed: boole
   };
 
   // Long press handlers for touch devices
-  const handleTouchStart = (hymnId: number) => {
+  const handleTouchStart = (hymnId: ContentId) => {
     longPressTimerRef.current = setTimeout(() => {
       // Activate selection mode and select this hymn
       if (!isSelectionMode) {
@@ -460,7 +342,9 @@ export function HymnsSection({ isSidebarCollapsed }: { isSidebarCollapsed: boole
 
   const handleBatchDownload = () => {
     // Download all file types for all selected hymns
-    const selectedHymns = hymns.filter(hymn => selectedHymnIds.includes(hymn.id));
+    const selectedHymns = hymns.filter((hymn) =>
+      selectedHymnIds.some((id) => String(id) === String(hymn.id))
+    );
     console.log('Downloading files for hymns:', selectedHymns.map(h => h.title));
     
     // Show success message
@@ -482,12 +366,10 @@ export function HymnsSection({ isSidebarCollapsed }: { isSidebarCollapsed: boole
     setFavoritedHymns(prev => {
       const newFavorites = [...prev];
       selectedHymnIds.forEach(id => {
-        if (!newFavorites.includes(id)) {
+        if (!newFavorites.some((x) => String(x) === String(id))) {
           newFavorites.push(id);
         }
       });
-      // Persist to localStorage
-      localStorage.setItem('favoriteHymns', JSON.stringify(newFavorites));
       return newFavorites;
     });
     
@@ -562,7 +444,9 @@ export function HymnsSection({ isSidebarCollapsed }: { isSidebarCollapsed: boole
         selectedFileTypes.some(fileType => hymn.fileTypes.includes(fileType));
 
       // Filter by favorites
-      const matchesFavorites = !showFavoritesOnly || favoritedHymns.includes(hymn.id);
+      const matchesFavorites =
+        !showFavoritesOnly ||
+        favoritedHymns.some((f) => String(f) === String(hymn.id));
 
       return matchesSearch && matchesTags && matchesFileTypes && matchesFavorites;
     });
@@ -588,7 +472,15 @@ export function HymnsSection({ isSidebarCollapsed }: { isSidebarCollapsed: boole
     });
 
     return result;
-  }, [selectedTags, selectedFileTypes, searchQuery, sortBy, showFavoritesOnly, favoritedHymns]);
+  }, [hymns, selectedTags, selectedFileTypes, searchQuery, sortBy, showFavoritesOnly, favoritedHymns]);
+
+  if (hymnsLoading && hymns.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-2 text-muted-foreground">
+        <p>جاري تحميل الترانيم...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -1028,7 +920,7 @@ export function HymnsSection({ isSidebarCollapsed }: { isSidebarCollapsed: boole
                 {/* Collapsed State - Always Visible */}
                 <div 
                   className={`p-4 hover:bg-muted transition-all cursor-pointer relative ${
-                    (isSelectionMode || bulkEditMode) && selectedHymnIds.includes(hymn.id) 
+                    (isSelectionMode || bulkEditMode) && selectedHymnIds.some((x) => String(x) === String(hymn.id)) 
                       ? 'bg-primary/5 border-2 border-primary' 
                       : ''
                   }`}
@@ -1055,12 +947,12 @@ export function HymnsSection({ isSidebarCollapsed }: { isSidebarCollapsed: boole
                     >
                       <div 
                         className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer ${
-                          selectedHymnIds.includes(hymn.id)
+                          selectedHymnIds.some((x) => String(x) === String(hymn.id))
                             ? 'bg-primary border-primary'
                             : 'border-border bg-background hover:border-primary'
                         }`}
                       >
-                        {selectedHymnIds.includes(hymn.id) && (
+                        {selectedHymnIds.some((x) => String(x) === String(hymn.id)) && (
                           <Check className="w-4 h-4 text-primary-foreground" />
                         )}
                       </div>
@@ -1101,14 +993,14 @@ export function HymnsSection({ isSidebarCollapsed }: { isSidebarCollapsed: boole
                         {/* Favorite Button */}
                         <button
                           className={`flex items-center justify-center p-2.5 rounded-lg hover:opacity-90 transition-all ${
-                            favoritedHymns.includes(hymn.id) ? 'bg-red-500 text-white' : 'bg-background/50 border border-border text-muted-foreground'
+                            favoritedHymns.some((f) => String(f) === String(hymn.id)) ? 'bg-red-500 text-white' : 'bg-background/50 border border-border text-muted-foreground'
                           }`}
                           onClick={(e) => {
                             e.stopPropagation();
                             toggleFavorite(hymn.id);
                           }}
                         >
-                          <Heart className={`w-4 h-4 ${favoritedHymns.includes(hymn.id) ? 'fill-current' : ''}`} />
+                          <Heart className={`w-4 h-4 ${favoritedHymns.some((f) => String(f) === String(hymn.id)) ? 'fill-current' : ''}`} />
                         </button>
 
                         {/* Share Button */}
@@ -1222,18 +1114,18 @@ export function HymnsSection({ isSidebarCollapsed }: { isSidebarCollapsed: boole
                       <div className="relative group/tooltip flex-shrink-0">
                         <button
                           className={`flex items-center justify-center p-3 rounded-lg hover:opacity-90 transition-all w-11 h-11 ${
-                            favoritedHymns.includes(hymn.id) ? 'bg-red-500 text-white' : 'bg-background/50 border border-border text-muted-foreground'
+                            favoritedHymns.some((f) => String(f) === String(hymn.id)) ? 'bg-red-500 text-white' : 'bg-background/50 border border-border text-muted-foreground'
                           }`}
                           onClick={(e) => {
                             e.stopPropagation();
                             toggleFavorite(hymn.id);
                           }}
                         >
-                          <Heart className={`w-5 h-5 ${favoritedHymns.includes(hymn.id) ? 'fill-current' : ''}`} />
+                          <Heart className={`w-5 h-5 ${favoritedHymns.some((f) => String(f) === String(hymn.id)) ? 'fill-current' : ''}`} />
                         </button>
                         {/* Tooltip */}
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-popover text-popover-foreground text-sm rounded-lg shadow-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-10">
-                          {favoritedHymns.includes(hymn.id) ? 'إزالة من المفضلة' : 'إضافة إلى المفضلة'}
+                          {favoritedHymns.some((f) => String(f) === String(hymn.id)) ? 'إزالة من المفضلة' : 'إضافة إلى المفضلة'}
                           <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-popover"></div>
                         </div>
                       </div>
@@ -1344,14 +1236,14 @@ export function HymnsSection({ isSidebarCollapsed }: { isSidebarCollapsed: boole
                               <div 
                                 className="relative overflow-hidden transition-all duration-500 ease-in-out"
                                 style={{
-                                  maxHeight: expandedLyricsIds.includes(hymn.id) ? '2000px' : '103px',
+                                  maxHeight: expandedLyricsIds.some((x) => String(x) === String(hymn.id)) ? '2000px' : '103px',
                                 }}
                               >
                                 <p className="text-sm leading-relaxed whitespace-pre-line text-center">
                                   {hymn.lyrics}
                                 </p>
                                 {/* Fade gradient when collapsed */}
-                                {!expandedLyricsIds.includes(hymn.id) && hymn.lyrics.split('\n').length > 4 && (
+                                {!expandedLyricsIds.some((x) => String(x) === String(hymn.id)) && hymn.lyrics.split('\n').length > 4 && (
                                   <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-card/50 via-card/50 to-transparent pointer-events-none"></div>
                                 )}
                               </div>
@@ -1362,7 +1254,7 @@ export function HymnsSection({ isSidebarCollapsed }: { isSidebarCollapsed: boole
                                   onClick={() => toggleLyricsExpansion(hymn.id)}
                                   className="mt-3 w-full text-sm text-primary hover:text-primary/80 transition-colors font-medium"
                                 >
-                                  {expandedLyricsIds.includes(hymn.id) ? 'قراءة أقل' : 'قراءة المزيد'}
+                                  {expandedLyricsIds.some((x) => String(x) === String(hymn.id)) ? 'قراءة أقل' : 'قراءة المزيد'}
                                 </button>
                               )}
                             </div>
@@ -1434,15 +1326,15 @@ export function HymnsSection({ isSidebarCollapsed }: { isSidebarCollapsed: boole
                           <div className="grid grid-cols-2 gap-2 pt-2">
                             <button
                               className={`flex items-center justify-center gap-2 p-3 rounded-lg transition-all ${
-                                favoritedHymns.includes(hymn.id) 
+                                favoritedHymns.some((f) => String(f) === String(hymn.id)) 
                                   ? 'bg-red-500 text-white hover:opacity-90' 
                                   : 'bg-card border border-border hover:bg-muted'
                               }`}
                               onClick={() => toggleFavorite(hymn.id)}
                             >
-                              <Heart className={`w-4 h-4 ${favoritedHymns.includes(hymn.id) ? 'fill-current' : ''}`} />
+                              <Heart className={`w-4 h-4 ${favoritedHymns.some((f) => String(f) === String(hymn.id)) ? 'fill-current' : ''}`} />
                               <span className="text-sm">
-                                {favoritedHymns.includes(hymn.id) ? 'المفضلة' : 'إضافة للمفضلة'}
+                                {favoritedHymns.some((f) => String(f) === String(hymn.id)) ? 'المفضلة' : 'إضافة للمفضلة'}
                               </span>
                             </button>
                             

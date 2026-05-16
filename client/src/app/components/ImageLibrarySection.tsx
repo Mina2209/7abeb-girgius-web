@@ -12,202 +12,11 @@ import { useIsEditor } from '../utils/adminUtils';
 import { AdminEditImageModal } from './AdminEditImageModal';
 import { AdminBulkEditImagesModal, BulkImageUpdates } from './AdminBulkEditImagesModal';
 import { VideoModal } from './VideoModal';
+import { useGalleryImagesData } from '../hooks/useGalleryImagesData';
+import type { ContentId, GalleryImage } from '../types/content';
+import { createImage, deleteImage, updateImage } from '../services/contentWriteService';
 
-interface GalleryImage {
-  id: number;
-  src: string;
-  title: string;
-  tags: string[];
-  artist: string;
-  type: string;
-  aiGenerated: boolean;
-  uploadDate: string;
-  published: boolean;
-}
 
-const defaultGalleryImages: GalleryImage[] = [
-  {
-    id: 1,
-    src: 'https://images.unsplash.com/photo-1764010572690-8b3ab023d9a0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjaHVyY2glMjBjaGlsZHJlbiUyMGpveXxlbnwxfHx8fDE3NjgzMjM0MjB8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    title: 'فرح الطفولة',
-    tags: ['الأطفال', 'الفرح', 'الحياة الكنسية'],
-    artist: 'أمير موريس',
-    type: 'صورة مرسومة',
-    aiGenerated: false,
-    uploadDate: '2024-03-15',
-    published: true,
-  },
-  {
-    id: 2,
-    src: 'https://images.unsplash.com/photo-1556760647-90d218f7ca5b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcmF5ZXIlMjBtZWRpdGF0aW9uJTIwZmFpdGh8ZW58MXx8fHwxNzY4MzIzNDIwfDA&ixlib=rb-4.1.0&q=80&w=1080',
-    title: 'التأمل والصلاة',
-    tags: ['الصلاة', 'التأمل', 'الإيمان'],
-    artist: 'Kevin Carden',
-    type: 'صورة مصورة',
-    aiGenerated: true,
-    uploadDate: '2024-03-14',
-    published: true,
-  },
-  {
-    id: 3,
-    src: 'https://images.unsplash.com/photo-1767411972023-b15cecf74e7a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmYW1pbHklMjBsb3ZlJTIwdG9nZXRoZXJuZXNzfGVufDF8fHx8MTc2ODMyMzQyMHww&ixlib=rb-4.1.0&q=80&w=1080',
-    title: 'محبة الأسرة',
-    tags: ['الأسرة', 'المحبة', 'الحياة الكنسية'],
-    artist: 'مينا انطون',
-    type: 'فن قبطى',
-    aiGenerated: false,
-    uploadDate: '2024-03-13',
-    published: true,
-  },
-  {
-    id: 4,
-    src: 'https://images.unsplash.com/photo-1584727638096-042c45049ebe?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZWxpZ2lvdXMlMjBhcnQlMjBwYWludGluZ3xlbnwxfHx8fDE3NjgzMDQwMjV8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    title: 'الإيمان والرجاء',
-    tags: ['الإيمان', 'الرجاء', 'التأمل'],
-    artist: 'أمير موريس',
-    type: 'صورة تلوين',
-    aiGenerated: true,
-    uploadDate: '2024-03-12',
-    published: true,
-  },
-  {
-    id: 5,
-    src: 'https://images.unsplash.com/photo-1764010572690-8b3ab023d9a0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjaHVyY2glMjBjaGlsZHJlbiUyMGpveXxlbnwxfHx8fDE3NjgzMjM0MjB8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    title: 'براءة الطفولة',
-    tags: ['الأطفال', 'الفرح', 'البراءة'],
-    artist: 'Kevin Carden',
-    type: 'صورة مرسومة',
-    aiGenerated: false,
-    uploadDate: '2024-03-11',
-    published: true,
-  },
-  {
-    id: 6,
-    src: 'https://images.unsplash.com/photo-1556760647-90d218f7ca5b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcmF5ZXIlMjBtZWRpdGF0aW9uJTIwZmFpdGh8ZW58MXx8fHwxNzY4MzIzNDIwfDA&ixlib=rb-4.1.0&q=80&w=1080',
-    title: 'قوة الصلاة',
-    tags: ['الصلاة', 'القوة', 'الإيمان'],
-    artist: 'مينا انطون',
-    type: 'صورة مصورة',
-    aiGenerated: true,
-    uploadDate: '2024-03-10',
-    published: true,
-  },
-  {
-    id: 7,
-    src: 'https://images.unsplash.com/photo-1767411972023-b15cecf74e7a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmYW1pbHklMjBsb3ZlJTIwdG9nZXRoZXJuZXNzfGVufDF8fHx8MTc2ODMyMzQyMHww&ixlib=rb-4.1.0&q=80&w=1080',
-    title: 'حب العائلة',
-    tags: ['الأسرة', 'المحبة', 'الأطفال'],
-    artist: 'أمير موريس',
-    type: 'فن قبطى',
-    aiGenerated: false,
-    uploadDate: '2024-03-09',
-    published: true,
-  },
-  {
-    id: 8,
-    src: 'https://images.unsplash.com/photo-1584727638096-042c45049ebe?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZWxpZ2lvdXMlMjBhcnQlMjBwYWludGluZ3xlbnwxfHx8fDE3NjgzMDQwMjV8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    title: 'السلام الداخلي',
-    tags: ['السلام', 'التأمل', 'الصلاة'],
-    artist: 'Kevin Carden',
-    type: 'صورة تلوين',
-    aiGenerated: false,
-    uploadDate: '2024-03-08',
-    published: true,
-  },
-  {
-    id: 9,
-    src: 'https://images.unsplash.com/photo-1764010572690-8b3ab023d9a0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjaHVyY2glMjBjaGlsZHJlbiUyMGpveXxlbnwxfHx8fDE3NjgzMjM0MjB8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    title: 'الفرح بالرب',
-    tags: ['الفرح', 'الإيمان', 'الأطفال'],
-    artist: 'مينا انطون',
-    type: 'صورة مرسومة',
-    aiGenerated: true,
-    uploadDate: '2024-03-07',
-    published: true,
-  },
-  {
-    id: 10,
-    src: 'https://images.unsplash.com/photo-1556760647-90d218f7ca5b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcmF5ZXIlMjBtZWRpdGF0aW9uJTIwZmFpdGh8ZW58MXx8fHwxNzY4MzIzNDIwfDA&ixlib=rb-4.1.0&q=80&w=1080',
-    title: 'محبة الله',
-    tags: ['المحبة', 'الإيمان', 'الصلاة'],
-    artist: 'أمير موريس',
-    type: 'صورة مصورة',
-    aiGenerated: false,
-    uploadDate: '2024-03-06',
-    published: true,
-  },
-  {
-    id: 11,
-    src: 'https://images.unsplash.com/photo-1767411972023-b15cecf74e7a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmYW1pbHklMjBsb3ZlJTIwdG9nZXRoZXJuZXNzfGVufDF8fHx8MTc2ODMyMzQyMHww&ixlib=rb-4.1.0&q=80&w=1080',
-    title: 'بركة الأطفال',
-    tags: ['الأطفال', 'البركة', 'الحياة الكنسية'],
-    artist: 'Kevin Carden',
-    type: 'فن قبطى',
-    aiGenerated: true,
-    uploadDate: '2024-03-05',
-    published: true,
-  },
-  {
-    id: 12,
-    src: 'https://images.unsplash.com/photo-1584727638096-042c45049ebe?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZWxpZ2lvdXMlMjBhcnQlMjBwYWludGluZ3xlbnwxfHx8fDE3NjgzMDQwMjV8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    title: 'النعمة الإلهية',
-    tags: ['النعمة', 'الإيمان', 'التأمل'],
-    artist: 'مينا انطون',
-    type: 'صورة تلوين',
-    aiGenerated: false,
-    uploadDate: '2024-03-04',
-    published: true,
-  },
-  // Unpublished images (only visible to admins)
-  {
-    id: 13,
-    src: 'https://images.unsplash.com/photo-1651774031266-867983eccc83?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjaHVyY2glMjB3b3JzaGlwJTIwY2FuZGxlc3xlbnwxfHx8fDE3NjgzMjM1ODF8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    title: 'شموع العبادة',
-    tags: ['العبادة', 'الصلاة', 'الحياة الكنسية'],
-    artist: 'أمير موريس',
-    type: 'صورة مصورة',
-    aiGenerated: false,
-    uploadDate: '2024-03-03',
-    published: false,
-  },
-  {
-    id: 14,
-    src: 'https://images.unsplash.com/photo-1766306252230-d1e3026f4f66?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiaWJsZSUyMHNjcmlwdHVyZSUyMHJlYWRpbmd8ZW58MXx8fHwxNzY4MzIzNTgyfDA&ixlib=rb-4.1.0&q=80&w=1080',
-    title: 'قراءة الكتاب المقدس',
-    tags: ['الكتاب المقدس', 'القراءة', 'التأمل'],
-    artist: 'Kevin Carden',
-    type: 'صورة مصورة',
-    aiGenerated: false,
-    uploadDate: '2024-03-02',
-    published: false,
-  },
-  {
-    id: 15,
-    src: 'https://images.unsplash.com/photo-1760319726429-fcda77d3cb05?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjaHVyY2glMjBzZXJ2aWNlJTIwY29tbXVuaXR5fGVufDF8fHx8MTc2ODMyMzU4Mnww&ixlib=rb-4.1.0&q=80&w=1080',
-    title: 'خدمة الكنيسة',
-    tags: ['الخدمة', 'المجتمع', 'الحياة الكنسية'],
-    artist: 'مينا انطون',
-    type: 'صورة مصورة',
-    aiGenerated: false,
-    uploadDate: '2024-03-01',
-    published: false,
-  },
-  {
-    id: 16,
-    src: 'https://images.unsplash.com/photo-1666097296328-28bdb4800a5a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjcm9zcyUyMGZhaXRoJTIwc3Bpcml0dWFsaXR5fGVufDF8fHx8MTc2ODMyMzU4Mnww&ixlib=rb-4.1.0&q=80&w=1080',
-    title: 'الصليب المقدس',
-    tags: ['الصليب', 'الإيمان', 'الروحانية'],
-    artist: 'أمير موريس',
-    type: 'صورة مرسومة',
-    aiGenerated: false,
-    uploadDate: '2024-02-28',
-    published: false,
-  },
-];
-
-const STORAGE_KEY = 'gallery_images_data';
-const STORAGE_VERSION_KEY = 'gallery_images_version';
-const CURRENT_VERSION = '2.0'; // Increment this to force reload of default images
 
 type SortOption = 'alpha-asc' | 'alpha-desc' | 'date-asc' | 'date-desc';
 
@@ -219,24 +28,9 @@ const sortOptions = [
 ];
 
 export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed: boolean }) {
-  const { user, profile } = useAuth();
+  const { user, profile, accessToken } = useAuth();
   const isEditor = useIsEditor();
-
-  // Load images from localStorage or use defaults (with version checking)
-  const [images, setImages] = useState<GalleryImage[]>(() => {
-    const savedVersion = localStorage.getItem(STORAGE_VERSION_KEY);
-    const saved = localStorage.getItem(STORAGE_KEY);
-    
-    // If version doesn't match or no version exists, use defaults and update version
-    if (savedVersion !== CURRENT_VERSION) {
-      localStorage.setItem(STORAGE_VERSION_KEY, CURRENT_VERSION);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultGalleryImages));
-      return defaultGalleryImages;
-    }
-    
-    // Otherwise load from localStorage
-    return saved ? JSON.parse(saved) : defaultGalleryImages;
-  });
+  const { images, setImages, loading: imagesLoading } = useGalleryImagesData();
 
   // Get unique artists, tags, and types from current images
   const allArtists = useMemo(() => Array.from(new Set(images.map(img => img.artist))), [images]);
@@ -252,11 +46,11 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [favoritedImages, setFavoritedImages] = useState<number[]>([]);
+  const [favoritedImages, setFavoritedImages] = useState<ContentId[]>([]);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [shareMessage, setShareMessage] = useState('');
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [selectedImages, setSelectedImages] = useState<number[]>([]);
+  const [selectedImages, setSelectedImages] = useState<ContentId[]>([]);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isScrolled, setIsScrolled] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -283,20 +77,7 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Save to localStorage whenever images change
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(images));
-  }, [images]);
-
-  // Load favorites from localStorage on mount
-  useEffect(() => {
-    if (user && profile) {
-      const saved = localStorage.getItem('favoriteImages');
-      if (saved) {
-        setFavoritedImages(JSON.parse(saved));
-      }
-    }
-  }, [user, profile]);
+  // Favorites are kept in-memory only.
 
   // Detect scroll to hide title/description
   useEffect(() => {
@@ -402,20 +183,17 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
     }
   };
 
-  const toggleFavorite = (imageId: number) => {
+  const toggleFavorite = (imageId: ContentId) => {
     if (!user || !profile) {
       setShowLoginModal(true);
       return;
     }
     
-    setFavoritedImages(prev => {
-      const newFavorites = prev.includes(imageId) 
-        ? prev.filter(id => id !== imageId) 
+    setFavoritedImages((prev) => {
+      const isIn = prev.some((id) => String(id) === String(imageId));
+      const newFavorites = isIn
+        ? prev.filter((id) => String(id) !== String(imageId))
         : [...prev, imageId];
-      
-      // Save to localStorage
-      localStorage.setItem('favoriteImages', JSON.stringify(newFavorites));
-      
       return newFavorites;
     });
   };
@@ -431,10 +209,10 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
   };
 
   // Multi-select helper functions
-  const toggleImageSelection = (imageId: number) => {
-    setSelectedImages(prev =>
-      prev.includes(imageId)
-        ? prev.filter(id => id !== imageId)
+  const toggleImageSelection = (imageId: ContentId) => {
+    setSelectedImages((prev) =>
+      prev.some((id) => String(id) === String(imageId))
+        ? prev.filter((id) => String(id) !== String(imageId))
         : [...prev, imageId]
     );
   };
@@ -463,18 +241,33 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
     setIsEditModalOpen(true);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: ContentId) => {
     if (confirm('هل أنت متأكد من حذف هذه الصورة؟')) {
-      setImages(prev => prev.filter(img => img.id !== id));
-      setShareMessage('تم الحذف بنجاح');
-      setTimeout(() => setShareMessage(''), 2000);
+      if (typeof id !== 'string') {
+        setShareMessage('لا يمكن حذف عنصر غير متزامن مع الخادم');
+        setTimeout(() => setShareMessage(''), 2000);
+        return;
+      }
+      try {
+        await deleteImage(id, accessToken);
+        setImages((prev) => prev.filter((img) => String(img.id) !== String(id)));
+        setShareMessage('تم الحذف بنجاح');
+      } catch {
+        setShareMessage('فشل الحذف من الخادم');
+      } finally {
+        setTimeout(() => setShareMessage(''), 2000);
+      }
     }
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (selectedImages.length === 0) return;
     if (confirm(`هل أنت متأكد من حذف ${selectedImages.length} صورة؟`)) {
-      setImages(prev => prev.filter(img => !selectedImages.includes(img.id)));
+      const ids = selectedImages.filter((id): id is string => typeof id === 'string');
+      await Promise.allSettled(ids.map((id) => deleteImage(id, accessToken)));
+      setImages((prev) =>
+        prev.filter((img) => !ids.includes(String(img.id)))
+      );
       setSelectedImages([]);
       setBulkEditMode(false);
       setShareMessage('تم الحذف بنجاح');
@@ -484,9 +277,13 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
 
   const handleBulkPublish = () => {
     if (selectedImages.length === 0) return;
-    setImages(prev => prev.map(img => 
-      selectedImages.includes(img.id) ? { ...img, published: true } : img
-    ));
+    setImages((prev) =>
+      prev.map((img) =>
+        selectedImages.some((sid) => String(sid) === String(img.id))
+          ? { ...img, published: true }
+          : img
+      )
+    );
     setSelectedImages([]);
     setBulkEditMode(false);
     setShareMessage(`تم نشر ${selectedImages.length} صورة`);
@@ -495,9 +292,13 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
 
   const handleBulkHide = () => {
     if (selectedImages.length === 0) return;
-    setImages(prev => prev.map(img => 
-      selectedImages.includes(img.id) ? { ...img, published: false } : img
-    ));
+    setImages((prev) =>
+      prev.map((img) =>
+        selectedImages.some((sid) => String(sid) === String(img.id))
+          ? { ...img, published: false }
+          : img
+      )
+    );
     setSelectedImages([]);
     setBulkEditMode(false);
     setShareMessage(`تم إخفاء ${selectedImages.length} صورة`);
@@ -517,7 +318,7 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
 
   const handleBulkEditSave = (updates: BulkImageUpdates) => {
     setImages(prev => prev.map(img => {
-      if (!selectedImages.includes(img.id)) return img;
+      if (!selectedImages.some((sid) => String(sid) === String(img.id))) return img;
       
       const updatedImage = { ...img };
       
@@ -566,22 +367,31 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
     setTimeout(() => setShareMessage(''), 2000);
   };
 
-  const handleSaveImage = (image: GalleryImage) => {
-    if (editingImage) {
-      // Update existing
-      setImages(prev => prev.map(img => img.id === image.id ? image : img));
-      setShareMessage('تم التحديث بنجاح');
-    } else {
-      // Add new
-      setImages(prev => [...prev, image]);
-      setShareMessage('تمت الإضافة بنجاح');
+  const handleSaveImage = async (image: GalleryImage) => {
+    try {
+      if (editingImage && typeof editingImage.id === 'string') {
+        const updated = await updateImage(editingImage.id, image, accessToken);
+        setImages(prev => prev.map(img => img.id === updated.id ? updated : img));
+        setShareMessage('تم التحديث بنجاح');
+      } else {
+        const created = await createImage(image, accessToken);
+        setImages(prev => [...prev, created]);
+        setShareMessage('تمت الإضافة بنجاح');
+      }
+    } catch {
+      setShareMessage('فشل الحفظ على الخادم');
+    } finally {
+      setTimeout(() => setShareMessage(''), 2000);
     }
-    setTimeout(() => setShareMessage(''), 2000);
   };
 
-  const handleSaveMultipleImages = (images: GalleryImage[]) => {
-    setImages(prev => [...prev, ...images]);
-    setShareMessage(`تمت إضافة ${images.length} صورة بنجاح`);
+  const handleSaveMultipleImages = async (images: GalleryImage[]) => {
+    const created = await Promise.allSettled(images.map((img) => createImage(img, accessToken)));
+    const ok = created
+      .filter((x): x is PromiseFulfilledResult<GalleryImage> => x.status === 'fulfilled')
+      .map((x) => x.value);
+    setImages(prev => [...prev, ...ok]);
+    setShareMessage(`تمت إضافة ${ok.length} صورة بنجاح`);
     setTimeout(() => setShareMessage(''), 2000);
   };
 
@@ -633,12 +443,12 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
   };
 
   const handleBatchDownload = () => {
-    // Download all selected images
-    const selectedImages = sortedImages.filter(img => selectedImages.includes(img.id));
-    selectedImages.forEach(image => downloadImage(image));
+    const toDownload = sortedImages.filter((img) =>
+      selectedImages.some((sid) => String(sid) === String(img.id))
+    );
+    toDownload.forEach((image) => downloadImage(image));
     
-    // Show success message
-    setShareMessage(`تم تحميل ${selectedImages.length} صورة`);
+    setShareMessage(`تم تحميل ${toDownload.length} صورة`);
     setTimeout(() => setShareMessage(''), 3000);
     
     // Exit selection mode after download
@@ -652,17 +462,13 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
     }
     
     // Add all selected images to favorites
-    setFavoritedImages(prev => {
+    setFavoritedImages((prev) => {
       const newFavorites = [...prev];
-      selectedImages.forEach(id => {
-        if (!newFavorites.includes(id)) {
+      selectedImages.forEach((id) => {
+        if (!newFavorites.some((x) => String(x) === String(id))) {
           newFavorites.push(id);
         }
       });
-      
-      // Save to localStorage
-      localStorage.setItem('favoriteImages', JSON.stringify(newFavorites));
-      
       return newFavorites;
     });
     
@@ -705,7 +511,8 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
         (aiFilter === 'no' && !image.aiGenerated);
 
       // Filter by favorites
-      const matchesFavorites = !showFavoritesOnly || favoritedImages.includes(image.id);
+      const matchesFavorites =
+        !showFavoritesOnly || favoritedImages.some((f) => String(f) === String(image.id));
 
       return matchesSearch && matchesTags && matchesArtists && matchesTypes && matchesAi && matchesFavorites;
     });
@@ -732,6 +539,14 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
     // Dispatch custom event to open the login modal
     window.dispatchEvent(new CustomEvent('openLoginModal'));
   };
+
+  if (imagesLoading && images.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-2 text-muted-foreground">
+        <p>جاري تحميل الصور...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -815,7 +630,7 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
                   title="استيراد JSON"
                 >
                   <Upload className="w-4 h-4" />
-                  <span>است��راد</span>
+                  <span>استيراد</span>
                 </button>
                 <input
                   ref={fileInputRef}
@@ -1075,7 +890,7 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
                 <div
                   key={image.id}
                   className={`group relative overflow-hidden rounded-xl bg-card border cursor-pointer transition-all ${
-                    (isSelectionMode || bulkEditMode) && selectedImages.includes(image.id)
+                    (isSelectionMode || bulkEditMode) && selectedImages.some((x) => String(x) === String(image.id))
                       ? 'border-2 border-primary ring-2 ring-primary/20'
                       : 'border-border'
                   }`}
@@ -1115,12 +930,12 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
                     >
                       <div 
                         className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer shadow-lg ${
-                          selectedImages.includes(image.id)
+                          selectedImages.some((x) => String(x) === String(image.id))
                             ? 'bg-primary border-primary'
                             : 'border-white bg-white/90 hover:bg-white'
                         }`}
                       >
-                        {selectedImages.includes(image.id) && (
+                        {selectedImages.some((x) => String(x) === String(image.id)) && (
                           <Check className="w-4 h-4 text-primary-foreground" />
                         )}
                       </div>
@@ -1206,7 +1021,7 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
                   )}
                   
                   {/* Selection overlay - Show when image is selected */}
-                  {(isSelectionMode || bulkEditMode) && selectedImages.includes(image.id) && (
+                  {(isSelectionMode || bulkEditMode) && selectedImages.some((x) => String(x) === String(image.id)) && (
                     <div className="absolute inset-0 bg-primary/10 pointer-events-none" />
                   )}
                 </div>
@@ -1285,13 +1100,13 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
                 toggleFavorite(sortedImages[currentImageIndex].id);
               }}
               className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-colors backdrop-blur-sm ${
-                favoritedImages.includes(sortedImages[currentImageIndex].id)
+                favoritedImages.some((f) => String(f) === String(sortedImages[currentImageIndex].id))
                   ? 'bg-red-500 hover:bg-red-600 text-white'
                   : 'bg-white/20 hover:bg-white/30 text-white'
               }`}
             >
-              <Heart className={`w-5 h-5 ${favoritedImages.includes(sortedImages[currentImageIndex].id) ? 'fill-current' : ''}`} />
-              <span>{favoritedImages.includes(sortedImages[currentImageIndex].id) ? 'مفضلة' : 'إضافة للمفضلة'}</span>
+              <Heart className={`w-5 h-5 ${favoritedImages.some((f) => String(f) === String(sortedImages[currentImageIndex].id)) ? 'fill-current' : ''}`} />
+              <span>{favoritedImages.some((f) => String(f) === String(sortedImages[currentImageIndex].id)) ? 'مفضلة' : 'إضافة للمفضلة'}</span>
             </button>
           </div>
 
@@ -1485,12 +1300,12 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
       <ArtistProfileModal
         isOpen={artistProfileOpen}
         onClose={() => setArtistProfileOpen(false)}
-        artist={selectedArtistName ? getArtistByName(selectedArtistName) : null}
-        images={images}
+        artist={selectedArtistName ? (getArtistByName(selectedArtistName) ?? null) : null}
+        images={images as any}
         onImageClick={openLightbox}
-        favoritedImages={favoritedImages}
-        onToggleFavorite={toggleFavorite}
-        onDownloadImage={downloadImage}
+        favoritedImages={favoritedImages as any}
+        onToggleFavorite={toggleFavorite as any}
+        onDownloadImage={downloadImage as any}
       />
 
       {/* Admin Edit Modal */}

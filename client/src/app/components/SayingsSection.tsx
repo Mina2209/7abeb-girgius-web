@@ -8,109 +8,12 @@ import { getFatherByName } from '../data/fathers';
 import { useIsEditor } from '../utils/adminUtils';
 import { AdminEditSayingModal } from './AdminEditSayingModal';
 import { VideoModal } from './VideoModal';
+import { useSayingsData } from '../hooks/useSayingsData';
+import type { ContentId, Saying } from '../types/content';
+import { useAuth } from '../contexts/AuthContext';
+import { createSaying, deleteSaying, updateSaying } from '../services/contentWriteService';
 
-interface Saying {
-  id: number;
-  quote: string;
-  author: string;
-  authorImage: string;
-  tags: string[];
-  source: string;
-  dateAdded: string;
-}
 
-const defaultSayings: Saying[] = [
-  {
-    id: 1,
-    quote: 'من يضرب الحديد وهو بارد لا ينجح في عمله، كذلك من يتراخى في جهاده.',
-    author: 'القديس الأنبا أنطونيوس',
-    authorImage: 'https://images.unsplash.com/photo-1704276864429-9ed5be4cdd25?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzYWludCUyMG9ydGhvZG94JTIwaWNvbnxlbnwxfHx8fDE3NjY5MjA1NTl8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    tags: ['الجهاد الروحي', 'آاء الكنيسة', 'حياة الرهبنة'],
-    source: 'بستان الرهبان',
-    dateAdded: '2024-03-15',
-  },
-  {
-    id: 2,
-    quote: 'إن كنا نذكر الشرور التي صنعها الناس معنا، نعطل قوة الذكر من أذهاننا. أما إذا ذكرنا الشرور التي ارتكبناها ضد الله، فلن نتأذى من أعدائنا.',
-    author: 'القديس الأنبا مقار الكبير',
-    authorImage: 'https://images.unsplash.com/photo-1615477081991-16c8d0df26d5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxvcnRob2RveCUyMG1vbmslMjBwb3J0cmFpdHxlbnwxfHx8fDE3NjY5MjA1NTl8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    tags: ['المحبة والغفران', 'آباء الكنيسة', 'عدم الدينونة'],
-    source: 'أقوال الآباء الشيوخ',
-    dateAdded: '2024-03-14',
-  },
-  {
-    id: 3,
-    quote: 'لا تخف من الشياطين ولا تهتم بأفكارهم، بل اهتم أن تكون مرضياً لله.',
-    author: 'القديس الأنبا بولا',
-    authorImage: 'https://images.unsplash.com/photo-1765824641850-21260565fdc6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZWxpZ2lvdXMlMjBlbGRlciUyMHdpc2RvbXxlbnwxfHx8fDE3NjY5MjA1NjB8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    tags: ['الشجاعة الروحية', 'آاء الكنيسة', 'الجهاد ضد الخطية'],
-    source: 'حياة القديسين',
-    dateAdded: '2024-03-13',
-  },
-  {
-    id: 4,
-    quote: 'إن لم نحكم على أحد، فإن الله لن يحكم علينا.',
-    author: 'القديس الأنبا موسى الأسود',
-    authorImage: 'https://images.unsplash.com/photo-1558295520-479f861279b6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxvcnRob2RveCUyMHByaWVzdCUyMHBvcnRyYWl0fGVufDF8fHx8MTc2NjkyMDU2MHww&ixlib=rb-4.1.0&q=80&w=1080',
-    tags: ['عدم الدينونة', 'آباء الكنيسة', 'المحبة والغفران'],
-    source: 'بستان الرهبان',
-    dateAdded: '2024-03-12',
-  },
-  {
-    id: 5,
-    quote: 'الصلاة هي حديث مع الله، والقراءة هي استماع لكلام الله.',
-    author: 'القديس الأنبا بيشوي',
-    authorImage: 'https://images.unsplash.com/photo-1704276864429-9ed5be4cdd25?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzYWludCUyMG9ydGhvZG94JTIwaWNvbnxlbnwxfHx8fDE3NjY5MjA1NTl8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    tags: ['الصلاة', 'آباء الكنيسة', 'الكتاب المقدس'],
-    source: 'أقوال الآباء الشيوخ',
-    dateAdded: '2024-03-11',
-  },
-  {
-    id: 6,
-    quote: 'ليس شيء أقوى من الإنسان الذي يصلي من أجل أعدائه.',
-    author: 'القديس يوحنا ذهب الفم',
-    authorImage: 'https://images.unsplash.com/photo-1615477081991-16c8d0df26d5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxvcnRob2RveCUyMG1vbmslMjBwb3J0cmFpdHxlbnwxfHx8fDE3NjY5MjA1NTl8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    tags: ['المحبة والغفران', 'آباء الكنيسة', 'الصلاة'],
-    source: 'عظات القديس يوحنا ذهبي الفم',
-    dateAdded: '2024-03-10',
-  },
-  {
-    id: 7,
-    quote: 'كما أن الجسد بلا روح ميت، كذلك الإيمان بلا أعمال ميت.',
-    author: 'القديس باسيليوس الكبير',
-    authorImage: 'https://images.unsplash.com/photo-1765824641850-21260565fdc6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZWxpZ2lvdXMlMjBlbGRlciUyMHdpc2RvbXxlbnwxfHx8fDE3NjY5MjA1NjB8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    tags: ['الإيمان والأعمال', 'آباء الكنيسة', 'الإيمان'],
-    source: 'رسائل القديس باسيليوس',
-    dateAdded: '2024-03-09',
-  },
-  {
-    id: 8,
-    quote: 'الله صار إنساناً لكي يصير الإنسان إلهاً.',
-    author: 'القديس أثناسيوس الرسولي',
-    authorImage: 'https://images.unsplash.com/photo-1558295520-479f861279b6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxvcnRob2RveCUyMHByaWVzdCUyMHBvcnRyYWl0fGVufDF8fHx8MTc2NjkyMDU2MHww&ixlib=rb-4.1.0&q=80&w=1080',
-    tags: ['التجسد الإلهي', 'آباء الكنيسة', 'الإيمان'],
-    source: 'عن تجسد الكلمة',
-    dateAdded: '2024-03-08',
-  },
-  {
-    id: 9,
-    quote: 'ليس من يبدأ بل من يثبت إلى المنتهى هو الذي يخلص.',
-    author: 'القديس الأنبا أنطونيوس',
-    authorImage: 'https://images.unsplash.com/photo-1704276864429-9ed5be4cdd25?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzYWludCUyMG9ydGhvZG94JTIwaWNvbnxlbnwxfHx8fDE3NjY5MjA1NTl8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    tags: ['المثابرة', 'آباء الكنيسة', 'الجهاد الروحي'],
-    source: 'بستان الرهبان',
-    dateAdded: '2024-03-07',
-  },
-  {
-    id: 10,
-    quote: 'من أراد أن يرى قيامة المسيح، فليمت عن الخطية.',
-    author: 'القديس الأنبا مقار الكبير',
-    authorImage: 'https://images.unsplash.com/photo-1615477081991-16c8d0df26d5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxvcnRob2RveCUyMG1vbmslMjBwb3J0cmFpdHxlbnwxfHx8fDE3NjY5MjA1NTl8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    tags: ['القيامة', 'آباء الكنيسة', 'الجهاد ضد الخطية'],
-    source: 'أقوال الآباء الشيوخ',
-    dateAdded: '2024-03-06',
-  },
-];
 
 type SortOption = 'author-asc' | 'author-desc' | 'date-asc' | 'date-desc';
 
@@ -121,16 +24,10 @@ const sortOptions = [
   { value: 'date-desc' as SortOption, label: 'الأحدث' },
 ];
 
-const STORAGE_KEY = 'sayings_data';
-
 export function SayingsSection() {
   const isEditor = useIsEditor();
-  
-  // Load sayings from localStorage or use defaults
-  const [sayings, setSayings] = useState<Saying[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : defaultSayings;
-  });
+  const { accessToken } = useAuth();
+  const { sayings, setSayings, loading: sayingsLoading } = useSayingsData();
 
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedAuthors, setSelectedAuthors] = useState<string[]>([]);
@@ -140,8 +37,8 @@ export function SayingsSection() {
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
-  const [expandedQuoteId, setExpandedQuoteId] = useState<number | null>(null);
-  const [favoritedQuotes, setFavoritedQuotes] = useState<number[]>([]);
+  const [expandedQuoteId, setExpandedQuoteId] = useState<ContentId | null>(null);
+  const [favoritedQuotes, setFavoritedQuotes] = useState<ContentId[]>([]);
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [selectedFather, setSelectedFather] = useState<string | null>(null);
@@ -150,7 +47,7 @@ export function SayingsSection() {
   // Admin state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingSaying, setEditingSaying] = useState<Saying | null>(null);
-  const [selectedSayingIds, setSelectedSayingIds] = useState<number[]>([]);
+  const [selectedSayingIds, setSelectedSayingIds] = useState<ContentId[]>([]);
   const [bulkEditMode, setBulkEditMode] = useState(false);
   
   // Video tutorial modal state
@@ -165,11 +62,6 @@ export function SayingsSection() {
   const allAuthors = useMemo(() => Array.from(new Set(sayings.map(s => s.author))), [sayings]);
   const allSources = useMemo(() => Array.from(new Set(sayings.map(s => s.source))), [sayings]);
   const allTags = useMemo(() => Array.from(new Set(sayings.flatMap(s => s.tags))), [sayings]);
-
-  // Save to localStorage whenever sayings change
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sayings));
-  }, [sayings]);
 
   // Detect scroll to hide title/description
   useEffect(() => {
@@ -223,18 +115,33 @@ export function SayingsSection() {
     setIsEditModalOpen(true);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: ContentId) => {
     if (confirm('هل أنت متأكد من حذف هذا القول؟')) {
-      setSayings(prev => prev.filter(s => s.id !== id));
-      setShareMessage('تم الحذف بنجاح');
-      setTimeout(() => setShareMessage(null), 2000);
+      if (typeof id !== 'string') {
+        setShareMessage('لا يمكن حذف عنصر غير متزامن مع الخادم');
+        setTimeout(() => setShareMessage(null), 2000);
+        return;
+      }
+      try {
+        await deleteSaying(id, accessToken);
+        setSayings((prev) => prev.filter((s) => String(s.id) !== String(id)));
+        setShareMessage('تم الحذف بنجاح');
+      } catch {
+        setShareMessage('فشل الحذف من الخادم');
+      } finally {
+        setTimeout(() => setShareMessage(null), 2000);
+      }
     }
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (selectedSayingIds.length === 0) return;
     if (confirm(`هل أنت متأكد من حذف ${selectedSayingIds.length} قول؟`)) {
-      setSayings(prev => prev.filter(s => !selectedSayingIds.includes(s.id)));
+      const ids = selectedSayingIds.filter((id): id is string => typeof id === 'string');
+      await Promise.allSettled(ids.map((id) => deleteSaying(id, accessToken)));
+      setSayings((prev) =>
+        prev.filter((s) => !ids.includes(String(s.id)))
+      );
       setSelectedSayingIds([]);
       setBulkEditMode(false);
       setShareMessage('تم الحذف بنجاح');
@@ -253,17 +160,22 @@ export function SayingsSection() {
     }
   };
 
-  const handleSaveSaying = (saying: Saying) => {
-    if (editingSaying) {
-      // Update existing
-      setSayings(prev => prev.map(s => s.id === saying.id ? saying : s));
-      setShareMessage('تم التحديث بنجاح');
-    } else {
-      // Add new
-      setSayings(prev => [...prev, saying]);
-      setShareMessage('تمت الإضافة بنجاح');
+  const handleSaveSaying = async (saying: Saying) => {
+    try {
+      if (editingSaying && typeof editingSaying.id === 'string') {
+        const updated = await updateSaying(editingSaying.id, saying, accessToken);
+        setSayings(prev => prev.map(s => s.id === updated.id ? updated : s));
+        setShareMessage('تم التحديث بنجاح');
+      } else {
+        const created = await createSaying(saying, accessToken);
+        setSayings(prev => [...prev, created]);
+        setShareMessage('تمت الإضافة بنجاح');
+      }
+    } catch {
+      setShareMessage('فشل الحفظ على الخادم');
+    } finally {
+      setTimeout(() => setShareMessage(null), 2000);
     }
-    setTimeout(() => setShareMessage(null), 2000);
   };
 
   const handleExport = () => {
@@ -313,9 +225,11 @@ export function SayingsSection() {
     event.target.value = '';
   };
 
-  const toggleSelectSaying = (id: number) => {
-    setSelectedSayingIds(prev =>
-      prev.includes(id) ? prev.filter(sid => sid !== id) : [...prev, id]
+  const toggleSelectSaying = (id: ContentId) => {
+    setSelectedSayingIds((prev) =>
+      prev.some((sid) => String(sid) === String(id))
+        ? prev.filter((sid) => String(sid) !== String(id))
+        : [...prev, id]
     );
   };
 
@@ -327,10 +241,11 @@ export function SayingsSection() {
     }
   };
 
-  const toggleFavorite = (quoteId: number) => {
-    setFavoritedQuotes(prev =>
-      prev.includes(quoteId) ? prev.filter(id => id !== quoteId) : [...prev, quoteId]
-    );
+  const toggleFavorite = (quoteId: ContentId) => {
+    setFavoritedQuotes((prev) => {
+      const isIn = prev.some((id) => String(id) === String(quoteId));
+      return isIn ? prev.filter((id) => String(id) !== String(quoteId)) : [...prev, quoteId];
+    });
   };
 
   const handleShare = (quote: Saying) => {
@@ -373,11 +288,11 @@ export function SayingsSection() {
     textarea.remove();
   };
 
-  const handleQuoteClick = (quoteId: number) => {
+  const handleQuoteClick = (quoteId: ContentId) => {
     if (bulkEditMode) {
       toggleSelectSaying(quoteId);
     } else {
-      if (expandedQuoteId === quoteId) {
+      if (expandedQuoteId !== null && String(expandedQuoteId) === String(quoteId)) {
         setExpandedQuoteId(null);
       } else {
         setExpandedQuoteId(quoteId);
@@ -417,7 +332,8 @@ export function SayingsSection() {
         selectedSources.includes(item.source);
 
       // Filter by favorites
-      const matchesFavorites = !showFavoritesOnly || favoritedQuotes.includes(item.id);
+      const matchesFavorites =
+        !showFavoritesOnly || favoritedQuotes.some((f) => String(f) === String(item.id));
 
       return matchesSearch && matchesTags && matchesAuthors && matchesSources && matchesFavorites;
     });
@@ -438,6 +354,14 @@ export function SayingsSection() {
       return 0;
     });
   }, [filteredSayings, sortBy]);
+
+  if (sayingsLoading && sayings.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-2 text-muted-foreground">
+        <p>جاري تحميل الأقوال...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -738,8 +662,9 @@ export function SayingsSection() {
           <ResponsiveMasonry columnsCountBreakPoints={{350: 1, 750: 2}}>
             <Masonry gutter="16px">
               {sortedSayings.map((item) => {
-                const isExpanded = expandedQuoteId === item.id;
-                const isSelected = selectedSayingIds.includes(item.id);
+                const isExpanded =
+                  expandedQuoteId !== null && String(expandedQuoteId) === String(item.id);
+                const isSelected = selectedSayingIds.some((x) => String(x) === String(item.id));
 
                 return (
                   <div
@@ -839,13 +764,13 @@ export function SayingsSection() {
                               toggleFavorite(item.id);
                             }}
                             className={`p-2 rounded-lg transition-colors ${
-                              favoritedQuotes.includes(item.id)
+                              favoritedQuotes.some((f) => String(f) === String(item.id))
                                 ? 'text-red-500 hover:text-red-600'
                                 : 'text-muted-foreground hover:text-foreground'
                             }`}
                             title="مفضلة"
                           >
-                            <Heart className={`w-4 h-4 ${favoritedQuotes.includes(item.id) ? 'fill-current' : ''}`} />
+                            <Heart className={`w-4 h-4 ${favoritedQuotes.some((f) => String(f) === String(item.id)) ? 'fill-current' : ''}`} />
                           </button>
                         </div>
                       </div>
@@ -911,11 +836,11 @@ export function SayingsSection() {
       {/* Father Profile Modal */}
       <FatherProfileModal
         father={selectedFather ? getFatherByName(selectedFather) || null : null}
-        sayings={sayings}
+        sayings={sayings as any}
         isOpen={isFatherModalOpen}
         onClose={handleCloseFatherModal}
-        favoritedQuotes={favoritedQuotes}
-        onToggleFavorite={toggleFavorite}
+        favoritedQuotes={favoritedQuotes as any}
+        onToggleFavorite={toggleFavorite as any}
         onShare={handleShare}
       />
 
