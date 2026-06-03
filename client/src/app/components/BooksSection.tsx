@@ -1,20 +1,43 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, Plus, BookOpen, X, Heart, Download, Eye, Edit2, Trash2, ArrowUpDown, ChevronDown, User, Building2, Library, CheckSquare, CheckCheck, Upload, Tags } from 'lucide-react';
-import { Button } from './ui/button';
-import { BookDetailsModal } from './BookDetailsModal';
-import { BookEditModal } from './BookEditModal';
-import { AdminBulkEditBooksModal, BulkBookUpdates } from './AdminBulkEditBooksModal';
-import { TagFilter } from './TagFilter';
-import { MultiSelectFilter } from './MultiSelectFilter';
-import { useIsEditor } from '../utils/adminUtils';
-import { useAuth } from '../contexts/AuthContext';
+import { useState, useEffect, useMemo, useRef } from "react";
+import {
+  Search,
+  Plus,
+  BookOpen,
+  X,
+  Heart,
+  Download,
+  Eye,
+  Edit2,
+  Trash2,
+  ArrowUpDown,
+  ChevronDown,
+  User,
+  Building2,
+  Library,
+  CheckSquare,
+  CheckCheck,
+  Upload,
+  Tags,
+} from "lucide-react";
+import { Button } from "./ui/button";
+import { BookDetailsModal } from "./BookDetailsModal";
+import { BookEditModal } from "./BookEditModal";
+import {
+  AdminBulkEditBooksModal,
+  BulkBookUpdates,
+} from "./AdminBulkEditBooksModal";
+import { TagFilter } from "./TagFilter";
+import { MultiSelectFilter } from "./MultiSelectFilter";
+import { useIsEditor } from "../utils/adminUtils";
+import { useAuth } from "../contexts/AuthContext";
 
 // Default book cover image for books without a cover
-const FALLBACK_BOOK_COVER = 'https://images.unsplash.com/photo-1569690484582-58b478f46805?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxib29rJTIwY292ZXIlMjBwbGFjZWhvbGRlcnxlbnwxfHx8fDE3Njg1NzEyMTd8MA&ixlib=rb-4.1.0&q=80&w=1080';
+const FALLBACK_BOOK_COVER =
+  "https://images.unsplash.com/photo-1569690484582-58b478f46805?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxib29rJTIwY292ZXIlMjBwbGFjZWhvbGRlcnxlbnwxfHx8fDE3Njg1NzEyMTd8MA&ixlib=rb-4.1.0&q=80&w=1080";
 
 // Function to get the current default book cover (admin can customize this)
 export const getDefaultBookCover = () => {
-  const customCover = localStorage.getItem('default_book_cover');
+  const customCover = localStorage.getItem("default_book_cover");
   return customCover || FALLBACK_BOOK_COVER;
 };
 
@@ -38,30 +61,36 @@ interface BooksSectionProps {
   isSidebarCollapsed?: boolean;
 }
 
-type SortOption = 'date-newest' | 'date-oldest' | 'title-asc' | 'title-desc' | 'year-newest' | 'year-oldest';
+type SortOption =
+  | "date-newest"
+  | "date-oldest"
+  | "title-asc"
+  | "title-desc"
+  | "year-newest"
+  | "year-oldest";
 
 const sortOptions = [
-  { value: 'date-newest' as SortOption, label: 'الأحدث أولاً' },
-  { value: 'date-oldest' as SortOption, label: 'الأقدم أولاً' },
-  { value: 'title-asc' as SortOption, label: 'العنوان (أ-ي)' },
-  { value: 'title-desc' as SortOption, label: 'العنوان (ي-أ)' },
-  { value: 'year-newest' as SortOption, label: 'سنة النشر (الأحدث)' },
-  { value: 'year-oldest' as SortOption, label: 'سنة النشر (الأقدم)' },
+  { value: "date-newest" as SortOption, label: "الأحدث أولاً" },
+  { value: "date-oldest" as SortOption, label: "الأقدم أولاً" },
+  { value: "title-asc" as SortOption, label: "العنوان (أ-ي)" },
+  { value: "title-desc" as SortOption, label: "العنوان (ي-أ)" },
+  { value: "year-newest" as SortOption, label: "سنة النشر (الأحدث)" },
+  { value: "year-oldest" as SortOption, label: "سنة النشر (الأقدم)" },
 ];
 
 export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
   const { user, profile } = useAuth();
   const isEditor = useIsEditor();
-  
+
   const [books, setBooks] = useState<Book[]>([]);
   const [topics, setTopics] = useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [selectedAuthors, setSelectedAuthors] = useState<string[]>([]);
   const [selectedPublishers, setSelectedPublishers] = useState<string[]>([]);
   const [selectedSeries, setSelectedSeries] = useState<string[]>([]);
   const [selectedBookTypes, setSelectedBookTypes] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<SortOption>('date-newest');
+  const [sortBy, setSortBy] = useState<SortOption>("date-newest");
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -76,7 +105,7 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
 
   const sortDropdownRef = useRef<HTMLDivElement>(null);
-  const filtersContainerRef = useRef<HTMLDivElement>(null);
+  const filtersContainerRef = useRef<HTMLDivElement>(null!);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -87,292 +116,326 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
     loadBooks();
     loadTopics();
     loadFavoritedBooks();
-    
+
     // Listen for default book cover changes
     const handleDefaultCoverChange = () => {
-      setDefaultCoverKey(prev => prev + 1);
+      setDefaultCoverKey((prev) => prev + 1);
     };
-    
-    window.addEventListener('defaultBookCoverChanged', handleDefaultCoverChange);
-    
+
+    window.addEventListener(
+      "defaultBookCoverChanged",
+      handleDefaultCoverChange,
+    );
+
     return () => {
-      window.removeEventListener('defaultBookCoverChanged', handleDefaultCoverChange);
+      window.removeEventListener(
+        "defaultBookCoverChanged",
+        handleDefaultCoverChange,
+      );
     };
   }, []);
 
   // Detect scroll to hide title/description
-  useEffect(() => {
-    const handleScroll = () => {
-      if (scrollContainerRef.current) {
-        const scrollTop = scrollContainerRef.current.scrollTop;
-        const scrollRange = 50;
-        const progress = Math.min(scrollTop / scrollRange, 1);
-        setScrollProgress(progress);
-        setIsScrolled(scrollTop > 20);
-      }
-    };
-
-    const scrollContainer = scrollContainerRef.current;
-    if (scrollContainer) {
-      scrollContainer.addEventListener('scroll', handleScroll);
+useEffect(() => {
+  const handleScroll = () => {
+    if (scrollContainerRef.current) {
+      const scrollTop = scrollContainerRef.current.scrollTop;
+      setIsScrolled(scrollTop > 20);
     }
+  };
 
-    return () => {
-      if (scrollContainer) {
-        scrollContainer.removeEventListener('scroll', handleScroll);
-      }
-    };
-  }, []);
+  const scrollContainer = scrollContainerRef.current;
+  if (scrollContainer) {
+    scrollContainer.addEventListener("scroll", handleScroll);
+    handleScroll();
+  }
+
+  return () => {
+    if (scrollContainer) {
+      scrollContainer.removeEventListener("scroll", handleScroll);
+    }
+  };
+  
+//  شيلنا isLoading وسيبنا الـ Ref ومصفوفة الداتا بس
+}, [scrollContainerRef.current, books]);
 
   const loadBooks = () => {
-    const saved = localStorage.getItem('books_library');
+    const saved = localStorage.getItem("books_library");
     const parsedBooks = saved ? JSON.parse(saved) : null;
-    
+
     // Force reload if we have less than 13 books (to get the new mock data)
     if (!parsedBooks || parsedBooks.length < 13) {
       // Initialize with mock data
       const mockBooks: Book[] = [
         {
-          id: '1',
-          title: 'حياة الصلاة الأرثوذكسية',
-          author: 'متى المسكين',
-          bookType: 'روحي',
-          publisher: 'دير القديس أنبا مقار',
-          series: 'سلسلة الحياة الروحية',
-          topics: ['الصلاة'],
-          year: '1995',
-          description: 'كتاب شامل عن الصلاة في الكنيسة الأرثوذكسية وأهميتها في الحياة الروحية',
+          id: "1",
+          title: "حياة الصلاة الأرثوذكسية",
+          author: "متى المسكين",
+          bookType: "روحي",
+          publisher: "دير القديس أنبا مقار",
+          series: "سلسلة الحياة الروحية",
+          topics: ["الصلاة"],
+          year: "1995",
+          description:
+            "كتاب شامل عن الصلاة في الكنيسة الأرثوذكسية وأهميتها في الحياة الروحية",
           dateAdded: new Date(2024, 0, 15).toISOString(),
-          pdfFile: 'mock-pdf-1',
-          coverImage: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400',
-          isFavorite: false
+          pdfFile: "mock-pdf-1",
+          coverImage:
+            "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400",
+          isFavorite: false,
         },
         {
-          id: '2',
-          title: 'تاريخ الكنيسة القبطية',
-          author: 'إيريس حبيب المصري',
-          bookType: 'تاريخي',
-          publisher: 'مكتبة المحبة',
-          series: 'قصة الكنيسة القبطية',
-          topics: ['التاريخ الكنسي'],
-          year: '1988',
-          description: 'موسوعة تاريخية شاملة عن الكنيسة القبطية منذ نشأتها حتى العصر الحديث',
+          id: "2",
+          title: "تاريخ الكنيسة القبطية",
+          author: "إيريس حبيب المصري",
+          bookType: "تاريخي",
+          publisher: "مكتبة المحبة",
+          series: "قصة الكنيسة القبطية",
+          topics: ["التاريخ الكنسي"],
+          year: "1988",
+          description:
+            "موسوعة تاريخية شاملة عن الكنيسة القبطية منذ نشأتها حتى العصر الحديث",
           dateAdded: new Date(2024, 1, 10).toISOString(),
-          pdfFile: 'mock-pdf-2',
-          coverImage: 'https://images.unsplash.com/photo-1536778215133-7e02ee89cb90?w=800',
-          isFavorite: false
+          pdfFile: "mock-pdf-2",
+          coverImage:
+            "https://images.unsplash.com/photo-1536778215133-7e02ee89cb90?w=800",
+          isFavorite: false,
         },
         {
-          id: '3',
-          title: 'الليتورجيا القبطية',
-          author: 'القمص متى المسكين',
-          bookType: 'طقسي',
-          publisher: 'دير القديس أنبا مقار',
-          series: 'سلسلة الليتورجيا',
-          topics: ['الليتورجيا', 'الطقوس'],
-          year: '2000',
-          description: 'شرح مفصل للقداس الإلهي والطقوس الكنسية في الكنيسة القبطية',
+          id: "3",
+          title: "الليتورجيا القبطية",
+          author: "القمص متى المسكين",
+          bookType: "طقسي",
+          publisher: "دير القديس أنبا مقار",
+          series: "سلسلة الليتورجيا",
+          topics: ["الليتورجيا", "الطقوس"],
+          year: "2000",
+          description:
+            "شرح مفصل للقداس الإلهي والطقوس الكنسية في الكنيسة القبطية",
           dateAdded: new Date(2024, 2, 5).toISOString(),
-          pdfFile: 'mock-pdf-3',
+          pdfFile: "mock-pdf-3",
           // No coverImage - will use default
-          isFavorite: false
+          isFavorite: false,
         },
         {
-          id: '4',
-          title: 'الإنجيل بحسب القديس يوحنا',
-          author: 'الأنبا شنودة الثالث',
-          bookType: 'تفسير',
-          publisher: 'مطبوعات دير الأنبا رويس',
-          series: 'تفاسير الكتاب المقدس',
-          topics: ['الكتاب المقدس', 'التفسير'],
-          year: '2005',
-          description: 'تفسير روحي وعملي لإنجيل يوحنا من منظور آبائي معاصر',
+          id: "4",
+          title: "الإنجيل بحسب القديس يوحنا",
+          author: "الأنبا شنودة الثالث",
+          bookType: "تفسير",
+          publisher: "مطبوعات دير الأنبا رويس",
+          series: "تفاسير الكتاب المقدس",
+          topics: ["الكتاب المقدس", "التفسير"],
+          year: "2005",
+          description: "تفسير روحي وعملي لإنجيل يوحنا من منظور آبائي معاصر",
           dateAdded: new Date(2024, 3, 20).toISOString(),
-          pdfFile: 'mock-pdf-4',
-          coverImage: 'https://images.unsplash.com/photo-1495446815901-a7297e633e8d?w=400',
-          isFavorite: false
+          pdfFile: "mock-pdf-4",
+          coverImage:
+            "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?w=400",
+          isFavorite: false,
         },
         {
-          id: '5',
-          title: 'القديس أثناسيوس الرسولي',
-          author: 'الأب متى المسكين',
-          bookType: 'سِيَر',
-          publisher: 'دير القديس أنبا مقار',
-          series: 'سلسلة آباء الكنيسة',
-          topics: ['سِيَر القديسين', 'التاريخ الكنسي'],
-          year: '1998',
-          description: 'سيرة حياة القديس أثناسيوس الرسولي وجهاده ضد الأريوسية',
+          id: "5",
+          title: "القديس أثناسيوس الرسولي",
+          author: "الأب متى المسكين",
+          bookType: "سِيَر",
+          publisher: "دير القديس أنبا مقار",
+          series: "سلسلة آباء الكنيسة",
+          topics: ["سِيَر القديسين", "التاريخ الكنسي"],
+          year: "1998",
+          description: "سيرة حياة القديس أثناسيوس الرسولي وجهاده ضد الأريوسية",
           dateAdded: new Date(2024, 4, 12).toISOString(),
-          pdfFile: 'mock-pdf-5',
-          coverImage: 'https://images.unsplash.com/photo-1650437732428-9854461455d4?w=600',
-          isFavorite: false
+          pdfFile: "mock-pdf-5",
+          coverImage:
+            "https://images.unsplash.com/photo-1650437732428-9854461455d4?w=600",
+          isFavorite: false,
         },
         {
-          id: '6',
-          title: 'الرهبنة القبطية في عصر القديس أنبا مقار',
-          author: 'الأنبا إبيفانيوس',
-          bookType: 'تاريخي',
-          publisher: 'دير القديس أنبا مقار',
-          series: 'تاريخ الرهبنة',
-          topics: ['الرهبنة', 'التاريخ الكنسي'],
-          year: '2015',
-          description: 'دراسة شاملة عن الرهبنة القبطية في برية شيهيت وتعاليم آباء البرية',
+          id: "6",
+          title: "الرهبنة القبطية في عصر القديس أنبا مقار",
+          author: "الأنبا إبيفانيوس",
+          bookType: "تاريخي",
+          publisher: "دير القديس أنبا مقار",
+          series: "تاريخ الرهبنة",
+          topics: ["الرهبنة", "التاريخ الكنسي"],
+          year: "2015",
+          description:
+            "دراسة شاملة عن الرهبنة القبطية في برية شيهيت وتعاليم آباء البرية",
           dateAdded: new Date(2024, 5, 8).toISOString(),
-          pdfFile: 'mock-pdf-6',
+          pdfFile: "mock-pdf-6",
           // No coverImage - will use default
-          isFavorite: false
+          isFavorite: false,
         },
         {
-          id: '7',
-          title: 'سر الإفخارستيا',
-          author: 'الأب متى المسكين',
-          bookType: 'طقسي',
-          publisher: 'دير القديس أنبا مقار',
-          series: 'سلسلة الأسرار المقدسة',
-          topics: ['الأسرار الكنسية', 'الليتورجيا'],
-          year: '2002',
-          description: 'دراسة لاهوتية وطقسية عن سر الإفخارستيا (التناول المقدس)',
+          id: "7",
+          title: "سر الإفخارستيا",
+          author: "الأب متى المسكين",
+          bookType: "طقسي",
+          publisher: "دير القديس أنبا مقار",
+          series: "سلسلة الأسرار المقدسة",
+          topics: ["الأسرار الكنسية", "الليتورجيا"],
+          year: "2002",
+          description:
+            "دراسة لاهوتية وطقسية عن سر الإفخارستيا (التناول المقدس)",
           dateAdded: new Date(2024, 6, 25).toISOString(),
-          pdfFile: 'mock-pdf-7',
-          coverImage: 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=400',
-          isFavorite: false
+          pdfFile: "mock-pdf-7",
+          coverImage:
+            "https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=400",
+          isFavorite: false,
         },
         {
-          id: '8',
-          title: 'التسبحة اليومية والفصلية',
-          author: 'القمص بولس البراموسي',
-          bookType: 'طقسي',
-          publisher: 'الكلية الإكليريكية',
-          series: 'الكتب الطقسية',
-          topics: ['التسبحة', 'الطقوس'],
-          year: '2010',
-          description: 'شرح تفصيلي للتسبحة اليومية والفصلية مع الألحان والطقوس',
+          id: "8",
+          title: "التسبحة اليومية والفصلية",
+          author: "القمص بولس البراموسي",
+          bookType: "طقسي",
+          publisher: "الكلية الإكليريكية",
+          series: "الكتب الطقسية",
+          topics: ["التسبحة", "الطقوس"],
+          year: "2010",
+          description: "شرح تفصيلي للتسبحة اليومية والفصلية مع الألحان والطقوس",
           dateAdded: new Date(2024, 7, 14).toISOString(),
-          pdfFile: 'mock-pdf-8',
-          coverImage: 'https://images.unsplash.com/photo-1476357471311-43c0db9fb2b4?w=400',
-          isFavorite: false
+          pdfFile: "mock-pdf-8",
+          coverImage:
+            "https://images.unsplash.com/photo-1476357471311-43c0db9fb2b4?w=400",
+          isFavorite: false,
         },
         {
-          id: '9',
-          title: 'حياة القديسة مريم المصرية',
-          author: 'القمص تادرس يعقوب',
-          bookType: 'سِيَر',
-          publisher: 'مكتبة المحبة',
-          series: 'سلسلة قديسي الكنيسة',
-          topics: ['سِيَر القديسين', 'التوبة'],
-          year: '1992',
-          description: 'قصة حياة القديسة مريم المصرية ورحلة توبتها العجيبة',
+          id: "9",
+          title: "حياة القديسة مريم المصرية",
+          author: "القمص تادرس يعقوب",
+          bookType: "سِيَر",
+          publisher: "مكتبة المحبة",
+          series: "سلسلة قديسي الكنيسة",
+          topics: ["سِيَر القديسين", "التوبة"],
+          year: "1992",
+          description: "قصة حياة القديسة مريم المصرية ورحلة توبتها العجيبة",
           dateAdded: new Date(2024, 8, 30).toISOString(),
-          pdfFile: 'mock-pdf-9',
-          coverImage: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=400',
-          isFavorite: false
+          pdfFile: "mock-pdf-9",
+          coverImage:
+            "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=400",
+          isFavorite: false,
         },
         {
-          id: '10',
-          title: 'اللاهوت المقارن',
-          author: 'الأنبا بيشوي',
-          bookType: 'لاهوتي',
-          publisher: 'دار الطباعة القبطية',
-          series: 'الدراسات اللاهوتية',
-          topics: ['اللاهوت', 'العقيدة'],
-          year: '2008',
-          description: 'دراسة مقارنة للعقائد المسيحية في الكنائس المختلفة',
+          id: "10",
+          title: "اللاهوت المقارن",
+          author: "الأنبا بيشوي",
+          bookType: "لاهوتي",
+          publisher: "دار الطباعة القبطية",
+          series: "الدراسات اللاهوتية",
+          topics: ["اللاهوت", "العقيدة"],
+          year: "2008",
+          description: "دراسة مقارنة للعقائد المسيحية في الكنائس المختلفة",
           dateAdded: new Date(2024, 9, 18).toISOString(),
-          pdfFile: 'mock-pdf-10',
-          coverImage: 'https://images.unsplash.com/photo-1700406629128-1166dc748748?w=700',
-          isFavorite: false
+          pdfFile: "mock-pdf-10",
+          coverImage:
+            "https://images.unsplash.com/photo-1700406629128-1166dc748748?w=700",
+          isFavorite: false,
         },
         {
-          id: '11',
-          title: 'الألحان القبطية وتاريخها',
-          author: 'الدكتور راغب مفتاح',
-          bookType: 'ألحان',
-          publisher: 'معهد الدراسات القبطية',
-          series: 'الموسيقى القبطية',
-          topics: ['الألحان', 'التراث القبطي'],
-          year: '2012',
-          description: 'دراسة موسيقية وتاريخية شاملة للألحان الكنسية القبطية',
+          id: "11",
+          title: "الألحان القبطية وتاريخها",
+          author: "الدكتور راغب مفتاح",
+          bookType: "ألحان",
+          publisher: "معهد الدراسات القبطية",
+          series: "الموسيقى القبطية",
+          topics: ["الألحان", "التراث القبطي"],
+          year: "2012",
+          description: "دراسة موسيقية وتاريخية شاملة للألحان الكنسية القبطية",
           dateAdded: new Date(2024, 10, 5).toISOString(),
-          pdfFile: 'mock-pdf-11',
-          coverImage: 'https://images.unsplash.com/photo-1515378960530-7c0da6231fb1?w=400',
-          isFavorite: false
+          pdfFile: "mock-pdf-11",
+          coverImage:
+            "https://images.unsplash.com/photo-1515378960530-7c0da6231fb1?w=400",
+          isFavorite: false,
         },
         {
-          id: '12',
-          title: 'معجم المصطلحات الكنسية',
-          author: 'الأنبا يوأنس',
-          bookType: 'مرجعي',
-          publisher: 'دار نوبار للطباعة',
-          series: 'الكتب المرجعية',
-          topics: ['اللغة القبطية', 'المصطلحات'],
-          year: '2018',
-          description: 'معجم شامل للمصطلحات الكنسية واللاهوتية والطقسية',
+          id: "12",
+          title: "معجم المصطلحات الكنسية",
+          author: "الأنبا يوأنس",
+          bookType: "مرجعي",
+          publisher: "دار نوبار للطباعة",
+          series: "الكتب المرجعية",
+          topics: ["اللغة القبطية", "المصطلحات"],
+          year: "2018",
+          description: "معجم شامل للمصطلحات الكنسية واللاهوتية والطقسية",
           dateAdded: new Date(2024, 11, 22).toISOString(),
-          pdfFile: 'mock-pdf-12',
-          coverImage: 'https://images.unsplash.com/photo-1768081377851-9e8bfb4e0f45?w=500',
-          isFavorite: false
+          pdfFile: "mock-pdf-12",
+          coverImage:
+            "https://images.unsplash.com/photo-1768081377851-9e8bfb4e0f45?w=500",
+          isFavorite: false,
         },
         {
-          id: '13',
-          title: 'تاريخ البطاركة الإسكندريين',
-          author: 'ساويرس بن المقفع',
-          bookType: 'تاريخي',
-          publisher: 'المركز الفرنسي للآثار',
-          series: 'التراث القبطي',
-          topics: ['التاريخ الكنسي', 'البطاركة'],
-          year: '1990',
-          description: 'سجل تاريخي للبطاركة الإسكندريين منذ القديس مرقس الرسول',
+          id: "13",
+          title: "تاريخ البطاركة الإسكندريين",
+          author: "ساويرس بن المقفع",
+          bookType: "تاريخي",
+          publisher: "المركز الفرنسي للآثار",
+          series: "التراث القبطي",
+          topics: ["التاريخ الكنسي", "البطاركة"],
+          year: "1990",
+          description: "سجل تاريخي للبطاركة الإسكندريين منذ القديس مرقس الرسول",
           dateAdded: new Date(2024, 11, 15).toISOString(),
-          pdfFile: 'mock-pdf-13',
-          coverImage: 'https://images.unsplash.com/photo-1524578271613-d550eacf6090?w=400',
-          isFavorite: false
-        }
+          pdfFile: "mock-pdf-13",
+          coverImage:
+            "https://images.unsplash.com/photo-1524578271613-d550eacf6090?w=400",
+          isFavorite: false,
+        },
       ];
-      
+
       // Normalize publishers: set to "غير محدد" if empty
-      const normalizedBooks = mockBooks.map(book => ({
+      const normalizedBooks = mockBooks.map((book) => ({
         ...book,
-        publisher: book.publisher && book.publisher.trim() !== '' ? book.publisher : 'غير محدد'
+        publisher:
+          book.publisher && book.publisher.trim() !== ""
+            ? book.publisher
+            : "غير محدد",
       }));
-      
+
       setBooks(normalizedBooks);
-      localStorage.setItem('books_library', JSON.stringify(normalizedBooks));
+      localStorage.setItem("books_library", JSON.stringify(normalizedBooks));
     } else {
       // Normalize publishers in loaded books as well
       const normalizedBooks = parsedBooks.map((book: Book) => ({
         ...book,
-        publisher: book.publisher && book.publisher.trim() !== '' ? book.publisher : 'غير محدد'
+        publisher:
+          book.publisher && book.publisher.trim() !== ""
+            ? book.publisher
+            : "غير محدد",
       }));
       setBooks(normalizedBooks);
     }
   };
 
   const loadTopics = () => {
-    const saved = localStorage.getItem('topics_master_list');
+    const saved = localStorage.getItem("topics_master_list");
     if (saved) {
       setTopics(JSON.parse(saved));
     }
   };
 
   const loadFavoritedBooks = () => {
-    const favorites = JSON.parse(localStorage.getItem('user_favorites') || '{"hymns":[],"images":[],"sayings":[],"books":[]}');
+    const favorites = JSON.parse(
+      localStorage.getItem("user_favorites") ||
+        '{"hymns":[],"images":[],"sayings":[],"books":[]}',
+    );
     setFavoritedBooks(favorites.books || []);
   };
 
   const saveBooks = (updatedBooks: Book[]) => {
     setBooks(updatedBooks);
-    localStorage.setItem('books_library', JSON.stringify(updatedBooks));
+    localStorage.setItem("books_library", JSON.stringify(updatedBooks));
   };
 
   const toggleFavorite = (bookId: string) => {
-    const updatedBooks = books.map(book =>
-      book.id === bookId ? { ...book, isFavorite: !book.isFavorite } : book
+    const updatedBooks = books.map((book) =>
+      book.id === bookId ? { ...book, isFavorite: !book.isFavorite } : book,
     );
     saveBooks(updatedBooks);
 
     // Update favorites list
-    const favorites = JSON.parse(localStorage.getItem('user_favorites') || '{"hymns":[],"images":[],"sayings":[],"books":[]}');
-    const book = updatedBooks.find(b => b.id === bookId);
+    const favorites = JSON.parse(
+      localStorage.getItem("user_favorites") ||
+        '{"hymns":[],"images":[],"sayings":[],"books":[]}',
+    );
+    const book = updatedBooks.find((b) => b.id === bookId);
     if (book?.isFavorite) {
       if (!favorites.books) favorites.books = [];
       favorites.books.push(bookId);
@@ -381,7 +444,7 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
         favorites.books = favorites.books.filter((id: string) => id !== bookId);
       }
     }
-    localStorage.setItem('user_favorites', JSON.stringify(favorites));
+    localStorage.setItem("user_favorites", JSON.stringify(favorites));
     loadFavoritedBooks();
   };
 
@@ -396,22 +459,24 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
   };
 
   const handleDeleteBook = (bookId: string) => {
-    if (confirm('هل أنت متأكد من حذف هذا الكتاب؟')) {
-      const updatedBooks = books.filter(book => book.id !== bookId);
+    if (confirm("هل أنت متأكد من حذف هذا الكتاب؟")) {
+      const updatedBooks = books.filter((book) => book.id !== bookId);
       saveBooks(updatedBooks);
     }
   };
 
   const handleBulkDelete = () => {
     if (confirm(`هل أنت متأكد من حذف ${selectedBookIds.length} كتاب؟`)) {
-      const updatedBooks = books.filter(book => !selectedBookIds.includes(book.id));
+      const updatedBooks = books.filter(
+        (book) => !selectedBookIds.includes(book.id),
+      );
       saveBooks(updatedBooks);
       setSelectedBookIds([]);
     }
   };
 
   const handleBulkEditSave = (updates: BulkBookUpdates) => {
-    const updatedBooks = books.map(book => {
+    const updatedBooks = books.map((book) => {
       if (!selectedBookIds.includes(book.id)) return book;
 
       let updatedBook = { ...book };
@@ -434,14 +499,18 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
 
       if (updates.applyTopics) {
         switch (updates.topicOperation) {
-          case 'add':
-            updatedBook.topics = [...new Set([...updatedBook.topics, ...updates.topics])];
+          case "add":
+            updatedBook.topics = [
+              ...new Set([...updatedBook.topics, ...updates.topics]),
+            ];
             break;
-          case 'replace':
+          case "replace":
             updatedBook.topics = updates.topics;
             break;
-          case 'remove':
-            updatedBook.topics = updatedBook.topics.filter(t => !updates.topics.includes(t));
+          case "remove":
+            updatedBook.topics = updatedBook.topics.filter(
+              (t) => !updates.topics.includes(t),
+            );
             break;
         }
       }
@@ -453,24 +522,24 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
     setIsBulkEditModalOpen(false);
     setSelectedBookIds([]);
     setBulkEditMode(false);
-    alert('تم تحديث الكتب بنجاح');
+    alert("تم تحديث الكتب بنجاح");
   };
 
   const handleSelectAll = () => {
     if (selectedBookIds.length === filteredAndSortedBooks.length) {
       setSelectedBookIds([]);
     } else {
-      setSelectedBookIds(filteredAndSortedBooks.map(b => b.id));
+      setSelectedBookIds(filteredAndSortedBooks.map((b) => b.id));
     }
   };
 
   const handleExport = () => {
     const dataStr = JSON.stringify(books, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const dataBlob = new Blob([dataStr], { type: "application/json" });
     const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = 'books-library.json';
+    link.download = "books-library.json";
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -484,12 +553,12 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
           const importedBooks = JSON.parse(event.target?.result as string);
           if (Array.isArray(importedBooks)) {
             saveBooks(importedBooks);
-            alert('تم استيراد البيانات بنجاح!');
+            alert("تم استيراد البيانات بنجاح!");
           } else {
-            alert('تنسيق الملف غير صحيح');
+            alert("تنسيق الملف غير صحيح");
           }
         } catch (error) {
-          alert('خطأ في قراءة الملف');
+          alert("خطأ في قراءة الملف");
         }
       };
       reader.readAsText(file);
@@ -499,7 +568,7 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
   const handleSaveBook = (book: Book) => {
     if (editingBook) {
       // Edit existing
-      const updatedBooks = books.map(b => b.id === book.id ? book : b);
+      const updatedBooks = books.map((b) => (b.id === book.id ? book : b));
       saveBooks(updatedBooks);
     } else {
       // Add new
@@ -507,7 +576,7 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
         ...book,
         id: Date.now().toString(),
         dateAdded: new Date().toISOString(),
-        isFavorite: false
+        isFavorite: false,
       };
       saveBooks([...books, newBook]);
     }
@@ -521,7 +590,7 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
 
   const downloadBook = (book: Book) => {
     // Create a temporary link to trigger download
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = book.pdfFile;
     link.download = `${book.title}.pdf`;
     document.body.appendChild(link);
@@ -530,47 +599,59 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
   };
 
   const toggleAuthor = (author: string) => {
-    setSelectedAuthors(prev =>
-      prev.includes(author) ? prev.filter(a => a !== author) : [...prev, author]
+    setSelectedAuthors((prev) =>
+      prev.includes(author)
+        ? prev.filter((a) => a !== author)
+        : [...prev, author],
     );
   };
 
   const togglePublisher = (publisher: string) => {
-    setSelectedPublishers(prev =>
-      prev.includes(publisher) ? prev.filter(p => p !== publisher) : [...prev, publisher]
+    setSelectedPublishers((prev) =>
+      prev.includes(publisher)
+        ? prev.filter((p) => p !== publisher)
+        : [...prev, publisher],
     );
   };
 
   const toggleSeries = (series: string) => {
-    setSelectedSeries(prev =>
-      prev.includes(series) ? prev.filter(s => s !== series) : [...prev, series]
+    setSelectedSeries((prev) =>
+      prev.includes(series)
+        ? prev.filter((s) => s !== series)
+        : [...prev, series],
     );
   };
 
   // Get unique values for filters
   const allAuthors = useMemo(() => {
-    const authors = new Set(books.map(book => book.author).filter(Boolean));
+    const authors = new Set(books.map((book) => book.author).filter(Boolean));
     return Array.from(authors).sort();
   }, [books]);
 
   const allPublishers = useMemo(() => {
-    const publishers = new Set(books.map(book => book.publisher).filter(publisher => publisher && publisher !== 'غير محدد'));
+    const publishers = new Set(
+      books
+        .map((book) => book.publisher)
+        .filter((publisher) => publisher && publisher !== "غير محدد"),
+    );
     return Array.from(publishers).sort();
   }, [books]);
 
   const allSeries = useMemo(() => {
-    const series = new Set(books.map(book => book.series).filter(Boolean));
+    const series = new Set(books.map((book) => book.series).filter(Boolean));
     return Array.from(series).sort();
   }, [books]);
 
   const allBookTypes = useMemo(() => {
-    const bookTypes = new Set(books.map(book => book.bookType).filter(Boolean));
+    const bookTypes = new Set(
+      books.map((book) => book.bookType).filter(Boolean),
+    );
     return Array.from(bookTypes).sort();
   }, [books]);
 
   // Filter and sort books
   const filteredAndSortedBooks = useMemo(() => {
-    let filtered = books.filter(book => {
+    let filtered = books.filter((book) => {
       // Search query
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -586,7 +667,7 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
 
       // Topics filter
       if (selectedTopics.length > 0) {
-        if (!book.topics.some(topic => selectedTopics.includes(topic))) {
+        if (!book.topics.some((topic) => selectedTopics.includes(topic))) {
           return false;
         }
       }
@@ -620,7 +701,8 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
       }
 
       // Favorites filter
-      const matchesFavorites = !showFavoritesOnly || favoritedBooks.includes(book.id);
+      const matchesFavorites =
+        !showFavoritesOnly || favoritedBooks.includes(book.id);
 
       return matchesFavorites;
     });
@@ -628,52 +710,72 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
     // Sort
     filtered.sort((a, b) => {
       switch (sortBy) {
-        case 'date-newest':
-          return new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime();
-        case 'date-oldest':
-          return new Date(a.dateAdded).getTime() - new Date(b.dateAdded).getTime();
-        case 'title-asc':
-          return a.title.localeCompare(b.title, 'ar');
-        case 'title-desc':
-          return b.title.localeCompare(a.title, 'ar');
-        case 'year-newest':
-          return (b.year || '0').localeCompare(a.year || '0');
-        case 'year-oldest':
-          return (a.year || '0').localeCompare(b.year || '0');
+        case "date-newest":
+          return (
+            new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()
+          );
+        case "date-oldest":
+          return (
+            new Date(a.dateAdded).getTime() - new Date(b.dateAdded).getTime()
+          );
+        case "title-asc":
+          return a.title.localeCompare(b.title, "ar");
+        case "title-desc":
+          return b.title.localeCompare(a.title, "ar");
+        case "year-newest":
+          return (b.year || "0").localeCompare(a.year || "0");
+        case "year-oldest":
+          return (a.year || "0").localeCompare(b.year || "0");
         default:
           return 0;
       }
     });
 
     return filtered;
-  }, [books, searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, sortBy, showFavoritesOnly, favoritedBooks]);
+  }, [
+    books,
+    searchQuery,
+    selectedTopics,
+    selectedAuthors,
+    selectedPublishers,
+    selectedSeries,
+    selectedBookTypes,
+    sortBy,
+    showFavoritesOnly,
+    favoritedBooks,
+  ]);
 
-  const activeFiltersCount = selectedTopics.length + selectedAuthors.length + selectedPublishers.length + selectedSeries.length + selectedBookTypes.length;
+  const activeFiltersCount =
+    selectedTopics.length +
+    selectedAuthors.length +
+    selectedPublishers.length +
+    selectedSeries.length +
+    selectedBookTypes.length;
 
   return (
     <div className="flex flex-col h-full">
-      {/* Sticky Header Section */}
-      <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
-        {/* Title and description - smooth fade and slide */}
-        <div 
-          className="overflow-hidden"
-          style={{
-            opacity: 1 - scrollProgress,
-            transform: `translateY(${scrollProgress * -10}px)`,
-            maxHeight: `${(1 - scrollProgress) * 150}px`,
-            marginBottom: scrollProgress < 1 ? `${(1 - scrollProgress) * 24}px` : '0px',
-            transition: 'opacity 0.1s linear, transform 0.1s linear, max-height 0.1s linear, margin-bottom 0.1s linear',
-            pointerEvents: scrollProgress > 0.5 ? 'none' : 'auto',
-          }}
-        >
-          <div>
-            <h1 className="mb-2 font-bold text-[36px]">مكتبة الكتب</h1>
-            <p className="text-muted-foreground">
-              مجموعة شاملة من الكتب الروحية والطقسية والتاريخية مع إمكانية البحث والفلترة والتحميل
-            </p>
-          </div>
+    {/* Sticky Header Section */}
+    <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
+      
+      {/*  العنوان والوصف - التعديل الحركي الموحد المستقر */}
+      <div
+        className={`transition-all duration-500 ease-in-out overflow-hidden ${
+          isScrolled
+            ? "max-h-0 opacity-0 mb-0 pointer-events-none transform -translate-y-2"
+            : "max-h-[250px] opacity-100 mb-4 transform translate-y-0"
+        }`}
+      >
+        <div>
+          <h1 className="mb-2 font-bold text-[36px]">مكتبة الكتب</h1>
+          <p className="text-muted-foreground leading-relaxed">
+            مجموعة شاملة من الكتب الروحية والطقسية والتاريخية مع إمكانية البحث
+            والفلترة والتحميل
+          </p>
         </div>
 
+      {/* هنا بيكون شريط البحث والفلاتر بتاعتك عشان يفضل sticky مكانه فوق */}
+
+    </div>
         {/* Admin Toolbar */}
         {isEditor && (
           <div className="mt-4 mb-4 px-3 py-2 bg-primary/5 border border-primary/20 rounded-lg">
@@ -681,9 +783,11 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
               {/* Label */}
               <div className="flex items-center gap-2">
                 <Edit2 className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium text-primary">أدوات التحرير:</span>
+                <span className="text-sm font-medium text-primary">
+                  أدوات التحرير:
+                </span>
               </div>
-              
+
               {/* Buttons */}
               <div className="flex items-center gap-2 flex-wrap">
                 <button
@@ -701,13 +805,13 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
                   }}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
                     bulkEditMode
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-card border border-border hover:bg-muted'
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-card border border-border hover:bg-muted"
                   }`}
                   title="تحديد متعدد"
                 >
                   <CheckSquare className="w-4 h-4" />
-                  <span>{bulkEditMode ? 'إلغاء' : 'تحديد'}</span>
+                  <span>{bulkEditMode ? "إلغاء" : "تحديد"}</span>
                 </button>
                 <button
                   onClick={handleExport}
@@ -749,7 +853,9 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
                 className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg hover:bg-muted transition-colors text-sm"
               >
                 <CheckCheck className="w-4 h-4" />
-                {selectedBookIds.length === filteredAndSortedBooks.length ? 'إلغاء الكل' : 'تحديد الكل'}
+                {selectedBookIds.length === filteredAndSortedBooks.length
+                  ? "إلغاء الكل"
+                  : "تحديد الكل"}
               </button>
               <button
                 onClick={() => setIsBulkEditModalOpen(true)}
@@ -785,7 +891,10 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
             </div>
 
             {/* Sort Button - Icon only on mobile, beside search bar */}
-            <div className="relative flex-shrink-0 sm:hidden" ref={sortDropdownRef}>
+            <div
+              className="relative flex-shrink-0 sm:hidden"
+              ref={sortDropdownRef}
+            >
               <button
                 onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
                 className="flex items-center justify-center w-[50px] h-[50px] bg-card border border-border rounded-xl hover:bg-muted transition-colors"
@@ -799,11 +908,11 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
           {isSortDropdownOpen && (
             <>
               {/* Backdrop */}
-              <div 
+              <div
                 className="sm:hidden fixed inset-0 bg-black/50 z-[200] animate-in fade-in duration-200"
                 onClick={() => setIsSortDropdownOpen(false)}
               />
-              
+
               {/* Slide-up Panel */}
               <div className="sm:hidden fixed bottom-0 left-0 right-0 z-[201] bg-card rounded-t-xl shadow-2xl animate-in slide-in-from-bottom duration-300 pb-safe">
                 {/* Header */}
@@ -829,8 +938,8 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
                         }}
                         className={`w-full text-right px-4 py-3.5 rounded-xl transition-colors ${
                           sortBy === option.value
-                            ? 'bg-primary text-primary-foreground font-medium'
-                            : 'hover:bg-muted'
+                            ? "bg-primary text-primary-foreground font-medium"
+                            : "hover:bg-muted"
                         }`}
                       >
                         {option.label}
@@ -845,7 +954,10 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
           {/* Filters and Sort Row */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3 -mt-2 sm:-mt-3.5">
             {/* Filters on the right */}
-            <div className="relative flex items-center gap-3 w-full sm:w-auto flex-wrap" ref={filtersContainerRef}>
+            <div
+              className="relative flex items-center gap-3 w-full sm:w-auto flex-wrap"
+              ref={filtersContainerRef}
+            >
               {/* Topics Filter */}
               <div className="flex-1 sm:flex-initial min-w-[120px]">
                 <TagFilter
@@ -909,12 +1021,16 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
                   onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
                   className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 h-[42px] border rounded-xl transition-all relative whitespace-nowrap ${
                     showFavoritesOnly
-                      ? 'bg-primary/10 border-primary text-primary'
-                      : 'bg-card border-border hover:bg-muted'
+                      ? "bg-primary/10 border-primary text-primary"
+                      : "bg-card border-border hover:bg-muted"
                   }`}
-                  title={showFavoritesOnly ? 'إظهار كل الكتب' : 'عرض المفضلة فقط'}
+                  title={
+                    showFavoritesOnly ? "إظهار كل الكتب" : "عرض المفضلة فقط"
+                  }
                 >
-                  <Heart className={`w-4 h-4 flex-shrink-0 transition-all ${showFavoritesOnly ? 'fill-current' : ''}`} />
+                  <Heart
+                    className={`w-4 h-4 flex-shrink-0 transition-all ${showFavoritesOnly ? "fill-current" : ""}`}
+                  />
                   <span className="text-sm hidden lg:inline">المفضلة فقط</span>
                   {showFavoritesOnly && favoritedBooks.length > 0 && (
                     <span className="bg-primary text-primary-foreground text-xs font-bold rounded-full px-2 py-0.5">
@@ -941,8 +1057,12 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
                   className="flex items-center gap-2 px-4 py-2.5 h-[42px] bg-card border border-border rounded-xl hover:bg-muted transition-colors"
                 >
                   <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm">{sortOptions.find(o => o.value === sortBy)?.label}</span>
-                  <ChevronDown className={`w-4 h-4 transition-transform ${isSortDropdownOpen ? 'rotate-180' : ''}`} />
+                  <span className="text-sm">
+                    {sortOptions.find((o) => o.value === sortBy)?.label}
+                  </span>
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform ${isSortDropdownOpen ? "rotate-180" : ""}`}
+                  />
                 </button>
 
                 {isSortDropdownOpen && (
@@ -957,8 +1077,8 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
                           }}
                           className={`w-full text-right px-3 py-2 rounded-lg transition-colors ${
                             sortBy === option.value
-                              ? 'bg-primary text-primary-foreground'
-                              : 'hover:bg-muted'
+                              ? "bg-primary text-primary-foreground"
+                              : "hover:bg-muted"
                           }`}
                         >
                           <span className="text-sm">{option.label}</span>
@@ -981,18 +1101,18 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
             <h3 className="text-lg font-semibold mb-2">لا توجد كتب</h3>
             <p className="text-muted-foreground">
               {searchQuery || activeFiltersCount > 0
-                ? 'جرب تغيير معايير البحث أو الفلاتر'
-                : 'لم يتم إضافة أي كتب بعد'}
+                ? "جرب تغيير معايير البحث أو الفلاتر"
+                : "لم يتم إضافة أي كتب بعد"}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 sm:gap-6">
-            {filteredAndSortedBooks.map(book => (
+            {filteredAndSortedBooks.map((book) => (
               <div
                 key={book.id}
                 onClick={() => !bulkEditMode && handleViewBook(book)}
-                className={`bg-card border border-border rounded-lg overflow-hidden transition-all group relative flex flex-col ${ 
-                  !bulkEditMode ? 'cursor-pointer' : ''
+                className={`bg-card border border-border rounded-lg overflow-hidden transition-all group relative flex flex-col ${
+                  !bulkEditMode ? "cursor-pointer" : ""
                 }`}
               >
                 {/* Bulk Selection Checkbox */}
@@ -1002,20 +1122,30 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
                       onClick={(e) => {
                         e.stopPropagation();
                         if (selectedBookIds.includes(book.id)) {
-                          setSelectedBookIds(selectedBookIds.filter(id => id !== book.id));
+                          setSelectedBookIds(
+                            selectedBookIds.filter((id) => id !== book.id),
+                          );
                         } else {
                           setSelectedBookIds([...selectedBookIds, book.id]);
                         }
                       }}
                       className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${
                         selectedBookIds.includes(book.id)
-                          ? 'bg-primary border-primary text-primary-foreground'
-                          : 'bg-white border-gray-300 hover:border-primary'
+                          ? "bg-primary border-primary text-primary-foreground"
+                          : "bg-white border-gray-300 hover:border-primary"
                       }`}
                     >
                       {selectedBookIds.includes(book.id) && (
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        <svg
+                          className="w-4 h-4"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
                         </svg>
                       )}
                     </button>
@@ -1029,7 +1159,7 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
                     alt={book.title}
                     className="w-full h-full object-contain"
                   />
-                  
+
                   {/* Overlay - Shows on hover OR when favorited (for heart button visibility) */}
                   {!bulkEditMode && (
                     <>
@@ -1084,11 +1214,13 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
                           )}
                         </div>
                       </div>
-                                        
+
                       {/* Heart button - Always visible when favorited, only on hover when not favorited */}
-                      <div 
+                      <div
                         className={`absolute top-3 left-3 z-10 transition-opacity duration-300 ${
-                          favoritedBooks.includes(book.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                          favoritedBooks.includes(book.id)
+                            ? "opacity-100"
+                            : "opacity-0 group-hover:opacity-100"
                         }`}
                       >
                         <button
@@ -1098,16 +1230,18 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
                           }}
                           className={`p-2 rounded-lg transition-all shadow-lg ${
                             favoritedBooks.includes(book.id)
-                              ? 'bg-red-500 text-white'
-                              : 'bg-white/90 hover:bg-white text-black'
+                              ? "bg-red-500 text-white"
+                              : "bg-white/90 hover:bg-white text-black"
                           }`}
                         >
-                          <Heart className={`w-4 h-4 ${favoritedBooks.includes(book.id) ? 'fill-current' : ''}`} />
+                          <Heart
+                            className={`w-4 h-4 ${favoritedBooks.includes(book.id) ? "fill-current" : ""}`}
+                          />
                         </button>
                       </div>
                     </>
                   )}
-                  
+
                   {/* Selection overlay - Show when book is selected */}
                   {bulkEditMode && selectedBookIds.includes(book.id) && (
                     <div className="absolute inset-0 bg-primary/10 pointer-events-none" />
@@ -1116,7 +1250,9 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
 
                 {/* Book Info */}
                 <div className="p-4 flex-1 group-hover:bg-muted transition-colors">
-                  <h3 className="font-bold text-base mb-1 line-clamp-2">{book.title}</h3>
+                  <h3 className="font-bold text-base mb-1 line-clamp-2">
+                    {book.title}
+                  </h3>
                   <p className="text-sm text-muted-foreground">{book.author}</p>
                 </div>
               </div>

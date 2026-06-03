@@ -1,5 +1,5 @@
 import { Download, Eye, ArrowUpDown, Search, ChevronDown, X, ChevronLeft, ChevronRight, Heart, Sparkles, Tags, User, Image as ImageIcon, Check, Plus, Edit2, Trash2, Upload, CheckSquare, Square, CheckCheck, Video } from 'lucide-react';
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, type RefObject } from 'react';
 import { TagFilter } from './TagFilter';
 import { MultiSelectFilter } from './MultiSelectFilter';
 import { AIGeneratedFilter } from './AIGeneratedFilter';
@@ -15,7 +15,7 @@ import { VideoModal } from './VideoModal';
 import { useGalleryImagesData } from '../hooks/useGalleryImagesData';
 import type { ContentId, GalleryImage } from '../types/content';
 import { createImage, deleteImage, updateImage } from '../services/contentWriteService';
-
+import { getApiBaseUrl } from '../config/api'; // تأكد إن مسار ملف api.ts صح بالنسبة للملف ده
 
 
 type SortOption = 'alpha-asc' | 'alpha-desc' | 'date-asc' | 'date-desc';
@@ -28,6 +28,7 @@ const sortOptions = [
 ];
 
 export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed: boolean }) {
+  const [visibleCount, setVisibleCount] = useState(20);
   const { user, profile, accessToken } = useAuth();
   const isEditor = useIsEditor();
   const { images, setImages, loading: imagesLoading } = useGalleryImagesData();
@@ -79,29 +80,107 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
 
   // Favorites are kept in-memory only.
 
-  // Detect scroll to hide title/description
+  // 1. أضف هذا الـ Ref في أعلى الكومبوننت بجانب الـ refs الأخرى (حوالي السطر 80):
+  const imageBulkInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingBulk, setIsUploadingBulk] = useState(false); // لحالة التحميل أثناء الرفع الجماعي
+  // 2. أضف دالة معالجة الـ Bulk Upload الجماعي داخل الكومبوننت:
+  const handleImageBulkChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const files = event.target.files;
+  if (!files || files.length === 0) return;
+
+  setIsUploadingBulk(true);
+  setShareMessage(`جاري تحضير ورفع ${files.length} صورة...`);
+
+  try {
+    const newImagesPromises = Array.from(files).map((file) => {
+      return new Promise<GalleryImage>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          if (e.target?.result) {
+            // تجهيز مصفوفة بيانات الصورة بالقيم الافتراضية
+            const base64String = e.target.result as string;
+            resolve({
+              id: 0, // السيرفر هيولد الـ id تلقائياً
+              title: file.name.split('.').slice(0, -1).join('.') || 'صورة جديدة',
+              src: base64String,
+              artist: 'غير محدد',
+              type: 'متنوع',
+              tags: [],
+              aiGenerated: false,
+              published: true, // رفع ونشر تلقائي مثل الـ Dashboard
+              uploadDate: new Date().toISOString()
+            });
+          } else {
+            reject(new Error('فشل قراءة الملف'));
+          }
+        };
+        reader.onerror = () => reject(new Error('خطأ في الملف'));
+        reader.readAsDataURL(file);
+      });
+    });
+
+    const preparedImages = await Promise.all(newImagesPromises);
+    
+    // استدعاء الدالة المجهزة مسبقاً في السيكشن لرفع المصفوفة كاملة للسيرفر
+    await handleSaveMultipleImages(preparedImages);
+    
+  } catch (error) {
+    console.error(error);
+    setShareMessage('حدث خطأ أثناء رفع الصور الجماعي');
+  } finally {
+    setIsUploadingBulk(false);
+    if (imageBulkInputRef.current) imageBulkInputRef.current.value = ''; // تصفير الـ input
+    setTimeout(() => setShareMessage(''), 3000);
+  }
+};
+// --- لوجيك إخفاء الهيدر عند السكرول (Figma Style) ---
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const lastScrollY = useRef(0);
+useEffect(() => {
+  setVisibleCount(20);
+}, [searchQuery, selectedTags, selectedArtists, selectedTypes, aiFilter, showFavoritesOnly]);
+
+
+
   useEffect(() => {
     const handleScroll = () => {
-      if (scrollContainerRef.current) {
-        const scrollTop = scrollContainerRef.current.scrollTop;
-        const scrollRange = 50; // Distance over which to fade out (in pixels)
-        const progress = Math.min(scrollTop / scrollRange, 1);
-        setScrollProgress(progress);
-        setIsScrolled(scrollTop > 20);
+      const currentScrollY = window.scrollY;
+      
+      // إذا سكرول لأسفل ومعدي مسافة 50 بكسل عشان ميتأثرش بالهزات البسيطة
+      if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
+        setIsHeaderVisible(false); // إخفاء
+      } else {
+        setIsHeaderVisible(true);  // إظهار عند السكرول لأعلى
       }
+      
+      lastScrollY.current = currentScrollY;
     };
 
-    const scrollContainer = scrollContainerRef.current;
-    if (scrollContainer) {
-      scrollContainer.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []); 
+  // Detect scroll to hide title/description
+  useEffect(() => {
+  const handleScroll = () => {
+    if (scrollContainerRef.current) {
+      const scrollTop = scrollContainerRef.current.scrollTop;
+      setIsScrolled(scrollTop > 20);
     }
+  };
 
-    return () => {
-      if (scrollContainer) {
-        scrollContainer.removeEventListener('scroll', handleScroll);
-      }
-    };
-  }, []);
+  const scrollContainer = scrollContainerRef.current;
+  if (scrollContainer) {
+    scrollContainer.addEventListener("scroll", handleScroll);
+    handleScroll();
+  }
+
+  return () => {
+    if (scrollContainer) {
+      scrollContainer.removeEventListener("scroll", handleScroll);
+    }
+  };
+  
+}, [scrollContainerRef.current, images]);
 
   // Close sort dropdown when clicking outside
   useEffect(() => {
@@ -304,7 +383,7 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
     setShareMessage(`تم إخفاء ${selectedImages.length} صورة`);
     setTimeout(() => setShareMessage(''), 2000);
   };
-
+  
   const handleSelectAllImages = () => {
     const allVisibleIds = sortedImages.map(img => img.id);
     if (selectedImages.length === allVisibleIds.length) {
@@ -533,6 +612,13 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
       return 0;
     });
   }, [filteredImages, sortBy]);
+const displayedImages = useMemo(() => {
+    return sortedImages.slice(0, visibleCount);
+  }, [sortedImages, visibleCount]);
+
+  useEffect(() => {
+    setVisibleCount(20);
+  }, [searchQuery, selectedTags, selectedArtists, selectedTypes, aiFilter, showFavoritesOnly]);
 
   const handleLogin = () => {
     setShowLoginModal(false);
@@ -551,24 +637,18 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
   return (
     <div className="flex flex-col h-full">
       {/* Sticky Header Section */}
-      <div 
-        className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50"
-      >
-        {/* Title and description - smooth fade and slide */}
-        <div 
-          className="overflow-hidden"
-          style={{
-            opacity: 1 - scrollProgress,
-            transform: `translateY(${scrollProgress * -10}px)`,
-            maxHeight: `${(1 - scrollProgress) * 150}px`,
-            marginBottom: scrollProgress < 1 ? `${(1 - scrollProgress) * 24}px` : '0px',
-            transition: 'opacity 0.1s linear, transform 0.1s linear, max-height 0.1s linear, margin-bottom 0.1s linear',
-            pointerEvents: scrollProgress > 0.5 ? 'none' : 'auto',
-          }}
+      <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
+        
+        <div
+          className={`transition-all duration-500 ease-in-out overflow-hidden ${
+            isScrolled
+              ? "max-h-0 opacity-0 mb-0 pointer-events-none transform -translate-y-2"
+              : "max-h-[250px] opacity-100 mb-4 transform translate-y-0"
+          }`}
         >
           <div>
             <h1 className="mb-2 font-bold text-[36px]">مكتبة الصور</h1>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground leading-relaxed">
               مجموعة شاملة من الصور والأيقونات الكنسية والمناظر الطبيعية. استخدم البحث والفلاتر للعثور على الصور حسب النوع أو الفنان أو الموضوع، واعرض معرض الصور بوضع ملء الشاشة، وأضف المفضلات لديك، وحمّل الصور للاستخدام في الخدمة.
             </p>
             <button
@@ -594,14 +674,39 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
               {/* Buttons */}
               <div className="flex items-center gap-2 flex-wrap">
                 <button
-                  onClick={handleAddNew}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm"
-                  title="إضافة صورة جديدة"
+                  type="button"
+                  onClick={() => imageBulkInputRef.current?.click()}
+                  disabled={isUploadingBulk}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm disabled:opacity-50"
+                  title="رفع صور متعددة جماعياً"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>جديد</span>
+                  <span>{isUploadingBulk ? 'جاري الرفع...' : 'رفع جماعي للصور'}</span>
                 </button>
+
+                {/* الـ Input المخفي المسؤول عن اختيار صور متعددة */}
+                <input
+                  ref={imageBulkInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageBulkChange}
+                  className="hidden"
+                />
+
+                {/* 2. زر إضافة صورة واحدة يدوياً (الزرار القديم متاح لو حبيت تفتح المودال) */}
                 <button
+                  type="button"
+                  onClick={handleAddNew}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border text-foreground rounded-lg hover:bg-muted transition-colors text-sm"
+                  title="إضافة صورة يدوية واحدة"
+                >
+                  <span>إضافة يدوية</span>
+                </button>
+
+                {/* 3. زر التحديد المتعدد */}
+                <button
+                  type="button"
                   onClick={() => {
                     setBulkEditMode(!bulkEditMode);
                     setSelectedImages([]);
@@ -616,7 +721,10 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
                   <CheckSquare className="w-4 h-4" />
                   <span>{bulkEditMode ? 'إلغاء' : 'تحديد'}</span>
                 </button>
+
+                {/* 4. زر تصدير JSON */}
                 <button
+                  type="button"
                   onClick={handleExport}
                   className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded-lg hover:bg-muted transition-colors text-sm"
                   title="تصدير JSON"
@@ -624,7 +732,10 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
                   <Download className="w-4 h-4" />
                   <span>تصدير</span>
                 </button>
+
+                {/* 5. زر استيراد JSON */}
                 <button
+                  type="button"
                   onClick={() => fileInputRef.current?.click()}
                   className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded-lg hover:bg-muted transition-colors text-sm"
                   title="استيراد JSON"
@@ -903,11 +1014,21 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
                   }}
                 >
                   {/* Image */}
-                  <img
-                    src={image.src}
-                    alt={image.title}
-                    className="w-full h-auto object-cover transition-transform duration-300"
-                  />
+{(() => {
+  const baseUrl = getApiBaseUrl();
+  const fullImageUrl = image.src.startsWith('http') || image.src.startsWith('data:')
+    ? image.src 
+    : `${baseUrl}${image.src.startsWith('/') ? '' : '/'}${image.src}`;
+
+  return (
+    <img
+      src={fullImageUrl} 
+      alt={image.title}
+      loading="lazy"
+      className="w-full h-auto object-cover transition-transform duration-300"
+    />
+  );
+})()}
                   
                   {/* Unpublished Badge - Only visible to editors/admins - TOP RIGHT */}
                   {isEditor && !image.published && !(isSelectionMode || bulkEditMode) && (
@@ -1147,11 +1268,21 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
           >
-            <img
-              src={sortedImages[currentImageIndex].src}
-              alt={sortedImages[currentImageIndex].title}
-              className="max-w-full max-h-full object-contain"
-            />
+            {(() => {
+  const baseUrl = getApiBaseUrl();
+  const currentSrc = sortedImages[currentImageIndex].src;
+  const fullLightboxUrl = currentSrc.startsWith('http') || currentSrc.startsWith('data:')
+    ? currentSrc 
+    : `${baseUrl}${currentSrc.startsWith('/') ? '' : '/'}${currentSrc}`;
+
+  return (
+    <img
+      src={fullLightboxUrl} 
+      alt={sortedImages[currentImageIndex].title}
+      className="max-w-full max-h-full object-contain"
+    />
+  );
+})()}
           </div>
         </div>
       )}
@@ -1165,7 +1296,7 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
 
       {/* Selection Mode Bottom Bar */}
       {isSelectionMode && (
-        <div className={`fixed bottom-0 left-8 right-8 z-[100] bg-card border-t border-border shadow-2xl animate-in slide-in-from-bottom duration-300 pb-safe transition-all duration-300 ${
+        <div className={`fixed bottom-0 left-8 right-8 z-[100] bg-card border-t border-border shadow-2xl animate-in slide-in-from-bottom duration-300 pb-safe transition-all ${
           isSidebarCollapsed ? 'lg:mr-20' : 'lg:mr-64'
         }`}>
           {/* Desktop Bar */}

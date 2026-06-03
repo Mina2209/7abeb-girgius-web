@@ -292,7 +292,7 @@ export function ChurchSidebar({
               >
                 <ChevronRight className="w-5 h-5 group-hover:text-sidebar-accent-foreground" />
               </button>
-              <div className="flex flex-col items-center gap-3 w-full px-[7.5%] px-[10px] py-[0px]">
+              <div className="flex flex-col items-center gap-3 w-full px-[7.5%] py-[0px]">
                 <img src={logoImg} alt="Church Logo" className="w-full h-auto rounded-lg object-cover px-[15px] py-[0px]" />
                 <div className="text-center w-full">
                   <h2 className="font-semibold leading-tight text-[20px]">خدمة الأرشيدياكون حبيب جرجس للداتا شو</h2>
