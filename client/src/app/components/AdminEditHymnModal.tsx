@@ -410,7 +410,7 @@ export function AdminEditHymnModal({
             error={errors.tags}
           />
 
-          {/* Dates */}
+          {/* Dates ( تم التعديل هنا لقفل الحقول ومنع التلاعب بالتاريخ يدويًا) */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">
@@ -419,8 +419,9 @@ export function AdminEditHymnModal({
               <input
                 type="date"
                 value={formData.createdAt}
-                onChange={(e) => setFormData({ ...formData, createdAt: e.target.value })}
-                className="w-full px-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50"
+                disabled
+                className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-muted-foreground cursor-not-allowed opacity-80"
+                title="يتم تحديد تاريخ الإنشاء تلقائياً ولا يمكن تعديله"
               />
             </div>
             <div>
@@ -431,8 +432,8 @@ export function AdminEditHymnModal({
                 type="date"
                 value={formData.updatedAt}
                 disabled
-                className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-muted-foreground cursor-not-allowed"
-                title="يتم التحديث تلقائياً عند الحفظ"
+                className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-muted-foreground cursor-not-allowed opacity-80"
+                title="يتم التحديث تلقائياً عند حفظ التعديلات"
               />
             </div>
           </div>

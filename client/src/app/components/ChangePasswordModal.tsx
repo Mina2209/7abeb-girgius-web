@@ -217,7 +217,7 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
 
         <div className="mt-4 bg-primary/5 border border-primary/20 rounded-lg p-3">
           <p className="text-xs text-muted-foreground text-center">
-            💡 نصيحة: استخدم كلمة مرور قوية تحتوي على أحرف وأرقام ورموز
+             نصيحة: استخدم كلمة مرور قوية تحتوي على أحرف وأرقام ورموز
           </p>
         </div>
       </div>

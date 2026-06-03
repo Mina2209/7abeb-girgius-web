@@ -1,4 +1,4 @@
-import { X, Mail, Lock, User, Church, Briefcase, Shield, Users } from 'lucide-react';
+import { X, Mail, Lock, User, Church, Shield } from 'lucide-react';
 import { useState } from 'react';
 import { ChurchRoleDropdown } from './ChurchRoleDropdown';
 import { ServicesDropdown } from './ServicesDropdown';

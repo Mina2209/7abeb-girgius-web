@@ -1,4 +1,4 @@
-import { X, Save, ChevronDown } from 'lucide-react';
+import { X, Save } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { TagMultiSelect } from './TagMultiSelect';
 import { useUniversalTopics } from '../hooks/useUniversalTopics';

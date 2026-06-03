@@ -94,7 +94,6 @@ export function BookEditModal({ book, topics, onSave, onClose }: BookEditModalPr
     if (!formData.bookType) {
       newErrors.bookType = 'نوع الكتاب مطلوب';
     }
-    // Cover image is now optional - no validation needed
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -106,6 +105,17 @@ export function BookEditModal({ book, topics, onSave, onClose }: BookEditModalPr
       onSave(formData);
     }
   };
+
+  // تنسيق التاريخ ليكون مقروءاً بشكل لطيف في الـ input المغلق
+  const formattedDate = formData.dateAdded 
+    ? new Date(formData.dateAdded).toLocaleDateString('ar-EG', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    : '';
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[400] p-4" onClick={onClose}>
@@ -181,6 +191,19 @@ export function BookEditModal({ book, topics, onSave, onClose }: BookEditModalPr
                   ))}
                 </select>
                 {errors.bookType && <p className="text-red-500 text-sm mt-1">{errors.bookType}</p>}
+              </div>
+
+              {/* Creation Date - Read Only ( التعديل المطلوب لغلق حقل التاريخ) */}
+              <div>
+                <label className="block text-sm font-medium mb-2 text-muted-foreground">
+                  تاريخ إضافة العنصر (تلقائي)
+                </label>
+                <input
+                  type="text"
+                  value={formattedDate}
+                  disabled
+                  className="w-full px-4 py-2 border border-border rounded-lg bg-muted text-muted-foreground cursor-not-allowed opacity-80"
+                />
               </div>
 
               {/* Publisher */}
