@@ -9,7 +9,7 @@ interface TagFilterProps {
   searchQuery?: string;
   showSearch?: boolean;
   icon?: LucideIcon;
-  containerRef?: React.RefObject<HTMLDivElement>;
+  containerRef?: React.RefObject<HTMLDivElement | null>; // ✅ التعديل الصح هنا
 }
 
 export function TagFilter({ selectedTags, onTagsChange, onSearchChange, searchQuery = '', showSearch = true, icon, containerRef }: TagFilterProps) {
