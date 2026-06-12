@@ -1,4 +1,27 @@
-import { Download, Eye, ArrowUpDown, Search, ChevronDown, X, ChevronLeft, ChevronRight, Heart, Sparkles, Tags, User, Image as ImageIcon, Check, Plus, Edit2, Trash2, Upload, CheckSquare, Square, CheckCheck, Video } from 'lucide-react';
+import {
+  Download,
+  Eye,
+  ArrowUpDown,
+  Search,
+  ChevronDown,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Heart,
+  Sparkles,
+  Tags,
+  User,
+  Image as ImageIcon,
+  Check,
+  Plus,
+  Edit2,
+  Trash2,
+  Upload,
+  CheckSquare,
+  Square,
+  CheckCheck,
+  Video,
+} from 'lucide-react';
 import { useState, useMemo, useRef, useEffect, type RefObject } from 'react';
 import { TagFilter } from './TagFilter';
 import { MultiSelectFilter } from './MultiSelectFilter';
@@ -10,13 +33,19 @@ import { ArtistProfileModal } from './ArtistProfileModal';
 import { getArtistByName } from '../data/artists';
 import { useIsEditor } from '../utils/adminUtils';
 import { AdminEditImageModal } from './AdminEditImageModal';
-import { AdminBulkEditImagesModal, BulkImageUpdates } from './AdminBulkEditImagesModal';
+import {
+  AdminBulkEditImagesModal,
+  BulkImageUpdates,
+} from './AdminBulkEditImagesModal';
 import { VideoModal } from './VideoModal';
 import { useGalleryImagesData } from '../hooks/useGalleryImagesData';
 import type { ContentId, GalleryImage } from '../types/content';
-import { createImage, deleteImage, updateImage } from '../services/contentWriteService';
+import {
+  createImage,
+  deleteImage,
+  updateImage,
+} from '../services/contentWriteService';
 import { getApiBaseUrl } from '../config/api'; // تأكد إن مسار ملف api.ts صح بالنسبة للملف ده
-
 
 type SortOption = 'alpha-asc' | 'alpha-desc' | 'date-asc' | 'date-desc';
 
@@ -27,16 +56,29 @@ const sortOptions = [
   { value: 'date-desc' as SortOption, label: 'الأحدث' },
 ];
 
-export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed: boolean }) {
+export function ImageLibrarySection({
+  isSidebarCollapsed,
+}: {
+  isSidebarCollapsed: boolean;
+}) {
   const [visibleCount, setVisibleCount] = useState(20);
   const { user, profile, accessToken } = useAuth();
   const isEditor = useIsEditor();
   const { images, setImages, loading: imagesLoading } = useGalleryImagesData();
 
   // Get unique artists, tags, and types from current images
-  const allArtists = useMemo(() => Array.from(new Set(images.map(img => img.artist))), [images]);
-  const allTypes = useMemo(() => Array.from(new Set(images.map(img => img.type))), [images]);
-  const allTags = useMemo(() => Array.from(new Set(images.flatMap(img => img.tags))), [images]);
+  const allArtists = useMemo(
+    () => Array.from(new Set(images.map((img) => img.artist))),
+    [images],
+  );
+  const allTypes = useMemo(
+    () => Array.from(new Set(images.map((img) => img.type))),
+    [images],
+  );
+  const allTags = useMemo(
+    () => Array.from(new Set(images.flatMap((img) => img.tags))),
+    [images],
+  );
 
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedArtists, setSelectedArtists] = useState<string[]>([]);
@@ -55,15 +97,17 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isScrolled, setIsScrolled] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-  
+
   // Artist Profile Modal state
   const [artistProfileOpen, setArtistProfileOpen] = useState(false);
-  const [selectedArtistName, setSelectedArtistName] = useState<string | null>(null);
+  const [selectedArtistName, setSelectedArtistName] = useState<string | null>(
+    null,
+  );
 
   // Admin states
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingImage, setEditingImage] = useState<GalleryImage | null>(null);
-  
+
   // Video tutorial modal state
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [bulkEditMode, setBulkEditMode] = useState(false);
@@ -72,7 +116,7 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
   // Touch/swipe detection state for lightbox
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
-  
+
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const filtersContainerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -84,108 +128,117 @@ export function ImageLibrarySection({ isSidebarCollapsed }: { isSidebarCollapsed
   const imageBulkInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingBulk, setIsUploadingBulk] = useState(false); // لحالة التحميل أثناء الرفع الجماعي
   // 2. أضف دالة معالجة الـ Bulk Upload الجماعي داخل الكومبوننت:
-  const handleImageBulkChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-  const files = event.target.files;
-  if (!files || files.length === 0) return;
+  const handleImageBulkChange = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
 
-  setIsUploadingBulk(true);
-  setShareMessage(`جاري تحضير ورفع ${files.length} صورة...`);
+    setIsUploadingBulk(true);
+    setShareMessage(`جاري تحضير ورفع ${files.length} صورة...`);
 
-  try {
-    const newImagesPromises = Array.from(files).map((file) => {
-      return new Promise<GalleryImage>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          if (e.target?.result) {
-            // تجهيز مصفوفة بيانات الصورة بالقيم الافتراضية
-            const base64String = e.target.result as string;
-            resolve({
-              id: 0, // السيرفر هيولد الـ id تلقائياً
-              title: file.name.split('.').slice(0, -1).join('.') || 'صورة جديدة',
-              src: base64String,
-              artist: 'غير محدد',
-              type: 'متنوع',
-              tags: [],
-              aiGenerated: false,
-              published: true, // رفع ونشر تلقائي مثل الـ Dashboard
-              uploadDate: new Date().toISOString()
-            });
-          } else {
-            reject(new Error('فشل قراءة الملف'));
-          }
-        };
-        reader.onerror = () => reject(new Error('خطأ في الملف'));
-        reader.readAsDataURL(file);
+    try {
+      const newImagesPromises = Array.from(files).map((file) => {
+        return new Promise<GalleryImage>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            if (e.target?.result) {
+              // تجهيز مصفوفة بيانات الصورة بالقيم الافتراضية
+              const base64String = e.target.result as string;
+              resolve({
+                id: 0, // السيرفر هيولد الـ id تلقائياً
+                title:
+                  file.name.split('.').slice(0, -1).join('.') || 'صورة جديدة',
+                src: base64String,
+                artist: 'غير محدد',
+                type: 'متنوع',
+                tags: [],
+                aiGenerated: false,
+                published: true, // رفع ونشر تلقائي مثل الـ Dashboard
+                uploadDate: new Date().toISOString(),
+              });
+            } else {
+              reject(new Error('فشل قراءة الملف'));
+            }
+          };
+          reader.onerror = () => reject(new Error('خطأ في الملف'));
+          reader.readAsDataURL(file);
+        });
       });
-    });
 
-    const preparedImages = await Promise.all(newImagesPromises);
-    
-    // استدعاء الدالة المجهزة مسبقاً في السيكشن لرفع المصفوفة كاملة للسيرفر
-    await handleSaveMultipleImages(preparedImages);
-    
-  } catch (error) {
-    console.error(error);
-    setShareMessage('حدث خطأ أثناء رفع الصور الجماعي');
-  } finally {
-    setIsUploadingBulk(false);
-    if (imageBulkInputRef.current) imageBulkInputRef.current.value = ''; // تصفير الـ input
-    setTimeout(() => setShareMessage(''), 3000);
-  }
-};
-// --- لوجيك إخفاء الهيدر عند السكرول (Figma Style) ---
+      const preparedImages = await Promise.all(newImagesPromises);
+
+      // استدعاء الدالة المجهزة مسبقاً في السيكشن لرفع المصفوفة كاملة للسيرفر
+      await handleSaveMultipleImages(preparedImages);
+    } catch (error) {
+      console.error(error);
+      setShareMessage('حدث خطأ أثناء رفع الصور الجماعي');
+    } finally {
+      setIsUploadingBulk(false);
+      if (imageBulkInputRef.current) imageBulkInputRef.current.value = ''; // تصفير الـ input
+      setTimeout(() => setShareMessage(''), 3000);
+    }
+  };
+  // --- لوجيك إخفاء الهيدر عند السكرول (Figma Style) ---
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const lastScrollY = useRef(0);
-useEffect(() => {
-  setVisibleCount(20);
-}, [searchQuery, selectedTags, selectedArtists, selectedTypes, aiFilter, showFavoritesOnly]);
-
-
+  useEffect(() => {
+    setVisibleCount(20);
+  }, [
+    searchQuery,
+    selectedTags,
+    selectedArtists,
+    selectedTypes,
+    aiFilter,
+    showFavoritesOnly,
+  ]);
 
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      
+
       // إذا سكرول لأسفل ومعدي مسافة 50 بكسل عشان ميتأثرش بالهزات البسيطة
       if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
         setIsHeaderVisible(false); // إخفاء
       } else {
-        setIsHeaderVisible(true);  // إظهار عند السكرول لأعلى
+        setIsHeaderVisible(true); // إظهار عند السكرول لأعلى
       }
-      
+
       lastScrollY.current = currentScrollY;
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []); 
+  }, []);
   // Detect scroll to hide title/description
   useEffect(() => {
-  const handleScroll = () => {
-    if (scrollContainerRef.current) {
-      const scrollTop = scrollContainerRef.current.scrollTop;
-      setIsScrolled(scrollTop > 20);
-    }
-  };
+    const handleScroll = () => {
+      if (scrollContainerRef.current) {
+        const scrollTop = scrollContainerRef.current.scrollTop;
+        setIsScrolled(scrollTop > 20);
+      }
+    };
 
-  const scrollContainer = scrollContainerRef.current;
-  if (scrollContainer) {
-    scrollContainer.addEventListener("scroll", handleScroll);
-    handleScroll();
-  }
-
-  return () => {
+    const scrollContainer = scrollContainerRef.current;
     if (scrollContainer) {
-      scrollContainer.removeEventListener("scroll", handleScroll);
+      scrollContainer.addEventListener('scroll', handleScroll);
+      handleScroll();
     }
-  };
-  
-}, [scrollContainerRef.current, images]);
+
+    return () => {
+      if (scrollContainer) {
+        scrollContainer.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, [scrollContainerRef.current, images]);
 
   // Close sort dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target as Node)) {
+      if (
+        sortDropdownRef.current &&
+        !sortDropdownRef.current.contains(event.target as Node)
+      ) {
         setIsSortDropdownOpen(false);
       }
     };
@@ -230,7 +283,9 @@ useEffect(() => {
   };
 
   const prevImage = () => {
-    setCurrentImageIndex((prev) => (prev - 1 + sortedImages.length) % sortedImages.length);
+    setCurrentImageIndex(
+      (prev) => (prev - 1 + sortedImages.length) % sortedImages.length,
+    );
   };
 
   // Minimum swipe distance (in px) to be considered a swipe
@@ -247,11 +302,11 @@ useEffect(() => {
 
   const onTouchEnd = () => {
     if (!touchStart || !touchEnd) return;
-    
+
     const distance = touchStart - touchEnd;
     const isLeftSwipe = distance > minSwipeDistance;
     const isRightSwipe = distance < -minSwipeDistance;
-    
+
     if (isLeftSwipe) {
       // Swipe left - go to previous image (RTL)
       prevImage();
@@ -267,7 +322,7 @@ useEffect(() => {
       setShowLoginModal(true);
       return;
     }
-    
+
     setFavoritedImages((prev) => {
       const isIn = prev.some((id) => String(id) === String(imageId));
       const newFavorites = isIn
@@ -292,12 +347,12 @@ useEffect(() => {
     setSelectedImages((prev) =>
       prev.some((id) => String(id) === String(imageId))
         ? prev.filter((id) => String(id) !== String(imageId))
-        : [...prev, imageId]
+        : [...prev, imageId],
     );
   };
 
   const selectAllImages = () => {
-    setSelectedImages(sortedImages.map(img => img.id));
+    setSelectedImages(sortedImages.map((img) => img.id));
   };
 
   const clearSelection = () => {
@@ -329,7 +384,9 @@ useEffect(() => {
       }
       try {
         await deleteImage(id, accessToken);
-        setImages((prev) => prev.filter((img) => String(img.id) !== String(id)));
+        setImages((prev) =>
+          prev.filter((img) => String(img.id) !== String(id)),
+        );
         setShareMessage('تم الحذف بنجاح');
       } catch {
         setShareMessage('فشل الحذف من الخادم');
@@ -342,11 +399,11 @@ useEffect(() => {
   const handleBulkDelete = async () => {
     if (selectedImages.length === 0) return;
     if (confirm(`هل أنت متأكد من حذف ${selectedImages.length} صورة؟`)) {
-      const ids = selectedImages.filter((id): id is string => typeof id === 'string');
-      await Promise.allSettled(ids.map((id) => deleteImage(id, accessToken)));
-      setImages((prev) =>
-        prev.filter((img) => !ids.includes(String(img.id)))
+      const ids = selectedImages.filter(
+        (id): id is string => typeof id === 'string',
       );
+      await Promise.allSettled(ids.map((id) => deleteImage(id, accessToken)));
+      setImages((prev) => prev.filter((img) => !ids.includes(String(img.id))));
       setSelectedImages([]);
       setBulkEditMode(false);
       setShareMessage('تم الحذف بنجاح');
@@ -360,8 +417,8 @@ useEffect(() => {
       prev.map((img) =>
         selectedImages.some((sid) => String(sid) === String(img.id))
           ? { ...img, published: true }
-          : img
-      )
+          : img,
+      ),
     );
     setSelectedImages([]);
     setBulkEditMode(false);
@@ -375,17 +432,17 @@ useEffect(() => {
       prev.map((img) =>
         selectedImages.some((sid) => String(sid) === String(img.id))
           ? { ...img, published: false }
-          : img
-      )
+          : img,
+      ),
     );
     setSelectedImages([]);
     setBulkEditMode(false);
     setShareMessage(`تم إخفاء ${selectedImages.length} صورة`);
     setTimeout(() => setShareMessage(''), 2000);
   };
-  
+
   const handleSelectAllImages = () => {
-    const allVisibleIds = sortedImages.map(img => img.id);
+    const allVisibleIds = sortedImages.map((img) => img.id);
     if (selectedImages.length === allVisibleIds.length) {
       // Deselect all
       setSelectedImages([]);
@@ -396,49 +453,56 @@ useEffect(() => {
   };
 
   const handleBulkEditSave = (updates: BulkImageUpdates) => {
-    setImages(prev => prev.map(img => {
-      if (!selectedImages.some((sid) => String(sid) === String(img.id))) return img;
-      
-      const updatedImage = { ...img };
-      
-      // Apply artist if checked
-      if (updates.applyArtist && updates.artist) {
-        updatedImage.artist = updates.artist;
-      }
-      
-      // Apply type if checked
-      if (updates.applyType && updates.type) {
-        updatedImage.type = updates.type;
-      }
-      
-      // Apply AI status if checked
-      if (updates.applyAiStatus) {
-        updatedImage.aiGenerated = updates.aiGenerated;
-      }
-      
-      // Apply tags if checked
-      if (updates.applyTags) {
-        if (updates.tagOperation === 'add') {
-          // Add new tags without duplicates
-          const newTags = [...new Set([...updatedImage.tags, ...updates.tags])];
-          updatedImage.tags = newTags;
-        } else if (updates.tagOperation === 'replace') {
-          // Replace all tags
-          updatedImage.tags = updates.tags;
-        } else if (updates.tagOperation === 'remove') {
-          // Remove specified tags
-          updatedImage.tags = updatedImage.tags.filter(tag => !updates.tags.includes(tag));
+    setImages((prev) =>
+      prev.map((img) => {
+        if (!selectedImages.some((sid) => String(sid) === String(img.id)))
+          return img;
+
+        const updatedImage = { ...img };
+
+        // Apply artist if checked
+        if (updates.applyArtist && updates.artist) {
+          updatedImage.artist = updates.artist;
         }
-      }
-      
-      // Apply published status if checked
-      if (updates.applyPublished) {
-        updatedImage.published = updates.published;
-      }
-      
-      return updatedImage;
-    }));
-    
+
+        // Apply type if checked
+        if (updates.applyType && updates.type) {
+          updatedImage.type = updates.type;
+        }
+
+        // Apply AI status if checked
+        if (updates.applyAiStatus) {
+          updatedImage.aiGenerated = updates.aiGenerated;
+        }
+
+        // Apply tags if checked
+        if (updates.applyTags) {
+          if (updates.tagOperation === 'add') {
+            // Add new tags without duplicates
+            const newTags = [
+              ...new Set([...updatedImage.tags, ...updates.tags]),
+            ];
+            updatedImage.tags = newTags;
+          } else if (updates.tagOperation === 'replace') {
+            // Replace all tags
+            updatedImage.tags = updates.tags;
+          } else if (updates.tagOperation === 'remove') {
+            // Remove specified tags
+            updatedImage.tags = updatedImage.tags.filter(
+              (tag) => !updates.tags.includes(tag),
+            );
+          }
+        }
+
+        // Apply published status if checked
+        if (updates.applyPublished) {
+          updatedImage.published = updates.published;
+        }
+
+        return updatedImage;
+      }),
+    );
+
     setIsBulkEditModalOpen(false);
     setSelectedImages([]);
     setBulkEditMode(false);
@@ -450,11 +514,13 @@ useEffect(() => {
     try {
       if (editingImage && typeof editingImage.id === 'string') {
         const updated = await updateImage(editingImage.id, image, accessToken);
-        setImages(prev => prev.map(img => img.id === updated.id ? updated : img));
+        setImages((prev) =>
+          prev.map((img) => (img.id === updated.id ? updated : img)),
+        );
         setShareMessage('تم التحديث بنجاح');
       } else {
         const created = await createImage(image, accessToken);
-        setImages(prev => [...prev, created]);
+        setImages((prev) => [...prev, created]);
         setShareMessage('تمت الإضافة بنجاح');
       }
     } catch {
@@ -465,11 +531,16 @@ useEffect(() => {
   };
 
   const handleSaveMultipleImages = async (images: GalleryImage[]) => {
-    const created = await Promise.allSettled(images.map((img) => createImage(img, accessToken)));
+    const created = await Promise.allSettled(
+      images.map((img) => createImage(img, accessToken)),
+    );
     const ok = created
-      .filter((x): x is PromiseFulfilledResult<GalleryImage> => x.status === 'fulfilled')
+      .filter(
+        (x): x is PromiseFulfilledResult<GalleryImage> =>
+          x.status === 'fulfilled',
+      )
       .map((x) => x.value);
-    setImages(prev => [...prev, ...ok]);
+    setImages((prev) => [...prev, ...ok]);
     setShareMessage(`تمت إضافة ${ok.length} صورة بنجاح`);
     setTimeout(() => setShareMessage(''), 2000);
   };
@@ -496,16 +567,24 @@ useEffect(() => {
       try {
         const imported = JSON.parse(e.target?.result as string);
         if (Array.isArray(imported)) {
-          if (confirm('هل تريد استبدال البيانات الحالية أم دمجها?\n\nاضغط OK للاستبدال، أو Cancel للدمج')) {
+          if (
+            confirm(
+              'هل تريد استبدال البيانات الحالية أم دمجها?\n\nاضغط OK للاستبدال، أو Cancel للدمج',
+            )
+          ) {
             // Replace
             setImages(imported);
             setShareMessage('تم الاستيراد بنجاح (استبدال)');
           } else {
             // Merge
-            const existingIds = new Set(images.map(img => img.id));
-            const newImages = imported.filter((img: GalleryImage) => !existingIds.has(img.id));
-            setImages(prev => [...prev, ...newImages]);
-            setShareMessage(`تم الاستيراد بنجاح (${newImages.length} عنصر جديد)`);
+            const existingIds = new Set(images.map((img) => img.id));
+            const newImages = imported.filter(
+              (img: GalleryImage) => !existingIds.has(img.id),
+            );
+            setImages((prev) => [...prev, ...newImages]);
+            setShareMessage(
+              `تم الاستيراد بنجاح (${newImages.length} عنصر جديد)`,
+            );
           }
           setTimeout(() => setShareMessage(''), 2000);
         } else {
@@ -516,20 +595,20 @@ useEffect(() => {
       }
     };
     reader.readAsText(file);
-    
+
     // Reset input
     event.target.value = '';
   };
 
   const handleBatchDownload = () => {
     const toDownload = sortedImages.filter((img) =>
-      selectedImages.some((sid) => String(sid) === String(img.id))
+      selectedImages.some((sid) => String(sid) === String(img.id)),
     );
     toDownload.forEach((image) => downloadImage(image));
-    
+
     setShareMessage(`تم تحميل ${toDownload.length} صورة`);
     setTimeout(() => setShareMessage(''), 3000);
-    
+
     // Exit selection mode after download
     exitSelectionMode();
   };
@@ -539,7 +618,7 @@ useEffect(() => {
       setShowLoginModal(true);
       return;
     }
-    
+
     // Add all selected images to favorites
     setFavoritedImages((prev) => {
       const newFavorites = [...prev];
@@ -550,52 +629,75 @@ useEffect(() => {
       });
       return newFavorites;
     });
-    
+
     // Show success message
     setShareMessage(`تم إضافة ${selectedImages.length} صورة إلى المفضلة`);
     setTimeout(() => setShareMessage(''), 3000);
-    
+
     // Exit selection mode
     exitSelectionMode();
   };
 
   // Filter image categories based on selected tags and search query
   const filteredImages = useMemo(() => {
-    return images.filter(image => {
+    return images.filter((image) => {
       // Filter by published status - hide unpublished images for non-editor users
       if (!isEditor && !image.published) {
         return false;
       }
 
       // Filter by search query
-      const matchesSearch = searchQuery === '' || 
+      const matchesSearch =
+        searchQuery === '' ||
         image.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        image.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+        image.tags.some((tag) =>
+          tag.toLowerCase().includes(searchQuery.toLowerCase()),
+        );
 
       // Filter by tags
-      const matchesTags = selectedTags.length === 0 || 
-        selectedTags.some(tag => image.tags.includes(tag));
+      const matchesTags =
+        selectedTags.length === 0 ||
+        selectedTags.some((tag) => image.tags.includes(tag));
 
       // Filter by artists
-      const matchesArtists = selectedArtists.length === 0 || 
-        selectedArtists.includes(image.artist);
+      const matchesArtists =
+        selectedArtists.length === 0 || selectedArtists.includes(image.artist);
 
       // Filter by types
-      const matchesTypes = selectedTypes.length === 0 || 
-        selectedTypes.includes(image.type);
+      const matchesTypes =
+        selectedTypes.length === 0 || selectedTypes.includes(image.type);
 
       // Filter by AI generated
-      const matchesAi = aiFilter === 'all' || 
+      const matchesAi =
+        aiFilter === 'all' ||
         (aiFilter === 'yes' && image.aiGenerated) ||
         (aiFilter === 'no' && !image.aiGenerated);
 
       // Filter by favorites
       const matchesFavorites =
-        !showFavoritesOnly || favoritedImages.some((f) => String(f) === String(image.id));
+        !showFavoritesOnly ||
+        favoritedImages.some((f) => String(f) === String(image.id));
 
-      return matchesSearch && matchesTags && matchesArtists && matchesTypes && matchesAi && matchesFavorites;
+      return (
+        matchesSearch &&
+        matchesTags &&
+        matchesArtists &&
+        matchesTypes &&
+        matchesAi &&
+        matchesFavorites
+      );
     });
-  }, [images, selectedTags, selectedArtists, selectedTypes, aiFilter, searchQuery, showFavoritesOnly, favoritedImages, isEditor]);
+  }, [
+    images,
+    selectedTags,
+    selectedArtists,
+    selectedTypes,
+    aiFilter,
+    searchQuery,
+    showFavoritesOnly,
+    favoritedImages,
+    isEditor,
+  ]);
 
   // Sort filtered categories based on sort key and order
   const sortedImages = useMemo(() => {
@@ -605,20 +707,31 @@ useEffect(() => {
       } else if (sortBy === 'alpha-desc') {
         return b.title.localeCompare(a.title);
       } else if (sortBy === 'date-asc') {
-        return new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime();
+        return (
+          new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime()
+        );
       } else if (sortBy === 'date-desc') {
-        return new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime();
+        return (
+          new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
+        );
       }
       return 0;
     });
   }, [filteredImages, sortBy]);
-const displayedImages = useMemo(() => {
+  const displayedImages = useMemo(() => {
     return sortedImages.slice(0, visibleCount);
   }, [sortedImages, visibleCount]);
 
   useEffect(() => {
     setVisibleCount(20);
-  }, [searchQuery, selectedTags, selectedArtists, selectedTypes, aiFilter, showFavoritesOnly]);
+  }, [
+    searchQuery,
+    selectedTags,
+    selectedArtists,
+    selectedTypes,
+    aiFilter,
+    showFavoritesOnly,
+  ]);
 
   const handleLogin = () => {
     setShowLoginModal(false);
@@ -638,18 +751,20 @@ const displayedImages = useMemo(() => {
     <div className="flex flex-col h-full">
       {/* Sticky Header Section */}
       <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
-        
         <div
           className={`transition-all duration-500 ease-in-out overflow-hidden ${
             isScrolled
-              ? "max-h-0 opacity-0 mb-0 pointer-events-none transform -translate-y-2"
-              : "max-h-[250px] opacity-100 mb-4 transform translate-y-0"
+              ? 'max-h-0 opacity-0 mb-0 pointer-events-none transform -translate-y-2'
+              : 'max-h-[250px] opacity-100 mb-4 transform translate-y-0'
           }`}
         >
           <div>
             <h1 className="mb-2 font-bold text-[36px]">مكتبة الصور</h1>
             <p className="text-muted-foreground leading-relaxed">
-              مجموعة شاملة من الصور والأيقونات الكنسية والمناظر الطبيعية. استخدم البحث والفلاتر للعثور على الصور حسب النوع أو الفنان أو الموضوع، واعرض معرض الصور بوضع ملء الشاشة، وأضف المفضلات لديك، وحمّل الصور للاستخدام في الخدمة.
+              مجموعة شاملة من الصور والأيقونات الكنسية والمناظر الطبيعية. استخدم
+              البحث والفلاتر للعثور على الصور حسب النوع أو الفنان أو الموضوع،
+              واعرض معرض الصور بوضع ملء الشاشة، وأضف المفضلات لديك، وحمّل الصور
+              للاستخدام في الخدمة.
             </p>
             <button
               onClick={() => setIsVideoModalOpen(true)}
@@ -668,40 +783,22 @@ const displayedImages = useMemo(() => {
               {/* Label */}
               <div className="flex items-center gap-2">
                 <Edit2 className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium text-primary">أدوات التحرير:</span>
+                <span className="text-sm font-medium text-primary">
+                  أدوات التحرير:
+                </span>
               </div>
-              
+
               {/* Buttons */}
               <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => imageBulkInputRef.current?.click()}
-                  disabled={isUploadingBulk}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm disabled:opacity-50"
-                  title="رفع صور متعددة جماعياً"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>{isUploadingBulk ? 'جاري الرفع...' : 'رفع جماعي للصور'}</span>
-                </button>
-
-                {/* الـ Input المخفي المسؤول عن اختيار صور متعددة */}
-                <input
-                  ref={imageBulkInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleImageBulkChange}
-                  className="hidden"
-                />
-
-                {/* 2. زر إضافة صورة واحدة يدوياً (الزرار القديم متاح لو حبيت تفتح المودال) */}
+                {/* Manual Add button in the format of a group upload button */}
                 <button
                   type="button"
                   onClick={handleAddNew}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border text-foreground rounded-lg hover:bg-muted transition-colors text-sm"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm disabled:opacity-50"
                   title="إضافة صورة يدوية واحدة"
                 >
-                  <span>إضافة يدوية</span>
+                  <Plus className="w-4 h-4" />
+                  <span>إضافة صورة يدوية</span>
                 </button>
 
                 {/* 3. زر التحديد المتعدد */}
@@ -767,7 +864,9 @@ const displayedImages = useMemo(() => {
                 className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg hover:bg-muted transition-colors text-sm"
               >
                 <CheckCheck className="w-4 h-4" />
-                {selectedImages.length === sortedImages.length ? 'إلغاء الكل' : 'تحديد الكل'}
+                {selectedImages.length === sortedImages.length
+                  ? 'إلغاء الكل'
+                  : 'تحديد الكل'}
               </button>
               <button
                 onClick={() => setIsBulkEditModalOpen(true)}
@@ -818,10 +917,12 @@ const displayedImages = useMemo(() => {
 
             {/* Select Mode Button - Changes to Cancel when in selection mode */}
             <button
-              onClick={() => isSelectionMode ? exitSelectionMode() : setIsSelectionMode(true)}
+              onClick={() =>
+                isSelectionMode ? exitSelectionMode() : setIsSelectionMode(true)
+              }
               className={`flex items-center justify-center gap-2 px-4 py-3 h-[50px] border rounded-xl transition-all whitespace-nowrap ${
-                isSelectionMode 
-                  ? 'bg-destructive/10 border-destructive/20 text-destructive hover:bg-destructive/20' 
+                isSelectionMode
+                  ? 'bg-destructive/10 border-destructive/20 text-destructive hover:bg-destructive/20'
                   : 'bg-card border-border hover:bg-muted'
               }`}
             >
@@ -839,7 +940,10 @@ const displayedImages = useMemo(() => {
             </button>
 
             {/* Sort Button - Icon only on mobile, beside search bar */}
-            <div className="relative flex-shrink-0 sm:hidden" ref={sortDropdownRef}>
+            <div
+              className="relative flex-shrink-0 sm:hidden"
+              ref={sortDropdownRef}
+            >
               <button
                 onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
                 className="flex items-center justify-center w-[50px] h-[50px] bg-card border border-border rounded-xl hover:bg-muted transition-colors"
@@ -876,7 +980,10 @@ const displayedImages = useMemo(() => {
           {/* Filters and Sort Row */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3 -mt-2 sm:-mt-3.5">
             {/* Filters on the right */}
-            <div className="relative flex items-center gap-2 sm:gap-3 w-full sm:w-auto" ref={filtersContainerRef}>
+            <div
+              className="relative flex items-center gap-2 sm:gap-3 w-full sm:w-auto"
+              ref={filtersContainerRef}
+            >
               {/* Tag Filter */}
               <div className="flex-1 sm:flex-initial">
                 <TagFilter
@@ -914,10 +1021,7 @@ const displayedImages = useMemo(() => {
 
               {/* AI Generated Filter */}
               <div className="flex-1 sm:flex-initial">
-                <AIGeneratedFilter
-                  value={aiFilter}
-                  onChange={setAiFilter}
-                />
+                <AIGeneratedFilter value={aiFilter} onChange={setAiFilter} />
               </div>
 
               {/* Favorites Only Toggle - Only visible when user is logged in */}
@@ -929,9 +1033,13 @@ const displayedImages = useMemo(() => {
                       ? 'bg-primary/10 border-primary text-primary'
                       : 'bg-card border-border hover:bg-muted'
                   }`}
-                  title={showFavoritesOnly ? 'إظهار كل الصور' : 'عرض المفضلة فقط'}
+                  title={
+                    showFavoritesOnly ? 'إظهار كل الصور' : 'عرض المفضلة فقط'
+                  }
                 >
-                  <Heart className={`w-4 h-4 flex-shrink-0 transition-all ${showFavoritesOnly ? 'fill-current' : ''}`} />
+                  <Heart
+                    className={`w-4 h-4 flex-shrink-0 transition-all ${showFavoritesOnly ? 'fill-current' : ''}`}
+                  />
                   <span className="text-sm hidden lg:inline">المفضلة فقط</span>
                   {showFavoritesOnly && favoritedImages.length > 0 && (
                     <span className="bg-primary text-primary-foreground text-xs font-bold rounded-full px-2 py-0.5">
@@ -951,14 +1059,21 @@ const displayedImages = useMemo(() => {
             </div>
 
             {/* Sort Dropdown on the left */}
-            <div className="relative flex-shrink-0 order-1 sm:order-2 hidden sm:block" ref={sortDropdownRef}>
+            <div
+              className="relative flex-shrink-0 order-1 sm:order-2 hidden sm:block"
+              ref={sortDropdownRef}
+            >
               <button
                 onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
                 className="flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-card border border-border rounded-xl hover:bg-muted transition-colors text-sm w-full sm:w-auto justify-between"
               >
                 <ArrowUpDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                <span>{sortOptions.find(option => option.value === sortBy)?.label}</span>
-                <ChevronDown className={`w-4 h-4 transition-transform flex-shrink-0 ${isSortDropdownOpen ? 'rotate-180' : ''}`} />
+                <span>
+                  {sortOptions.find((option) => option.value === sortBy)?.label}
+                </span>
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform flex-shrink-0 ${isSortDropdownOpen ? 'rotate-180' : ''}`}
+                />
               </button>
 
               {/* Dropdown menu */}
@@ -993,7 +1108,7 @@ const displayedImages = useMemo(() => {
       <div className="flex-1 overflow-y-auto pt-6" ref={scrollContainerRef}>
         {/* Image Gallery Grid */}
         <ResponsiveMasonry
-          columnsCountBreakPoints={{350: 1, 750: 2, 900: 3, 1200: 4}}
+          columnsCountBreakPoints={{ 350: 1, 750: 2, 900: 3, 1200: 4 }}
         >
           <Masonry gutter="16px">
             {sortedImages.length > 0 ? (
@@ -1001,7 +1116,8 @@ const displayedImages = useMemo(() => {
                 <div
                   key={image.id}
                   className={`group relative overflow-hidden rounded-xl bg-card border cursor-pointer transition-all ${
-                    (isSelectionMode || bulkEditMode) && selectedImages.some((x) => String(x) === String(image.id))
+                    (isSelectionMode || bulkEditMode) &&
+                    selectedImages.some((x) => String(x) === String(image.id))
                       ? 'border-2 border-primary ring-2 ring-primary/20'
                       : 'border-border'
                   }`}
@@ -1014,55 +1130,63 @@ const displayedImages = useMemo(() => {
                   }}
                 >
                   {/* Image */}
-{(() => {
-  const baseUrl = getApiBaseUrl();
-  const fullImageUrl = image.src.startsWith('http') || image.src.startsWith('data:')
-    ? image.src 
-    : `${baseUrl}${image.src.startsWith('/') ? '' : '/'}${image.src}`;
+                  {(() => {
+                    const baseUrl = getApiBaseUrl();
+                    const fullImageUrl =
+                      image.src.startsWith('http') ||
+                      image.src.startsWith('data:')
+                        ? image.src
+                        : `${baseUrl}${image.src.startsWith('/') ? '' : '/'}${image.src}`;
 
-  return (
-    <img
-      src={fullImageUrl} 
-      alt={image.title}
-      loading="lazy"
-      className="w-full h-auto object-cover transition-transform duration-300"
-    />
-  );
-})()}
-                  
+                    return (
+                      <img
+                        src={fullImageUrl}
+                        alt={image.title}
+                        loading="lazy"
+                        className="w-full h-auto object-cover transition-transform duration-300"
+                      />
+                    );
+                  })()}
+
                   {/* Unpublished Badge - Only visible to editors/admins - TOP RIGHT */}
-                  {isEditor && !image.published && !(isSelectionMode || bulkEditMode) && (
-                    <div className="absolute top-3 right-3 z-10">
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 text-white rounded-lg shadow-lg text-xs font-semibold">
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>مخفية</span>
+                  {isEditor &&
+                    !image.published &&
+                    !(isSelectionMode || bulkEditMode) && (
+                      <div className="absolute top-3 right-3 z-10">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 text-white rounded-lg shadow-lg text-xs font-semibold">
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>مخفية</span>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  
+                    )}
+
                   {/* Selection Checkbox - Shows ONLY in selection mode or bulk edit mode */}
                   {(isSelectionMode || bulkEditMode) && (
-                    <div 
+                    <div
                       className="absolute top-3 right-3 z-10"
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleImageSelection(image.id);
                       }}
                     >
-                      <div 
+                      <div
                         className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer shadow-lg ${
-                          selectedImages.some((x) => String(x) === String(image.id))
+                          selectedImages.some(
+                            (x) => String(x) === String(image.id),
+                          )
                             ? 'bg-primary border-primary'
                             : 'border-white bg-white/90 hover:bg-white'
                         }`}
                       >
-                        {selectedImages.some((x) => String(x) === String(image.id)) && (
+                        {selectedImages.some(
+                          (x) => String(x) === String(image.id),
+                        ) && (
                           <Check className="w-4 h-4 text-primary-foreground" />
                         )}
                       </div>
                     </div>
                   )}
-                  
+
                   {/* Overlay - Shows on hover OR when favorited (for heart button visibility) */}
                   {!isSelectionMode && !bulkEditMode && (
                     <>
@@ -1117,11 +1241,13 @@ const displayedImages = useMemo(() => {
                           )}
                         </div>
                       </div>
-                                            
+
                       {/* Heart button - Always visible when favorited, only on hover when not favorited */}
-                      <div 
+                      <div
                         className={`absolute top-3 left-3 z-10 transition-opacity duration-300 ${
-                          favoritedImages.includes(image.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                          favoritedImages.includes(image.id)
+                            ? 'opacity-100'
+                            : 'opacity-0 group-hover:opacity-100'
                         }`}
                       >
                         <button
@@ -1135,21 +1261,28 @@ const displayedImages = useMemo(() => {
                               : 'bg-white/90 hover:bg-white text-black'
                           }`}
                         >
-                          <Heart className={`w-4 h-4 ${favoritedImages.includes(image.id) ? 'fill-current' : ''}`} />
+                          <Heart
+                            className={`w-4 h-4 ${favoritedImages.includes(image.id) ? 'fill-current' : ''}`}
+                          />
                         </button>
                       </div>
                     </>
                   )}
-                  
+
                   {/* Selection overlay - Show when image is selected */}
-                  {(isSelectionMode || bulkEditMode) && selectedImages.some((x) => String(x) === String(image.id)) && (
-                    <div className="absolute inset-0 bg-primary/10 pointer-events-none" />
-                  )}
+                  {(isSelectionMode || bulkEditMode) &&
+                    selectedImages.some(
+                      (x) => String(x) === String(image.id),
+                    ) && (
+                      <div className="absolute inset-0 bg-primary/10 pointer-events-none" />
+                    )}
                 </div>
               ))
             ) : (
               <div className="col-span-full text-center py-12 bg-card rounded-xl border border-border">
-                <p className="text-muted-foreground">لا توجد صور مطابقة للبحث أو التصنيفات المحددة</p>
+                <p className="text-muted-foreground">
+                  لا توجد صور مطابقة للبحث أو التصنيفات المحددة
+                </p>
               </div>
             )}
           </Masonry>
@@ -1158,7 +1291,7 @@ const displayedImages = useMemo(() => {
 
       {/* Lightbox Modal */}
       {lightboxOpen && sortedImages.length > 0 && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/95 flex items-center justify-center z-[300]"
           onClick={() => setLightboxOpen(false)}
         >
@@ -1172,15 +1305,21 @@ const displayedImages = useMemo(() => {
 
           {/* Image info header */}
           <div className="absolute top-4 right-4 left-20 bg-black/60 backdrop-blur-sm text-white rounded-xl p-4 z-10 max-w-2xl">
-            <h2 className="font-bold mb-1">{sortedImages[currentImageIndex].title}</h2>
+            <h2 className="font-bold mb-1">
+              {sortedImages[currentImageIndex].title}
+            </h2>
             <div className="flex items-center gap-2 text-xs text-white/70 flex-wrap">
               <span>الفنان: </span>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  const artist = getArtistByName(sortedImages[currentImageIndex].artist);
+                  const artist = getArtistByName(
+                    sortedImages[currentImageIndex].artist,
+                  );
                   if (artist) {
-                    setSelectedArtistName(sortedImages[currentImageIndex].artist);
+                    setSelectedArtistName(
+                      sortedImages[currentImageIndex].artist,
+                    );
                     setArtistProfileOpen(true);
                   }
                 }}
@@ -1200,7 +1339,9 @@ const displayedImages = useMemo(() => {
                 </>
               )}
             </div>
-            <p className="text-sm text-white/80 mt-2">{sortedImages[currentImageIndex].tags.join(', ')}</p>
+            <p className="text-sm text-white/80 mt-2">
+              {sortedImages[currentImageIndex].tags.join(', ')}
+            </p>
           </div>
 
           {/* Action buttons at bottom */}
@@ -1221,13 +1362,25 @@ const displayedImages = useMemo(() => {
                 toggleFavorite(sortedImages[currentImageIndex].id);
               }}
               className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-colors backdrop-blur-sm ${
-                favoritedImages.some((f) => String(f) === String(sortedImages[currentImageIndex].id))
+                favoritedImages.some(
+                  (f) =>
+                    String(f) === String(sortedImages[currentImageIndex].id),
+                )
                   ? 'bg-red-500 hover:bg-red-600 text-white'
                   : 'bg-white/20 hover:bg-white/30 text-white'
               }`}
             >
-              <Heart className={`w-5 h-5 ${favoritedImages.some((f) => String(f) === String(sortedImages[currentImageIndex].id)) ? 'fill-current' : ''}`} />
-              <span>{favoritedImages.some((f) => String(f) === String(sortedImages[currentImageIndex].id)) ? 'مفضلة' : 'إضافة للمفضلة'}</span>
+              <Heart
+                className={`w-5 h-5 ${favoritedImages.some((f) => String(f) === String(sortedImages[currentImageIndex].id)) ? 'fill-current' : ''}`}
+              />
+              <span>
+                {favoritedImages.some(
+                  (f) =>
+                    String(f) === String(sortedImages[currentImageIndex].id),
+                )
+                  ? 'مفضلة'
+                  : 'إضافة للمفضلة'}
+              </span>
             </button>
           </div>
 
@@ -1261,7 +1414,7 @@ const displayedImages = useMemo(() => {
           </div>
 
           {/* Main image - centered with proper fitting */}
-          <div 
+          <div
             className="absolute inset-0 flex items-center justify-center px-4 py-32 md:px-20"
             onClick={(e) => e.stopPropagation()}
             onTouchStart={onTouchStart}
@@ -1269,24 +1422,25 @@ const displayedImages = useMemo(() => {
             onTouchEnd={onTouchEnd}
           >
             {(() => {
-  const baseUrl = getApiBaseUrl();
-  const currentSrc = sortedImages[currentImageIndex].src;
-  const fullLightboxUrl = currentSrc.startsWith('http') || currentSrc.startsWith('data:')
-    ? currentSrc 
-    : `${baseUrl}${currentSrc.startsWith('/') ? '' : '/'}${currentSrc}`;
+              const baseUrl = getApiBaseUrl();
+              const currentSrc = sortedImages[currentImageIndex].src;
+              const fullLightboxUrl =
+                currentSrc.startsWith('http') || currentSrc.startsWith('data:')
+                  ? currentSrc
+                  : `${baseUrl}${currentSrc.startsWith('/') ? '' : '/'}${currentSrc}`;
 
-  return (
-    <img
-      src={fullLightboxUrl} 
-      alt={sortedImages[currentImageIndex].title}
-      className="max-w-full max-h-full object-contain"
-    />
-  );
-})()}
+              return (
+                <img
+                  src={fullLightboxUrl}
+                  alt={sortedImages[currentImageIndex].title}
+                  className="max-w-full max-h-full object-contain"
+                />
+              );
+            })()}
           </div>
         </div>
       )}
-      
+
       {/* Share Message */}
       {shareMessage && (
         <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-primary text-primary-foreground px-6 py-3 rounded-xl shadow-lg z-50 animate-fade-in">
@@ -1296,9 +1450,11 @@ const displayedImages = useMemo(() => {
 
       {/* Selection Mode Bottom Bar */}
       {isSelectionMode && (
-        <div className={`fixed bottom-0 left-8 right-8 z-[100] bg-card border-t border-border shadow-2xl animate-in slide-in-from-bottom duration-300 pb-safe transition-all ${
-          isSidebarCollapsed ? 'lg:mr-20' : 'lg:mr-64'
-        }`}>
+        <div
+          className={`fixed bottom-0 left-8 right-8 z-[100] bg-card border-t border-border shadow-2xl animate-in slide-in-from-bottom duration-300 pb-safe transition-all ${
+            isSidebarCollapsed ? 'lg:mr-20' : 'lg:mr-64'
+          }`}
+        >
           {/* Desktop Bar */}
           <div className="hidden sm:flex items-center justify-between gap-4 p-4">
             {/* Left Side - Counter */}
@@ -1421,7 +1577,7 @@ const displayedImages = useMemo(() => {
       )}
 
       {/* Login Required Modal */}
-      <LoginRequiredModal 
+      <LoginRequiredModal
         isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}
         onLoginClick={handleLogin}
@@ -1431,7 +1587,11 @@ const displayedImages = useMemo(() => {
       <ArtistProfileModal
         isOpen={artistProfileOpen}
         onClose={() => setArtistProfileOpen(false)}
-        artist={selectedArtistName ? (getArtistByName(selectedArtistName) ?? null) : null}
+        artist={
+          selectedArtistName
+            ? (getArtistByName(selectedArtistName) ?? null)
+            : null
+        }
         images={images as any}
         onImageClick={openLightbox}
         favoritedImages={favoritedImages as any}
