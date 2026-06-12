@@ -1427,13 +1427,13 @@ export function HymnsSection({
 
                 {/* Expanded State */}
                 <div
-                  className={`grid transition-all duration-500 ease-in-out ${
-                    expandedHymnId === hymn.id
-                      ? "grid-rows-[1fr] opacity-100"
-                      : "grid-rows-[0fr] opacity-0"
-                  }`}
+                  className="overflow-hidden transition-all duration-500 ease-in-out"
+                  style={{
+                    maxHeight: expandedHymnId === hymn.id ? '400px' : '0',
+                    opacity: expandedHymnId === hymn.id ? 1 : 0,
+                  }}
                 >
-                  <div className="overflow-hidden">
+                  <div>
                     <div className="border-t border-border bg-muted/30 p-6">
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Right Column - Details */}
@@ -1486,7 +1486,7 @@ export function HymnsSection({
                                   maxHeight: expandedLyricsIds.some(
                                     (x) => String(x) === String(hymn.id),
                                   )
-                                    ? "2000px"
+                                    ? "200px"
                                     : "103px",
                                 }}
                               >
@@ -1898,7 +1898,7 @@ export function HymnsSection({
               {previewType === "PowerPoint file" && (
                 <div className="w-full h-[450px] rounded-lg overflow-hidden border border-border bg-black">
                   <iframe
-                    src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`}
+                    src={`https://docs.google.com/viewer?url=${encodeURIComponent(previewUrl)}&embedded=true`}
                     className="w-full h-full border-0"
                     allowFullScreen
                     title="PowerPoint Preview"
