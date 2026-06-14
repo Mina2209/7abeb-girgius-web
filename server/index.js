@@ -12,6 +12,7 @@ import lyricRoutes from './routes/lyric.routes.js';
 import backupRoutes from './routes/backup.routes.js';
 import imageRoutes from './routes/image.routes.js';
 import { BackupScheduler } from './services/backup.scheduler.js';
+import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
 
@@ -69,6 +70,12 @@ app.use('/api/images', imageRoutes);
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
+
+// 404 for unmatched routes (must come after all real routes).
+app.use(notFoundHandler);
+
+// Centralized error handler (must be the last middleware registered).
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 8080;
 
