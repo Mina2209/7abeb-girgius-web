@@ -4,3 +4,7 @@ client/.env
 
 server/.env
 server/node_modules/
+server/_db_backups/
+
+# local generated files
+server-review.html

@@ -58,6 +58,8 @@ model File {
   size         Int?
   duration     Int?
   createdAt    DateTime @default(now())
+
+  @@index([hymnId])
 }
 
 enum FileType {
@@ -80,6 +82,9 @@ model Image {
   published Boolean      @default(false)
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
+
+  @@index([authorId])
+  @@index([typeId])
 }
 
 model ImageAuthor {
@@ -113,6 +118,9 @@ model Log {
   entityId  String?
   details   String?
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 enum Role {
