@@ -130,8 +130,10 @@ export const authController = {
 
   async getAllLogs(req, res) {
     try {
-      const { userId, entity, limit } = req.query;
-      const logs = await logService.getAllLogs({ userId, entity, limit: limit ? parseInt(limit) : 100 });
+      const { userId, entity, limit, page } = req.query;
+      const lim = limit ? parseInt(limit) : 100;
+      const skip = page ? (Math.max(1, parseInt(page)) - 1) * lim : 0;
+      const logs = await logService.getAllLogs({ userId, entity, limit: lim, skip });
       res.json(logs);
     } catch (error) {
       console.error('Get logs error:', error);
