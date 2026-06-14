@@ -1,6 +1,8 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+// No fallback: if JWT_SECRET is unset, signing/verifying fails loudly rather than
+// silently using a guessable default. Production startup also refuses to boot without it.
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Auth middleware to verify JWT tokens
 export function authenticate(req, res, next) {

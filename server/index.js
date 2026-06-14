@@ -14,7 +14,17 @@ import imageRoutes from './routes/image.routes.js';
 import { BackupScheduler } from './services/backup.scheduler.js';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
 
+// Fail fast: never run in production without a real JWT secret (tokens would be forgeable).
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET is not set. Refusing to start in production.');
+  process.exit(1);
+}
+
 const app = express();
+
+// Behind nginx / a load balancer, trust the first proxy hop so req.ip (used by the
+// login rate limiter) reflects the real client IP rather than the proxy's address.
+app.set('trust proxy', 1);
 
 // Allowed browser origins for CORS.
 // Production: set CORS_ORIGIN_PROD to a comma-separated list, e.g.
