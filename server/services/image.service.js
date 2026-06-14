@@ -1,6 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from './prisma.js';
 import s3Service from './s3.service.js';
-const prisma = new PrismaClient();
 
 const includeRelations = { tags: true, author: true, type: true };
 

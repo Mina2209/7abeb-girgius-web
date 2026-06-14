@@ -1,6 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from './prisma.js';
 import s3Service from './s3.service.js';
-const prisma = new PrismaClient();
 
 // Server only: we rely on S3 for stored files. Local uploads fallback removed.
 

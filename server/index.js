@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from "cors";
-import { PrismaClient } from '@prisma/client';
+import { prisma } from './services/prisma.js';
 
 import hymnRoutes from './routes/hymn.routes.js';
 import tagRoutes from './routes/tag.routes.js';
@@ -14,7 +14,6 @@ import imageRoutes from './routes/image.routes.js';
 import { BackupScheduler } from './services/backup.scheduler.js';
 
 const app = express();
-const prisma = new PrismaClient();
 
 // Allowed browser origins for CORS.
 // Production: set CORS_ORIGIN_PROD to a comma-separated list, e.g.
