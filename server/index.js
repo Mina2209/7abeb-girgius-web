@@ -26,7 +26,9 @@ const allowedOrigins = (
     : 'http://localhost:5173'
 )
   .split(',')
-  .map((origin) => origin.trim())
+  // An Origin is scheme://host:port with no path — strip any trailing slash so
+  // "https://site.com/" in config still matches the browser's "https://site.com".
+  .map((origin) => origin.trim().replace(/\/+$/, ''))
   .filter(Boolean);
 
 if (process.env.NODE_ENV === 'production' && allowedOrigins.length === 0) {
