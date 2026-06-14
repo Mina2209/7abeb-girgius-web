@@ -16,17 +16,38 @@ import { BackupScheduler } from './services/backup.scheduler.js';
 const app = express();
 const prisma = new PrismaClient();
 
-const corsOrigin =
-  (process.env.NODE_ENV === 'production'
-    ? process.env.CORS_ORIGIN_PROD
-    : 'http://localhost:5173');
+// Allowed browser origins for CORS.
+// Production: set CORS_ORIGIN_PROD to a comma-separated list, e.g.
+//   CORS_ORIGIN_PROD="https://your-frontend.com,http://localhost:5173"
+// Development: defaults to the Vite dev server.
+const allowedOrigins = (
+  process.env.NODE_ENV === 'production'
+    ? (process.env.CORS_ORIGIN_PROD || '')
+    : 'http://localhost:5173'
+)
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+if (process.env.NODE_ENV === 'production' && allowedOrigins.length === 0) {
+  console.warn('[CORS] CORS_ORIGIN_PROD is not set — browser requests from other origins will be blocked.');
+}
 
 app.use(
   cors({
-    origin: corsOrigin,
+    origin(origin, callback) {
+      // No Origin header (curl, health checks, same-origin, server-to-server) is always allowed.
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      // Disallowed origin: omit CORS headers so the browser blocks it, but don't error the request.
+      return callback(null, false);
+    },
     credentials: true,
   })
 );
+
+console.log('[CORS] Allowed origins:', allowedOrigins.length ? allowedOrigins.join(', ') : '(none)');
 
 // Image create/update can send base64 in JSON; default 100kb limit causes 413 (often shown as CORS in the browser).
 const jsonLimit = process.env.JSON_BODY_LIMIT || '32mb';
