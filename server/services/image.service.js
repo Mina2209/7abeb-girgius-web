@@ -1,19 +1,34 @@
 import { prisma } from './prisma.js';
 import s3Service from './s3.service.js';
+import { normalizeArabic } from './normalize.js';
 
 const includeRelations = { tags: true, author: true, type: true };
 
 export const ImageService = {
-  getAll: async ({ page = 1, limit = 20, where = {} } = {}) => {
+  getAll: async ({ page = 1, limit = 20, search, tags, artist, type, ai, sort } = {}) => {
+    const where = {};
+
+    if (search && search.trim()) {
+      // Match the normalized title using the trigram index (Arabic-aware substring search).
+      where.titleNorm = { contains: normalizeArabic(search) };
+    }
+    if (Array.isArray(tags) && tags.length) {
+      where.tags = { some: { name: { in: tags } } };
+    }
+    if (artist) where.author = { name: artist };
+    if (type) where.type = { name: type };
+    if (ai === 'yes' || ai === true) where.ai = true;
+    else if (ai === 'no' || ai === false) where.ai = false;
+
+    const orderBy =
+      sort === 'date-asc' ? { createdAt: 'asc' }
+      : sort === 'title-asc' ? { titleNorm: 'asc' }
+      : sort === 'title-desc' ? { titleNorm: 'desc' }
+      : { createdAt: 'desc' }; // default: newest first
+
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
-      prisma.image.findMany({
-        where,
-        include: includeRelations,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
+      prisma.image.findMany({ where, include: includeRelations, orderBy, skip, take: limit }),
       prisma.image.count({ where }),
     ]);
     return { data, total, page, limit };
@@ -30,6 +45,7 @@ export const ImageService = {
     return prisma.image.create({
       data: {
         title: data.title,
+        titleNorm: normalizeArabic(data.title || ''),
         imageUrl: data.imageUrl,
         ai: data.ai ?? false,
         published: data.published ?? false,
@@ -51,6 +67,7 @@ export const ImageService = {
   update: async (id, data) => {
     const updateData = {
       title: data.title,
+      titleNorm: data.title !== undefined ? normalizeArabic(data.title || '') : undefined,
       imageUrl: data.imageUrl,
       ai: data.ai,
       published: data.published,

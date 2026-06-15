@@ -7,32 +7,17 @@ export const ImageController = {
     try {
       const page = Math.max(1, parseInt(req.query.page) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
-      const searchRaw = req.query.search || req.query.q || '';
+      const search = req.query.search || req.query.q || '';
+      const tags = req.query.tags
+        ? String(req.query.tags).split(',').map((s) => s.trim()).filter(Boolean)
+        : undefined;
+      const artist = req.query.artist || undefined;
+      const type = req.query.type || undefined;
+      const ai = req.query.ai || undefined; // 'yes' | 'no'
+      const sort = req.query.sort || undefined;
 
-      // Build Prisma where clause for server-side filtering
-      const where = {};
-
-      if (searchRaw) {
-        const search = normalizeArabic(searchRaw);
-        // Prisma doesn't support Arabic normalization natively,
-        // so we fetch with pagination and filter in-memory for search
-        const result = await ImageService.getAll({ page: 1, limit: 999999 });
-        const filtered = result.data.filter(img => {
-          const title = normalizeArabic(img.title || '');
-          if (title.includes(search)) return true;
-          const tagMatch = Array.isArray(img.tags) && img.tags.some(t => normalizeArabic(t.name || '').includes(search));
-          if (tagMatch) return true;
-          const authorMatch = img.author && normalizeArabic(img.author.name || '').includes(search);
-          return authorMatch;
-        });
-
-        const total = filtered.length;
-        const start = (page - 1) * limit;
-        const data = filtered.slice(start, start + limit);
-        return res.json({ data, total, page, limit });
-      }
-
-      const result = await ImageService.getAll({ page, limit, where });
+      // All filtering, sorting and pagination now run in the database (server-side).
+      const result = await ImageService.getAll({ page, limit, search, tags, artist, type, ai, sort });
       res.json(result);
     } catch (err) {
       console.error('Error fetching images:', err);
