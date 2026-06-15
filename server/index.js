@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from "cors";
+import compression from 'compression';
 import { prisma } from './services/prisma.js';
 
 import hymnRoutes from './routes/hymn.routes.js';
@@ -25,6 +26,10 @@ const app = express();
 // Behind nginx / a load balancer, trust the first proxy hop so req.ip (used by the
 // login rate limiter) reflects the real client IP rather than the proxy's address.
 app.set('trust proxy', 1);
+
+// Gzip-compress responses. Large JSON payloads (e.g. the full hymns list) shrink
+// ~85% on the wire. Responds to the client's Accept-Encoding; small bodies are skipped.
+app.use(compression());
 
 // Allowed browser origins for CORS.
 // Production: set CORS_ORIGIN_PROD to a comma-separated list, e.g.
