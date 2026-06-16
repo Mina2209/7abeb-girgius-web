@@ -26,6 +26,20 @@ export function authenticate(req, res, next) {
   }
 }
 
+// Like authenticate, but never rejects: attaches req.user if a valid token is present,
+// otherwise just continues. Used on public endpoints that show extra data to editors.
+export function optionalAuthenticate(req, res, next) {
+  const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      req.user = jwt.verify(authHeader.substring(7), JWT_SECRET);
+    } catch {
+      // Invalid/expired token on a public route — ignore and continue unauthenticated.
+    }
+  }
+  next();
+}
+
 // Middleware to check if user is an admin
 export function requireAdmin(req, res, next) {
   if (!req.user) {

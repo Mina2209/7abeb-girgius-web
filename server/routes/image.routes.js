@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { ImageController } from '../controllers/image.controller.js';
-import { authenticate, requireEditor } from '../middleware/auth.js';
+import { authenticate, requireEditor, optionalAuthenticate } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -12,8 +12,9 @@ router.get('/meta/types', ImageController.getTypes);
 router.post('/meta/types', authenticate, requireEditor, ImageController.createType);
 router.delete('/meta/types/:id', authenticate, requireEditor, ImageController.deleteType);
 
-// Public GET routes
-router.get('/', ImageController.getAll);
+// Public GET routes (optionalAuthenticate: editors also see unpublished images)
+router.get('/', optionalAuthenticate, ImageController.getAll);
+router.get('/ids', optionalAuthenticate, ImageController.getIds); // matching IDs for select-all; before /:id
 router.get('/:id', ImageController.getById);
 
 // Protected routes - require authentication and editor/admin role

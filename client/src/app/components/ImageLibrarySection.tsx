@@ -38,7 +38,13 @@ import {
   BulkImageUpdates,
 } from './AdminBulkEditImagesModal';
 import { VideoModal } from './VideoModal';
-import { useGalleryImagesData } from '../hooks/useGalleryImagesData';
+import { useGalleryImagesPaged } from '../hooks/useGalleryImagesPaged';
+import {
+  fetchGalleryIds,
+  fetchImageArtists,
+  fetchImageTypes,
+} from '../services/contentLoaders';
+import { fetchAllTags } from '../services/tagsService';
 import type { ContentId, GalleryImage } from '../types/content';
 import {
   createImage,
@@ -61,24 +67,31 @@ export function ImageLibrarySection({
 }: {
   isSidebarCollapsed: boolean;
 }) {
-  const [visibleCount, setVisibleCount] = useState(20);
   const { user, profile, accessToken } = useAuth();
   const isEditor = useIsEditor();
-  const { images, setImages, loading: imagesLoading } = useGalleryImagesData();
+  const {
+    items: images,
+    setItems: setImages,
+    total: totalImages,
+    loading: imagesLoading,
+    loadingMore,
+    hasMore,
+    applyFilters,
+    loadMore,
+    refetch: refetchGallery,
+  } = useGalleryImagesPaged(30);
 
-  // Get unique artists, tags, and types from current images
-  const allArtists = useMemo(
-    () => Array.from(new Set(images.map((img) => img.artist))),
-    [images],
-  );
-  const allTypes = useMemo(
-    () => Array.from(new Set(images.map((img) => img.type))),
-    [images],
-  );
-  const allTags = useMemo(
-    () => Array.from(new Set(images.flatMap((img) => img.tags))),
-    [images],
-  );
+  // Filter dropdown options come from the meta endpoints (not the loaded page).
+  const [allArtists, setAllArtists] = useState<string[]>([]);
+  const [allTypes, setAllTypes] = useState<string[]>([]);
+  const [allTags, setAllTags] = useState<string[]>([]);
+  useEffect(() => {
+    fetchImageArtists().then(setAllArtists).catch(() => {});
+    fetchImageTypes().then(setAllTypes).catch(() => {});
+    fetchAllTags()
+      .then((t) => setAllTags(t.map((x) => x.name)))
+      .catch(() => {});
+  }, []);
 
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedArtists, setSelectedArtists] = useState<string[]>([]);
@@ -182,16 +195,6 @@ export function ImageLibrarySection({
   // --- لوجيك إخفاء الهيدر عند السكرول (Figma Style) ---
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const lastScrollY = useRef(0);
-  useEffect(() => {
-    setVisibleCount(20);
-  }, [
-    searchQuery,
-    selectedTags,
-    selectedArtists,
-    selectedTypes,
-    aiFilter,
-    showFavoritesOnly,
-  ]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -279,13 +282,18 @@ export function ImageLibrarySection({
   };
 
   const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev + 1) % sortedImages.length);
+    setCurrentImageIndex((prev) => {
+      const next = prev + 1;
+      if (next >= sortedImages.length) {
+        if (hasMore) loadMore(); // pull in the next page; stay until it arrives
+        return prev;
+      }
+      return next;
+    });
   };
 
   const prevImage = () => {
-    setCurrentImageIndex(
-      (prev) => (prev - 1 + sortedImages.length) % sortedImages.length,
-    );
+    setCurrentImageIndex((prev) => (prev > 0 ? prev - 1 : prev));
   };
 
   // Minimum swipe distance (in px) to be considered a swipe
@@ -351,8 +359,22 @@ export function ImageLibrarySection({
     );
   };
 
+  // Select every image matching the current filters (across all pages, not just loaded).
+  const selectAllMatching = async () => {
+    if (showFavoritesOnly) {
+      setSelectedImages(sortedImages.map((img) => img.id));
+      return;
+    }
+    try {
+      const ids = await fetchGalleryIds(currentFilters);
+      setSelectedImages(ids);
+    } catch {
+      setSelectedImages(sortedImages.map((img) => img.id));
+    }
+  };
+
   const selectAllImages = () => {
-    setSelectedImages(sortedImages.map((img) => img.id));
+    void selectAllMatching();
   };
 
   const clearSelection = () => {
@@ -442,13 +464,10 @@ export function ImageLibrarySection({
   };
 
   const handleSelectAllImages = () => {
-    const allVisibleIds = sortedImages.map((img) => img.id);
-    if (selectedImages.length === allVisibleIds.length) {
-      // Deselect all
-      setSelectedImages([]);
+    if (totalImages > 0 && selectedImages.length >= totalImages) {
+      setSelectedImages([]); // deselect all
     } else {
-      // Select all
-      setSelectedImages(allVisibleIds);
+      void selectAllMatching();
     }
   };
 
@@ -638,100 +657,66 @@ export function ImageLibrarySection({
     exitSelectionMode();
   };
 
-  // Filter image categories based on selected tags and search query
-  const filteredImages = useMemo(() => {
-    return images.filter((image) => {
-      // Filter by published status - hide unpublished images for non-editor users
-      if (!isEditor && !image.published) {
-        return false;
-      }
+  // Map the UI sort option to the server's sort key.
+  const backendSort =
+    sortBy === 'alpha-asc'
+      ? 'title-asc'
+      : sortBy === 'alpha-desc'
+        ? 'title-desc'
+        : sortBy; // 'date-asc' | 'date-desc' pass through
 
-      // Filter by search query
-      const matchesSearch =
-        searchQuery === '' ||
-        image.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        image.tags.some((tag) =>
-          tag.toLowerCase().includes(searchQuery.toLowerCase()),
-        );
-
-      // Filter by tags
-      const matchesTags =
-        selectedTags.length === 0 ||
-        selectedTags.some((tag) => image.tags.includes(tag));
-
-      // Filter by artists
-      const matchesArtists =
-        selectedArtists.length === 0 || selectedArtists.includes(image.artist);
-
-      // Filter by types
-      const matchesTypes =
-        selectedTypes.length === 0 || selectedTypes.includes(image.type);
-
-      // Filter by AI generated
-      const matchesAi =
-        aiFilter === 'all' ||
-        (aiFilter === 'yes' && image.aiGenerated) ||
-        (aiFilter === 'no' && !image.aiGenerated);
-
-      // Filter by favorites
-      const matchesFavorites =
-        !showFavoritesOnly ||
-        favoritedImages.some((f) => String(f) === String(image.id));
-
-      return (
-        matchesSearch &&
-        matchesTags &&
-        matchesArtists &&
-        matchesTypes &&
-        matchesAi &&
-        matchesFavorites
-      );
-    });
-  }, [
-    images,
-    selectedTags,
-    selectedArtists,
-    selectedTypes,
-    aiFilter,
-    searchQuery,
-    showFavoritesOnly,
-    favoritedImages,
-    isEditor,
-  ]);
-
-  // Sort filtered categories based on sort key and order
-  const sortedImages = useMemo(() => {
-    return [...filteredImages].sort((a, b) => {
-      if (sortBy === 'alpha-asc') {
-        return a.title.localeCompare(b.title);
-      } else if (sortBy === 'alpha-desc') {
-        return b.title.localeCompare(a.title);
-      } else if (sortBy === 'date-asc') {
-        return (
-          new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime()
-        );
-      } else if (sortBy === 'date-desc') {
-        return (
-          new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
-        );
-      }
-      return 0;
-    });
-  }, [filteredImages, sortBy]);
-  const displayedImages = useMemo(() => {
-    return sortedImages.slice(0, visibleCount);
-  }, [sortedImages, visibleCount]);
-
+  // Debounce the search box so we don't hit the server on every keystroke.
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   useEffect(() => {
-    setVisibleCount(20);
-  }, [
-    searchQuery,
-    selectedTags,
-    selectedArtists,
-    selectedTypes,
-    aiFilter,
-    showFavoritesOnly,
-  ]);
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // The active server-side filter set ("favorites only" becomes an id list).
+  const currentFilters = useMemo(
+    () => ({
+      search: debouncedSearch,
+      tags: selectedTags,
+      artists: selectedArtists,
+      types: selectedTypes,
+      ai: aiFilter,
+      ids: showFavoritesOnly ? favoritedImages.map(String) : undefined,
+      token: accessToken,
+    }),
+    [
+      debouncedSearch,
+      selectedTags,
+      selectedArtists,
+      selectedTypes,
+      aiFilter,
+      showFavoritesOnly,
+      favoritedImages,
+      accessToken,
+    ],
+  );
+
+  // Refetch from page 1 whenever the filters or sort change.
+  useEffect(() => {
+    applyFilters({ ...currentFilters, sort: backendSort });
+  }, [currentFilters, backendSort, applyFilters]);
+
+  // Infinite scroll: load the next page when the sentinel nears the viewport.
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) loadMore();
+      },
+      { root: scrollContainerRef.current ?? null, rootMargin: '600px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loadMore, hasMore]);
+
+  // The server already filtered + sorted; `images` holds the pages loaded so far.
+  const sortedImages = images;
 
   const handleLogin = () => {
     setShowLoginModal(false);
@@ -1053,7 +1038,7 @@ export function ImageLibrarySection({
               <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 h-[42px] bg-muted/50 border border-border/50 rounded-xl pointer-events-none">
                 <ImageIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                 <span className="text-sm text-muted-foreground font-medium whitespace-nowrap">
-                  {sortedImages.length} / {images.length}
+                  {sortedImages.length} / {totalImages}
                 </span>
               </div>
             </div>
@@ -1287,6 +1272,14 @@ export function ImageLibrarySection({
             )}
           </Masonry>
         </ResponsiveMasonry>
+
+        {/* Infinite-scroll sentinel + loading indicator */}
+        {hasMore && <div ref={sentinelRef} className="h-px w-full" />}
+        {loadingMore && (
+          <div className="flex justify-center py-6 text-muted-foreground">
+            <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent" />
+          </div>
+        )}
       </div>
 
       {/* Lightbox Modal */}
@@ -1460,7 +1453,7 @@ export function ImageLibrarySection({
             {/* Left Side - Counter */}
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">
-                {selectedImages.length} من {sortedImages.length} محدد
+                {selectedImages.length} من {totalImages} محدد
               </span>
             </div>
 
@@ -1518,7 +1511,7 @@ export function ImageLibrarySection({
             {/* Counter and Cancel on same row */}
             <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between gap-3">
               <p className="text-sm font-medium">
-                {selectedImages.length} من {sortedImages.length} محدد
+                {selectedImages.length} من {totalImages} محدد
               </p>
               <button
                 onClick={exitSelectionMode}

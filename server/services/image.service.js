@@ -4,21 +4,31 @@ import { normalizeArabic } from './normalize.js';
 
 const includeRelations = { tags: true, author: true, type: true };
 
-export const ImageService = {
-  getAll: async ({ page = 1, limit = 20, search, tags, artist, type, ai, sort } = {}) => {
-    const where = {};
+// Build a Prisma `where` for image queries from the supported filters.
+function buildImageWhere({ search, tags, artists, types, ai, ids, includeUnpublished } = {}) {
+  const where = {};
+  if (search && search.trim()) {
+    const s = search.trim();
+    // Free-text search matches the normalized title (indexed) OR a tag name.
+    where.OR = [
+      { titleNorm: { contains: normalizeArabic(s) } },
+      { tags: { some: { name: { contains: s, mode: 'insensitive' } } } },
+    ];
+  }
+  if (Array.isArray(tags) && tags.length) where.tags = { some: { name: { in: tags } } };
+  if (Array.isArray(artists) && artists.length) where.author = { name: { in: artists } };
+  if (Array.isArray(types) && types.length) where.type = { name: { in: types } };
+  if (ai === 'yes' || ai === true) where.ai = true;
+  else if (ai === 'no' || ai === false) where.ai = false;
+  if (Array.isArray(ids) && ids.length) where.id = { in: ids };
+  // Non-editors only ever see published images.
+  if (!includeUnpublished) where.published = true;
+  return where;
+}
 
-    if (search && search.trim()) {
-      // Match the normalized title using the trigram index (Arabic-aware substring search).
-      where.titleNorm = { contains: normalizeArabic(search) };
-    }
-    if (Array.isArray(tags) && tags.length) {
-      where.tags = { some: { name: { in: tags } } };
-    }
-    if (artist) where.author = { name: artist };
-    if (type) where.type = { name: type };
-    if (ai === 'yes' || ai === true) where.ai = true;
-    else if (ai === 'no' || ai === false) where.ai = false;
+export const ImageService = {
+  getAll: async ({ page = 1, limit = 20, search, tags, artists, types, ai, ids, sort, includeUnpublished } = {}) => {
+    const where = buildImageWhere({ search, tags, artists, types, ai, ids, includeUnpublished });
 
     const orderBy =
       sort === 'date-asc' ? { createdAt: 'asc' }
@@ -32,6 +42,13 @@ export const ImageService = {
       prisma.image.count({ where }),
     ]);
     return { data, total, page, limit };
+  },
+
+  // Return just the IDs of all images matching the filters (for "select all" across pages).
+  getAllIds: async ({ search, tags, artists, types, ai, includeUnpublished } = {}) => {
+    const where = buildImageWhere({ search, tags, artists, types, ai, includeUnpublished });
+    const rows = await prisma.image.findMany({ where, select: { id: true } });
+    return rows.map((r) => r.id);
   },
 
   getById: async (id) => {
