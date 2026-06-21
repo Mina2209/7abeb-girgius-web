@@ -6,7 +6,6 @@ import {
   X,
   Heart,
   Download,
-  Eye,
   Edit2,
   Trash2,
   ArrowUpDown,
@@ -30,12 +29,20 @@ import { TagFilter } from "./TagFilter";
 import { MultiSelectFilter } from "./MultiSelectFilter";
 import { useIsEditor } from "../utils/adminUtils";
 import { useAuth } from "../contexts/AuthContext";
+import { useBooks } from "../hooks/useBooks";
+import { normalizeArabic } from "../utils/arabicUtils";
 
-// Default book cover image for books without a cover
+// استدعاء دوال الـ API Client الجديد لإدارة الاتصال بالسيرفر
+import {
+  apiGetJson,
+  apiPostJson,
+  apiPutJson,
+  apiDeleteJson,
+} from "../services/apiClient";
+
 const FALLBACK_BOOK_COVER =
   "https://images.unsplash.com/photo-1569690484582-58b478f46805?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxib29rJTIwY292ZXIlMjBwbGFjZWhvbGRlcnxlbnwxfHx8fDE3Njg1NzEyMTd8MA&ixlib=rb-4.1.0&q=80&w=1080";
 
-// Function to get the current default book cover (admin can customize this)
 export const getDefaultBookCover = () => {
   const customCover = localStorage.getItem("default_book_cover");
   return customCover || FALLBACK_BOOK_COVER;
@@ -52,8 +59,8 @@ export interface Book {
   year: string;
   description: string;
   dateAdded: string;
-  pdfFile: string; // base64 or mock URL
-  coverImage?: string; // base64 or mock URL - now optional
+  pdfFile: string; 
+  coverImage?: string; 
   isFavorite?: boolean;
 }
 
@@ -78,11 +85,137 @@ const sortOptions = [
   { value: "year-oldest" as SortOption, label: "سنة النشر (الأقدم)" },
 ];
 
+type BookFacet = "topics" | "authors" | "publishers" | "series" | "bookTypes";
+
+const sortArabic = (a: string, b: string) => a.localeCompare(b, "ar");
+
+const uniqueSorted = (values: string[]) =>
+  Array.from(new Set(values.filter(Boolean))).sort(sortArabic);
+
+const normalizeSearchText = (text: string) => normalizeArabic(text).toLowerCase();
+
+function bookMatchesSearch(book: Book, query: string) {
+  if (!query) return true;
+  const normalizedQuery = normalizeSearchText(query);
+  return (
+    normalizeSearchText(book.title).includes(normalizedQuery) ||
+    normalizeSearchText(book.author).includes(normalizedQuery) ||
+    normalizeSearchText(book.publisher).includes(normalizedQuery) ||
+    normalizeSearchText(book.description).includes(normalizedQuery) ||
+    book.topics.some((topic) => normalizeSearchText(topic).includes(normalizedQuery))
+  );
+}
+
+function bookMatchesTopics(book: Book, selectedTopics: string[]) {
+  return (
+    selectedTopics.length === 0 ||
+    book.topics.some((topic) => selectedTopics.includes(topic))
+  );
+}
+
+function bookMatchesAuthors(book: Book, selectedAuthors: string[]) {
+  return selectedAuthors.length === 0 || selectedAuthors.includes(book.author);
+}
+
+function bookMatchesPublishers(book: Book, selectedPublishers: string[]) {
+  return (
+    selectedPublishers.length === 0 ||
+    selectedPublishers.includes(book.publisher)
+  );
+}
+
+function bookMatchesSeries(book: Book, selectedSeries: string[]) {
+  return selectedSeries.length === 0 || selectedSeries.includes(book.series);
+}
+
+function bookMatchesTypes(book: Book, selectedBookTypes: string[]) {
+  return (
+    selectedBookTypes.length === 0 ||
+    selectedBookTypes.includes(book.bookType)
+  );
+}
+
+function bookMatchesFavorites(
+  book: Book,
+  showFavoritesOnly: boolean,
+  favoritedBooks: string[],
+) {
+  return !showFavoritesOnly || favoritedBooks.includes(book.id);
+}
+
+function getBooksForFacet(
+  books: Book[],
+  params: {
+    searchQuery: string;
+    selectedTopics: string[];
+    selectedAuthors: string[];
+    selectedPublishers: string[];
+    selectedSeries: string[];
+    selectedBookTypes: string[];
+    showFavoritesOnly: boolean;
+    favoritedBooks: string[];
+    excludeFacet?: BookFacet;
+  },
+) {
+  const {
+    searchQuery,
+    selectedTopics,
+    selectedAuthors,
+    selectedPublishers,
+    selectedSeries,
+    selectedBookTypes,
+    showFavoritesOnly,
+    favoritedBooks,
+    excludeFacet,
+  } = params;
+
+  return books.filter((book) => {
+    if (!bookMatchesSearch(book, searchQuery)) return false;
+    if (excludeFacet !== "topics" && !bookMatchesTopics(book, selectedTopics)) {
+      return false;
+    }
+    if (excludeFacet !== "authors" && !bookMatchesAuthors(book, selectedAuthors)) {
+      return false;
+    }
+    if (
+      excludeFacet !== "publishers" &&
+      !bookMatchesPublishers(book, selectedPublishers)
+    ) {
+      return false;
+    }
+    if (excludeFacet !== "series" && !bookMatchesSeries(book, selectedSeries)) {
+      return false;
+    }
+    if (
+      excludeFacet !== "bookTypes" &&
+      !bookMatchesTypes(book, selectedBookTypes)
+    ) {
+      return false;
+    }
+    if (!bookMatchesFavorites(book, showFavoritesOnly, favoritedBooks)) {
+      return false;
+    }
+    return true;
+  });
+}
+
 export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
-  const { user, profile } = useAuth();
+  const { user, profile } = useAuth(); 
   const isEditor = useIsEditor();
 
-  const [books, setBooks] = useState<Book[]>([]);
+  const {
+    books,
+    isLoading,
+    error,
+    fetchBooks,
+    addBook,
+    updateBook,
+    deleteBook,
+    bulkDeleteBooks,
+    bulkUpdateBooks,
+    importBooks,
+  } = useBooks();
+
   const [topics, setTopics] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
@@ -97,355 +230,137 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingBook, setEditingBook] = useState<Book | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [scrollProgress, setScrollProgress] = useState(0);
-  const [bulkEditMode, setBulkEditMode] = useState(false);
   const [selectedBookIds, setSelectedBookIds] = useState<string[]>([]);
   const [favoritedBooks, setFavoritedBooks] = useState<string[]>([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
+  const [bulkEditMode, setBulkEditMode] = useState(false);
 
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const filtersContainerRef = useRef<HTMLDivElement>(null!);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Add state to trigger re-render when default cover changes
   const [defaultCoverKey, setDefaultCoverKey] = useState(0);
 
   useEffect(() => {
-    loadBooks();
+    fetchBooks();
+  }, [fetchBooks]);
+
+  useEffect(() => {
     loadTopics();
     loadFavoritedBooks();
 
-    // Listen for default book cover changes
     const handleDefaultCoverChange = () => {
       setDefaultCoverKey((prev) => prev + 1);
     };
 
-    window.addEventListener(
-      "defaultBookCoverChanged",
-      handleDefaultCoverChange,
-    );
-
+    window.addEventListener("defaultBookCoverChanged", handleDefaultCoverChange);
     return () => {
-      window.removeEventListener(
-        "defaultBookCoverChanged",
-        handleDefaultCoverChange,
-      );
+      window.removeEventListener("defaultBookCoverChanged", handleDefaultCoverChange);
     };
   }, []);
 
-  // Detect scroll to hide title/description
-useEffect(() => {
-  const handleScroll = () => {
-    if (scrollContainerRef.current) {
-      const scrollTop = scrollContainerRef.current.scrollTop;
-      setIsScrolled(scrollTop > 20);
-    }
-  };
+  useEffect(() => {
+    const handleScroll = () => {
+      if (scrollContainerRef.current) {
+        const scrollTop = scrollContainerRef.current.scrollTop;
+        setIsScrolled(scrollTop > 20);
+      }
+    };
 
-  const scrollContainer = scrollContainerRef.current;
-  if (scrollContainer) {
-    scrollContainer.addEventListener("scroll", handleScroll);
-    handleScroll();
-  }
-
-  return () => {
+    const scrollContainer = scrollContainerRef.current;
     if (scrollContainer) {
-      scrollContainer.removeEventListener("scroll", handleScroll);
+      scrollContainer.addEventListener("scroll", handleScroll);
+      handleScroll();
     }
-  };
-  
-//  شيلنا isLoading وسيبنا الـ Ref ومصفوفة الداتا بس
-}, [scrollContainerRef.current, books]);
 
-  const loadBooks = () => {
-    const saved = localStorage.getItem("books_library");
-    const parsedBooks = saved ? JSON.parse(saved) : null;
+    return () => {
+      if (scrollContainer) {
+        scrollContainer.removeEventListener("scroll", handleScroll);
+      }
+    };
+  }, [scrollContainerRef.current, books]);
 
-    // Force reload if we have less than 13 books (to get the new mock data)
-    if (!parsedBooks || parsedBooks.length < 13) {
-      // Initialize with mock data
-      const mockBooks: Book[] = [
-        {
-          id: "1",
-          title: "حياة الصلاة الأرثوذكسية",
-          author: "متى المسكين",
-          bookType: "روحي",
-          publisher: "دير القديس أنبا مقار",
-          series: "سلسلة الحياة الروحية",
-          topics: ["الصلاة"],
-          year: "1995",
-          description:
-            "كتاب شامل عن الصلاة في الكنيسة الأرثوذكسية وأهميتها في الحياة الروحية",
-          dateAdded: new Date(2024, 0, 15).toISOString(),
-          pdfFile: "mock-pdf-1",
-          coverImage:
-            "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400",
-          isFavorite: false,
-        },
-        {
-          id: "2",
-          title: "تاريخ الكنيسة القبطية",
-          author: "إيريس حبيب المصري",
-          bookType: "تاريخي",
-          publisher: "مكتبة المحبة",
-          series: "قصة الكنيسة القبطية",
-          topics: ["التاريخ الكنسي"],
-          year: "1988",
-          description:
-            "موسوعة تاريخية شاملة عن الكنيسة القبطية منذ نشأتها حتى العصر الحديث",
-          dateAdded: new Date(2024, 1, 10).toISOString(),
-          pdfFile: "mock-pdf-2",
-          coverImage:
-            "https://images.unsplash.com/photo-1536778215133-7e02ee89cb90?w=800",
-          isFavorite: false,
-        },
-        {
-          id: "3",
-          title: "الليتورجيا القبطية",
-          author: "القمص متى المسكين",
-          bookType: "طقسي",
-          publisher: "دير القديس أنبا مقار",
-          series: "سلسلة الليتورجيا",
-          topics: ["الليتورجيا", "الطقوس"],
-          year: "2000",
-          description:
-            "شرح مفصل للقداس الإلهي والطقوس الكنسية في الكنيسة القبطية",
-          dateAdded: new Date(2024, 2, 5).toISOString(),
-          pdfFile: "mock-pdf-3",
-          // No coverImage - will use default
-          isFavorite: false,
-        },
-        {
-          id: "4",
-          title: "الإنجيل بحسب القديس يوحنا",
-          author: "الأنبا شنودة الثالث",
-          bookType: "تفسير",
-          publisher: "مطبوعات دير الأنبا رويس",
-          series: "تفاسير الكتاب المقدس",
-          topics: ["الكتاب المقدس", "التفسير"],
-          year: "2005",
-          description: "تفسير روحي وعملي لإنجيل يوحنا من منظور آبائي معاصر",
-          dateAdded: new Date(2024, 3, 20).toISOString(),
-          pdfFile: "mock-pdf-4",
-          coverImage:
-            "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?w=400",
-          isFavorite: false,
-        },
-        {
-          id: "5",
-          title: "القديس أثناسيوس الرسولي",
-          author: "الأب متى المسكين",
-          bookType: "سِيَر",
-          publisher: "دير القديس أنبا مقار",
-          series: "سلسلة آباء الكنيسة",
-          topics: ["سِيَر القديسين", "التاريخ الكنسي"],
-          year: "1998",
-          description: "سيرة حياة القديس أثناسيوس الرسولي وجهاده ضد الأريوسية",
-          dateAdded: new Date(2024, 4, 12).toISOString(),
-          pdfFile: "mock-pdf-5",
-          coverImage:
-            "https://images.unsplash.com/photo-1650437732428-9854461455d4?w=600",
-          isFavorite: false,
-        },
-        {
-          id: "6",
-          title: "الرهبنة القبطية في عصر القديس أنبا مقار",
-          author: "الأنبا إبيفانيوس",
-          bookType: "تاريخي",
-          publisher: "دير القديس أنبا مقار",
-          series: "تاريخ الرهبنة",
-          topics: ["الرهبنة", "التاريخ الكنسي"],
-          year: "2015",
-          description:
-            "دراسة شاملة عن الرهبنة القبطية في برية شيهيت وتعاليم آباء البرية",
-          dateAdded: new Date(2024, 5, 8).toISOString(),
-          pdfFile: "mock-pdf-6",
-          // No coverImage - will use default
-          isFavorite: false,
-        },
-        {
-          id: "7",
-          title: "سر الإفخارستيا",
-          author: "الأب متى المسكين",
-          bookType: "طقسي",
-          publisher: "دير القديس أنبا مقار",
-          series: "سلسلة الأسرار المقدسة",
-          topics: ["الأسرار الكنسية", "الليتورجيا"],
-          year: "2002",
-          description:
-            "دراسة لاهوتية وطقسية عن سر الإفخارستيا (التناول المقدس)",
-          dateAdded: new Date(2024, 6, 25).toISOString(),
-          pdfFile: "mock-pdf-7",
-          coverImage:
-            "https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=400",
-          isFavorite: false,
-        },
-        {
-          id: "8",
-          title: "التسبحة اليومية والفصلية",
-          author: "القمص بولس البراموسي",
-          bookType: "طقسي",
-          publisher: "الكلية الإكليريكية",
-          series: "الكتب الطقسية",
-          topics: ["التسبحة", "الطقوس"],
-          year: "2010",
-          description: "شرح تفصيلي للتسبحة اليومية والفصلية مع الألحان والطقوس",
-          dateAdded: new Date(2024, 7, 14).toISOString(),
-          pdfFile: "mock-pdf-8",
-          coverImage:
-            "https://images.unsplash.com/photo-1476357471311-43c0db9fb2b4?w=400",
-          isFavorite: false,
-        },
-        {
-          id: "9",
-          title: "حياة القديسة مريم المصرية",
-          author: "القمص تادرس يعقوب",
-          bookType: "سِيَر",
-          publisher: "مكتبة المحبة",
-          series: "سلسلة قديسي الكنيسة",
-          topics: ["سِيَر القديسين", "التوبة"],
-          year: "1992",
-          description: "قصة حياة القديسة مريم المصرية ورحلة توبتها العجيبة",
-          dateAdded: new Date(2024, 8, 30).toISOString(),
-          pdfFile: "mock-pdf-9",
-          coverImage:
-            "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=400",
-          isFavorite: false,
-        },
-        {
-          id: "10",
-          title: "اللاهوت المقارن",
-          author: "الأنبا بيشوي",
-          bookType: "لاهوتي",
-          publisher: "دار الطباعة القبطية",
-          series: "الدراسات اللاهوتية",
-          topics: ["اللاهوت", "العقيدة"],
-          year: "2008",
-          description: "دراسة مقارنة للعقائد المسيحية في الكنائس المختلفة",
-          dateAdded: new Date(2024, 9, 18).toISOString(),
-          pdfFile: "mock-pdf-10",
-          coverImage:
-            "https://images.unsplash.com/photo-1700406629128-1166dc748748?w=700",
-          isFavorite: false,
-        },
-        {
-          id: "11",
-          title: "الألحان القبطية وتاريخها",
-          author: "الدكتور راغب مفتاح",
-          bookType: "ألحان",
-          publisher: "معهد الدراسات القبطية",
-          series: "الموسيقى القبطية",
-          topics: ["الألحان", "التراث القبطي"],
-          year: "2012",
-          description: "دراسة موسيقية وتاريخية شاملة للألحان الكنسية القبطية",
-          dateAdded: new Date(2024, 10, 5).toISOString(),
-          pdfFile: "mock-pdf-11",
-          coverImage:
-            "https://images.unsplash.com/photo-1515378960530-7c0da6231fb1?w=400",
-          isFavorite: false,
-        },
-        {
-          id: "12",
-          title: "معجم المصطلحات الكنسية",
-          author: "الأنبا يوأنس",
-          bookType: "مرجعي",
-          publisher: "دار نوبار للطباعة",
-          series: "الكتب المرجعية",
-          topics: ["اللغة القبطية", "المصطلحات"],
-          year: "2018",
-          description: "معجم شامل للمصطلحات الكنسية واللاهوتية والطقسية",
-          dateAdded: new Date(2024, 11, 22).toISOString(),
-          pdfFile: "mock-pdf-12",
-          coverImage:
-            "https://images.unsplash.com/photo-1768081377851-9e8bfb4e0f45?w=500",
-          isFavorite: false,
-        },
-        {
-          id: "13",
-          title: "تاريخ البطاركة الإسكندريين",
-          author: "ساويرس بن المقفع",
-          bookType: "تاريخي",
-          publisher: "المركز الفرنسي للآثار",
-          series: "التراث القبطي",
-          topics: ["التاريخ الكنسي", "البطاركة"],
-          year: "1990",
-          description: "سجل تاريخي للبطاركة الإسكندريين منذ القديس مرقس الرسول",
-          dateAdded: new Date(2024, 11, 15).toISOString(),
-          pdfFile: "mock-pdf-13",
-          coverImage:
-            "https://images.unsplash.com/photo-1524578271613-d550eacf6090?w=400",
-          isFavorite: false,
-        },
-      ];
-
-      // Normalize publishers: set to "غير محدد" if empty
-      const normalizedBooks = mockBooks.map((book) => ({
-        ...book,
-        publisher:
-          book.publisher && book.publisher.trim() !== ""
-            ? book.publisher
-            : "غير محدد",
-      }));
-
-      setBooks(normalizedBooks);
-      localStorage.setItem("books_library", JSON.stringify(normalizedBooks));
-    } else {
-      // Normalize publishers in loaded books as well
-      const normalizedBooks = parsedBooks.map((book: Book) => ({
-        ...book,
-        publisher:
-          book.publisher && book.publisher.trim() !== ""
-            ? book.publisher
-            : "غير محدد",
-      }));
-      setBooks(normalizedBooks);
+  // جلب التصنيفات من السيرفر
+  const loadTopics = async () => {
+    try {
+      const data = await apiGetJson<any[]>("/tags");
+      setTopics(data);
+    } catch (error) {
+      console.error("فشل جلب التصنيفات من السيرفر:", error);
     }
   };
 
-  const loadTopics = () => {
-    const saved = localStorage.getItem("topics_master_list");
-    if (saved) {
-      setTopics(JSON.parse(saved));
+  // جلب الكتب المفضلة
+  const loadFavoritedBooks = async () => {
+    try {
+      const data = await apiGetJson<{ books: string[] }>("/auth/favorites");
+      setFavoritedBooks(data.books || []);
+    } catch (error) {
+      console.error("فشل جلب الكتب المفضلة:", error);
     }
   };
 
-  const loadFavoritedBooks = () => {
-    const favorites = JSON.parse(
-      localStorage.getItem("user_favorites") ||
-        '{"hymns":[],"images":[],"sayings":[],"books":[]}',
-    );
-    setFavoritedBooks(favorites.books || []);
+  // تحديث حالة المفضلة
+  const toggleFavorite = async (bookId: string) => {
+    try {
+      const data = await apiPostJson<{ books: string[] }>(`/books/${bookId}/favorite`, {});
+      setFavoritedBooks(data.books || []);
+    } catch (error) {
+      console.error("فشل تحديث حالة المفضلة:", error);
+    }
   };
 
-  const saveBooks = (updatedBooks: Book[]) => {
-    setBooks(updatedBooks);
-    localStorage.setItem("books_library", JSON.stringify(updatedBooks));
+  // إضافة أو تعديل كتاب
+  const handleSaveBook = async (bookData: Book) => {
+    try {
+      if (editingBook) {
+        await updateBook(bookData.id, bookData);
+      } else {
+        await addBook(bookData);
+      }
+      setShowEditModal(false);
+    } catch (error) {
+      console.error("حدث خطأ أثناء حفظ الكتاب على السيرفر:", error);
+    }
   };
 
-  const toggleFavorite = (bookId: string) => {
-    const updatedBooks = books.map((book) =>
-      book.id === bookId ? { ...book, isFavorite: !book.isFavorite } : book,
-    );
-    saveBooks(updatedBooks);
-
-    // Update favorites list
-    const favorites = JSON.parse(
-      localStorage.getItem("user_favorites") ||
-        '{"hymns":[],"images":[],"sayings":[],"books":[]}',
-    );
-    const book = updatedBooks.find((b) => b.id === bookId);
-    if (book?.isFavorite) {
-      if (!favorites.books) favorites.books = [];
-      favorites.books.push(bookId);
-    } else {
-      if (favorites.books) {
-        favorites.books = favorites.books.filter((id: string) => id !== bookId);
+  // حذف كتاب
+  const handleDeleteBook = async (bookId: string) => {
+    if (confirm("هل أنت متأكد من حذف هذا الكتاب؟")) {
+      try {
+        await deleteBook(bookId);
+      } catch (error) {
+        console.error("فشل حذف الكتاب من السيرفر:", error);
       }
     }
-    localStorage.setItem("user_favorites", JSON.stringify(favorites));
-    loadFavoritedBooks();
+  };
+
+  // حذف جماعي للكتب
+  const handleBulkDelete = async () => {
+    if (confirm(`هل أنت متأكد من حذف ${selectedBookIds.length} كتاب؟`)) {
+      try {
+        await bulkDeleteBooks(selectedBookIds);
+        setSelectedBookIds([]);
+      } catch (error) {
+        console.error("فشل حذف مجموعة الكتب من السيرفر:", error);
+      }
+    }
+  };
+
+  // تعديل جماعي للكتب
+  const handleBulkEditSave = async (updates: BulkBookUpdates) => {
+    try {
+      await bulkUpdateBooks(selectedBookIds, updates);
+      setIsBulkEditModalOpen(false);
+      setSelectedBookIds([]);
+      setBulkEditMode(false);
+      alert("تم تحديث الكتب بنجاح");
+    } catch (error) {
+      console.error("فشل التحديث الجماعي على السيرفر:", error);
+      alert("خطأ أثناء معالجة التحديث الجماعي");
+    }
   };
 
   const handleAddNew = () => {
@@ -456,73 +371,6 @@ useEffect(() => {
   const handleEditBook = (book: Book) => {
     setEditingBook(book);
     setShowEditModal(true);
-  };
-
-  const handleDeleteBook = (bookId: string) => {
-    if (confirm("هل أنت متأكد من حذف هذا الكتاب؟")) {
-      const updatedBooks = books.filter((book) => book.id !== bookId);
-      saveBooks(updatedBooks);
-    }
-  };
-
-  const handleBulkDelete = () => {
-    if (confirm(`هل أنت متأكد من حذف ${selectedBookIds.length} كتاب؟`)) {
-      const updatedBooks = books.filter(
-        (book) => !selectedBookIds.includes(book.id),
-      );
-      saveBooks(updatedBooks);
-      setSelectedBookIds([]);
-    }
-  };
-
-  const handleBulkEditSave = (updates: BulkBookUpdates) => {
-    const updatedBooks = books.map((book) => {
-      if (!selectedBookIds.includes(book.id)) return book;
-
-      let updatedBook = { ...book };
-
-      if (updates.applyAuthor && updates.author) {
-        updatedBook.author = updates.author;
-      }
-
-      if (updates.applyBookType && updates.bookType) {
-        updatedBook.bookType = updates.bookType;
-      }
-
-      if (updates.applyPublisher && updates.publisher) {
-        updatedBook.publisher = updates.publisher;
-      }
-
-      if (updates.applySeries && updates.series) {
-        updatedBook.series = updates.series;
-      }
-
-      if (updates.applyTopics) {
-        switch (updates.topicOperation) {
-          case "add":
-            updatedBook.topics = [
-              ...new Set([...updatedBook.topics, ...updates.topics]),
-            ];
-            break;
-          case "replace":
-            updatedBook.topics = updates.topics;
-            break;
-          case "remove":
-            updatedBook.topics = updatedBook.topics.filter(
-              (t) => !updates.topics.includes(t),
-            );
-            break;
-        }
-      }
-
-      return updatedBook;
-    });
-
-    saveBooks(updatedBooks);
-    setIsBulkEditModalOpen(false);
-    setSelectedBookIds([]);
-    setBulkEditMode(false);
-    alert("تم تحديث الكتب بنجاح");
   };
 
   const handleSelectAll = () => {
@@ -544,43 +392,25 @@ useEffect(() => {
     URL.revokeObjectURL(url);
   };
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (event) => {
+      reader.onload = async (event) => {
         try {
           const importedBooks = JSON.parse(event.target?.result as string);
           if (Array.isArray(importedBooks)) {
-            saveBooks(importedBooks);
-            alert("تم استيراد البيانات بنجاح!");
+            await importBooks(importedBooks);
+            alert("تم استيراد البيانات بنجاح بالسيرفر!");
           } else {
             alert("تنسيق الملف غير صحيح");
           }
         } catch (error) {
-          alert("خطأ في قراءة الملف");
+          alert("خطأ في قراءة أو رفع الملف");
         }
       };
       reader.readAsText(file);
     }
-  };
-
-  const handleSaveBook = (book: Book) => {
-    if (editingBook) {
-      // Edit existing
-      const updatedBooks = books.map((b) => (b.id === book.id ? book : b));
-      saveBooks(updatedBooks);
-    } else {
-      // Add new
-      const newBook = {
-        ...book,
-        id: Date.now().toString(),
-        dateAdded: new Date().toISOString(),
-        isFavorite: false,
-      };
-      saveBooks([...books, newBook]);
-    }
-    setShowEditModal(false);
   };
 
   const handleViewBook = (book: Book) => {
@@ -589,7 +419,6 @@ useEffect(() => {
   };
 
   const downloadBook = (book: Book) => {
-    // Create a temporary link to trigger download
     const link = document.createElement("a");
     link.href = book.pdfFile;
     link.download = `${book.title}.pdf`;
@@ -598,126 +427,29 @@ useEffect(() => {
     document.body.removeChild(link);
   };
 
-  const toggleAuthor = (author: string) => {
-    setSelectedAuthors((prev) =>
-      prev.includes(author)
-        ? prev.filter((a) => a !== author)
-        : [...prev, author],
-    );
-  };
+  // مجموعات الميمو للفلاتر
+  const allAuthors = useMemo(() => uniqueSorted(books.map((b) => b.author)), [books]);
+  const allPublishers = useMemo(() => uniqueSorted(books.map((b) => b.publisher).filter((p) => p !== "غير محدد")), [books]);
+  const allSeries = useMemo(() => uniqueSorted(books.map((b) => b.series)), [books]);
+  const allBookTypes = useMemo(() => uniqueSorted(books.map((b) => b.bookType)), [books]);
 
-  const togglePublisher = (publisher: string) => {
-    setSelectedPublishers((prev) =>
-      prev.includes(publisher)
-        ? prev.filter((p) => p !== publisher)
-        : [...prev, publisher],
-    );
-  };
-
-  const toggleSeries = (series: string) => {
-    setSelectedSeries((prev) =>
-      prev.includes(series)
-        ? prev.filter((s) => s !== series)
-        : [...prev, series],
-    );
-  };
-
-  // Get unique values for filters
-  const allAuthors = useMemo(() => {
-    const authors = new Set(books.map((book) => book.author).filter(Boolean));
-    return Array.from(authors).sort();
-  }, [books]);
-
-  const allPublishers = useMemo(() => {
-    const publishers = new Set(
-      books
-        .map((book) => book.publisher)
-        .filter((publisher) => publisher && publisher !== "غير محدد"),
-    );
-    return Array.from(publishers).sort();
-  }, [books]);
-
-  const allSeries = useMemo(() => {
-    const series = new Set(books.map((book) => book.series).filter(Boolean));
-    return Array.from(series).sort();
-  }, [books]);
-
-  const allBookTypes = useMemo(() => {
-    const bookTypes = new Set(
-      books.map((book) => book.bookType).filter(Boolean),
-    );
-    return Array.from(bookTypes).sort();
-  }, [books]);
-
-  // Filter and sort books
   const filteredAndSortedBooks = useMemo(() => {
     let filtered = books.filter((book) => {
-      // Search query
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        if (
-          !book.title.toLowerCase().includes(query) &&
-          !book.author.toLowerCase().includes(query) &&
-          !book.publisher.toLowerCase().includes(query) &&
-          !book.description.toLowerCase().includes(query)
-        ) {
-          return false;
-        }
-      }
-
-      // Topics filter
-      if (selectedTopics.length > 0) {
-        if (!book.topics.some((topic) => selectedTopics.includes(topic))) {
-          return false;
-        }
-      }
-
-      // Authors filter
-      if (selectedAuthors.length > 0) {
-        if (!selectedAuthors.includes(book.author)) {
-          return false;
-        }
-      }
-
-      // Publishers filter
-      if (selectedPublishers.length > 0) {
-        if (!selectedPublishers.includes(book.publisher)) {
-          return false;
-        }
-      }
-
-      // Series filter
-      if (selectedSeries.length > 0) {
-        if (!selectedSeries.includes(book.series)) {
-          return false;
-        }
-      }
-
-      // Book Types filter
-      if (selectedBookTypes.length > 0) {
-        if (!selectedBookTypes.includes(book.bookType)) {
-          return false;
-        }
-      }
-
-      // Favorites filter
-      const matchesFavorites =
-        !showFavoritesOnly || favoritedBooks.includes(book.id);
-
-      return matchesFavorites;
+      if (searchQuery && !bookMatchesSearch(book, searchQuery)) return false;
+      if (selectedTopics.length > 0 && !bookMatchesTopics(book, selectedTopics)) return false;
+      if (selectedAuthors.length > 0 && !bookMatchesAuthors(book, selectedAuthors)) return false;
+      if (selectedPublishers.length > 0 && !bookMatchesPublishers(book, selectedPublishers)) return false;
+      if (selectedSeries.length > 0 && !bookMatchesSeries(book, selectedSeries)) return false;
+      if (selectedBookTypes.length > 0 && !bookMatchesTypes(book, selectedBookTypes)) return false;
+      return !showFavoritesOnly || favoritedBooks.includes(book.id);
     });
 
-    // Sort
     filtered.sort((a, b) => {
       switch (sortBy) {
         case "date-newest":
-          return (
-            new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()
-          );
+          return new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime();
         case "date-oldest":
-          return (
-            new Date(a.dateAdded).getTime() - new Date(b.dateAdded).getTime()
-          );
+          return new Date(a.dateAdded).getTime() - new Date(b.dateAdded).getTime();
         case "title-asc":
           return a.title.localeCompare(b.title, "ar");
         case "title-desc":
@@ -732,63 +464,52 @@ useEffect(() => {
     });
 
     return filtered;
-  }, [
-    books,
-    searchQuery,
-    selectedTopics,
-    selectedAuthors,
-    selectedPublishers,
-    selectedSeries,
-    selectedBookTypes,
-    sortBy,
-    showFavoritesOnly,
-    favoritedBooks,
-  ]);
+  }, [books, searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, sortBy, showFavoritesOnly, favoritedBooks]);
 
-  const activeFiltersCount =
-    selectedTopics.length +
-    selectedAuthors.length +
-    selectedPublishers.length +
-    selectedSeries.length +
-    selectedBookTypes.length;
+  const availableBooksForTopics = useMemo(() => getBooksForFacet(books, { searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks, excludeFacet: "topics" }), [books, searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks]);
+  const availableBooksForAuthors = useMemo(() => getBooksForFacet(books, { searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks, excludeFacet: "authors" }), [books, searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks]);
+  const availableBooksForPublishers = useMemo(() => getBooksForFacet(books, { searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks, excludeFacet: "publishers" }), [books, searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks]);
+  const availableBooksForSeries = useMemo(() => getBooksForFacet(books, { searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks, excludeFacet: "series" }), [books, searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks]);
+  const availableBooksForBookTypes = useMemo(() => getBooksForFacet(books, { searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks, excludeFacet: "bookTypes" }), [books, searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks]);
+
+  const availableTopicNames = useMemo(() => uniqueSorted(availableBooksForTopics.flatMap((b) => b.topics)), [availableBooksForTopics]);
+  const availableAuthorNames = useMemo(() => uniqueSorted(availableBooksForAuthors.map((b) => b.author)), [availableBooksForAuthors]);
+  const availablePublisherNames = useMemo(() => uniqueSorted(availableBooksForPublishers.map((b) => b.publisher).filter((p) => p !== "غير محدد")), [availableBooksForPublishers]);
+  const availableSeriesNames = useMemo(() => uniqueSorted(availableBooksForSeries.map((b) => b.series)), [availableBooksForSeries]);
+  const availableBookTypeNames = useMemo(() => uniqueSorted(availableBooksForBookTypes.map((b) => b.bookType)), [availableBooksForBookTypes]);
+
+  const activeFiltersCount = selectedTopics.length + selectedAuthors.length + selectedPublishers.length + selectedSeries.length + selectedBookTypes.length;
 
   return (
     <div className="flex flex-col h-full">
-    {/* Sticky Header Section */}
-    <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
-      
-      {/*  العنوان والوصف - التعديل الحركي الموحد المستقر */}
-      <div
-        className={`transition-all duration-500 ease-in-out overflow-hidden ${
-          isScrolled
-            ? "max-h-0 opacity-0 mb-0 pointer-events-none transform -translate-y-2"
-            : "max-h-[250px] opacity-100 mb-4 transform translate-y-0"
-        }`}
-      >
-        <div>
-          <h1 className="mb-2 font-bold text-[36px]">مكتبة الكتب</h1>
-          <p className="text-muted-foreground leading-relaxed">
-            مجموعة شاملة من الكتب الروحية والطقسية والتاريخية مع إمكانية البحث
-            والفلترة والتحميل
-          </p>
+      {/* Sticky Header Section */}
+      <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
+        
+        {/* العناوين والوصف */}
+        <div
+          className={`transition-all duration-500 ease-in-out overflow-hidden ${
+            isScrolled
+              ? "max-h-0 opacity-0 mb-0 pointer-events-none transform -translate-y-2"
+              : "max-h-[250px] opacity-100 mb-4 transform translate-y-0"
+          }`}
+        >
+          <div>
+            <h1 className="mb-2 font-bold text-[36px]">مكتبة الكتب</h1>
+            <p className="text-muted-foreground leading-relaxed">
+              مجموعة شاملة من الكتب الروحية والطقسية والتاريخية مع إمكانية البحث والفلترة والتحميل
+            </p>
+          </div>
         </div>
 
-      {/* هنا بيكون شريط البحث والفلاتر بتاعتك عشان يفضل sticky مكانه فوق */}
-
-    </div>
         {/* Admin Toolbar */}
         {isEditor && (
           <div className="mt-4 mb-4 px-3 py-2 bg-primary/5 border border-primary/20 rounded-lg">
             <div className="flex items-center justify-between gap-3 flex-wrap">
-              {/* Label */}
               <div className="flex items-center gap-2">
                 <Edit2 className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium text-primary">
-                  أدوات التحرير:
-                </span>
+                <span className="text-sm font-medium text-primary">أدوات التحرير:</span>
               </div>
 
-              {/* Buttons */}
               <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={handleAddNew}
@@ -844,18 +565,14 @@ useEffect(() => {
         {/* Bulk Actions Bar */}
         {isEditor && bulkEditMode && selectedBookIds.length > 0 && (
           <div className="mt-4 p-3 bg-primary/10 border border-primary rounded-xl flex items-center justify-between flex-wrap gap-2">
-            <span className="text-sm font-medium">
-              {selectedBookIds.length} عنصر محدد
-            </span>
+            <span className="text-sm font-medium">{selectedBookIds.length} عنصر محدد</span>
             <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={handleSelectAll}
                 className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg hover:bg-muted transition-colors text-sm"
               >
                 <CheckCheck className="w-4 h-4" />
-                {selectedBookIds.length === filteredAndSortedBooks.length
-                  ? "إلغاء الكل"
-                  : "تحديد الكل"}
+                {selectedBookIds.length === filteredAndSortedBooks.length ? "إلغاء الكل" : "تحديد الكل"}
               </button>
               <button
                 onClick={() => setIsBulkEditModalOpen(true)}
@@ -875,9 +592,8 @@ useEffect(() => {
           </div>
         )}
 
-        {/* Search and Filters Container */}
+        {/* Search and Filters */}
         <div className="space-y-4 sm:space-y-8">
-          {/* Search Bar with Sort Button (Mobile) */}
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
@@ -890,11 +606,7 @@ useEffect(() => {
               />
             </div>
 
-            {/* Sort Button - Icon only on mobile, beside search bar */}
-            <div
-              className="relative flex-shrink-0 sm:hidden"
-              ref={sortDropdownRef}
-            >
+            <div className="relative flex-shrink-0 sm:hidden" ref={sortDropdownRef}>
               <button
                 onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
                 className="flex items-center justify-center w-[50px] h-[50px] bg-card border border-border rounded-xl hover:bg-muted transition-colors"
@@ -904,18 +616,14 @@ useEffect(() => {
             </div>
           </div>
 
-          {/* Mobile Sort Panel - Slide up from bottom */}
+          {/* Mobile Sort Panel */}
           {isSortDropdownOpen && (
             <>
-              {/* Backdrop */}
               <div
                 className="sm:hidden fixed inset-0 bg-black/50 z-[200] animate-in fade-in duration-200"
                 onClick={() => setIsSortDropdownOpen(false)}
               />
-
-              {/* Slide-up Panel */}
               <div className="sm:hidden fixed bottom-0 left-0 right-0 z-[201] bg-card rounded-t-xl shadow-2xl animate-in slide-in-from-bottom duration-300 pb-safe">
-                {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                   <h3 className="font-semibold text-lg">ترتيب حسب</h3>
                   <button
@@ -925,8 +633,6 @@ useEffect(() => {
                     <X className="w-5 h-5" />
                   </button>
                 </div>
-
-                {/* Sort Options */}
                 <div className="p-4 max-h-[60vh] overflow-y-auto">
                   <div className="space-y-2">
                     {sortOptions.map((option) => (
@@ -951,14 +657,10 @@ useEffect(() => {
             </>
           )}
 
-          {/* Filters and Sort Row */}
+          {/* Filters Row */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3 -mt-2 sm:-mt-3.5">
-            {/* Filters on the right */}
-            <div
-              className="relative flex items-center gap-3 w-full sm:w-auto flex-wrap"
-              ref={filtersContainerRef}
-            >
-              {/* Topics Filter */}
+            <div className="relative flex items-center gap-3 w-full sm:w-auto flex-wrap" ref={filtersContainerRef}>
+              
               <div className="flex-1 sm:flex-initial min-w-[120px]">
                 <TagFilter
                   selectedTags={selectedTopics}
@@ -968,10 +670,10 @@ useEffect(() => {
                   showSearch={false}
                   icon={Tags}
                   containerRef={filtersContainerRef}
+                  availableTopics={availableTopicNames}
                 />
               </div>
 
-              {/* Author Filter */}
               <div className="flex-1 sm:flex-initial">
                 <MultiSelectFilter
                   label="المؤلف"
@@ -979,10 +681,10 @@ useEffect(() => {
                   selectedOptions={selectedAuthors}
                   onOptionsChange={setSelectedAuthors}
                   icon={User}
+                  availableOptions={availableAuthorNames}
                 />
               </div>
 
-              {/* Publisher Filter */}
               <div className="flex-1 sm:flex-initial">
                 <MultiSelectFilter
                   label="الناشر"
@@ -990,10 +692,10 @@ useEffect(() => {
                   selectedOptions={selectedPublishers}
                   onOptionsChange={setSelectedPublishers}
                   icon={Building2}
+                  availableOptions={availablePublisherNames}
                 />
               </div>
 
-              {/* Series Filter */}
               <div className="flex-1 sm:flex-initial">
                 <MultiSelectFilter
                   label="السلسلة"
@@ -1001,10 +703,10 @@ useEffect(() => {
                   selectedOptions={selectedSeries}
                   onOptionsChange={setSelectedSeries}
                   icon={Library}
+                  availableOptions={availableSeriesNames}
                 />
               </div>
 
-              {/* Book Types Filter */}
               <div className="flex-1 sm:flex-initial">
                 <MultiSelectFilter
                   label="نوع الكتاب"
@@ -1012,10 +714,10 @@ useEffect(() => {
                   selectedOptions={selectedBookTypes}
                   onOptionsChange={setSelectedBookTypes}
                   icon={Library}
+                  availableOptions={availableBookTypeNames}
                 />
               </div>
 
-              {/* Favorites Only Toggle - Only visible when user is logged in */}
               {user && profile && (
                 <button
                   onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
@@ -1024,13 +726,9 @@ useEffect(() => {
                       ? "bg-primary/10 border-primary text-primary"
                       : "bg-card border-border hover:bg-muted"
                   }`}
-                  title={
-                    showFavoritesOnly ? "إظهار كل الكتب" : "عرض المفضلة فقط"
-                  }
+                  title={showFavoritesOnly ? "إظهار كل الكتب" : "عرض المفضلة فقط"}
                 >
-                  <Heart
-                    className={`w-4 h-4 flex-shrink-0 transition-all ${showFavoritesOnly ? "fill-current" : ""}`}
-                  />
+                  <Heart className={`w-4 h-4 flex-shrink-0 transition-all ${showFavoritesOnly ? "fill-current" : ""}`} />
                   <span className="text-sm hidden lg:inline">المفضلة فقط</span>
                   {showFavoritesOnly && favoritedBooks.length > 0 && (
                     <span className="bg-primary text-primary-foreground text-xs font-bold rounded-full px-2 py-0.5">
@@ -1040,7 +738,6 @@ useEffect(() => {
                 </button>
               )}
 
-              {/* Results Count Info Chip */}
               <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 h-[42px] bg-muted/50 border border-border/50 rounded-xl pointer-events-none">
                 <BookOpen className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                 <span className="text-sm text-muted-foreground font-medium whitespace-nowrap">
@@ -1049,20 +746,18 @@ useEffect(() => {
               </div>
             </div>
 
-            {/* Sort on Desktop (on the left) */}
+            {/* Desktop Sort */}
             <div className="hidden sm:flex items-center gap-3">
               <div className="relative" ref={sortDropdownRef}>
                 <button
-                  onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
+                  onClick={() => !bulkEditMode && setIsSortDropdownOpen(!isSortDropdownOpen)}
                   className="flex items-center gap-2 px-4 py-2.5 h-[42px] bg-card border border-border rounded-xl hover:bg-muted transition-colors"
                 >
                   <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm">
                     {sortOptions.find((o) => o.value === sortBy)?.label}
                   </span>
-                  <ChevronDown
-                    className={`w-4 h-4 transition-transform ${isSortDropdownOpen ? "rotate-180" : ""}`}
-                  />
+                  <ChevronDown className={`w-4 h-4 transition-transform ${isSortDropdownOpen ? "rotate-180" : ""}`} />
                 </button>
 
                 {isSortDropdownOpen && (
@@ -1122,9 +817,7 @@ useEffect(() => {
                       onClick={(e) => {
                         e.stopPropagation();
                         if (selectedBookIds.includes(book.id)) {
-                          setSelectedBookIds(
-                            selectedBookIds.filter((id) => id !== book.id),
-                          );
+                          setSelectedBookIds(selectedBookIds.filter((id) => id !== book.id));
                         } else {
                           setSelectedBookIds([...selectedBookIds, book.id]);
                         }
@@ -1136,11 +829,7 @@ useEffect(() => {
                       }`}
                     >
                       {selectedBookIds.includes(book.id) && (
-                        <svg
-                          className="w-4 h-4"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                           <path
                             fillRule="evenodd"
                             d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -1160,13 +849,12 @@ useEffect(() => {
                     className="w-full h-full object-contain"
                   />
 
-                  {/* Overlay - Shows on hover OR when favorited (for heart button visibility) */}
+                  {/* Overlay */}
                   {!bulkEditMode && (
                     <>
-                      {/* Gradient overlay - only on hover */}
+                      {/* الـ Overlay المعدل بنظام الـ Grid المكون من صفين لمنع تداخل الأزرار */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                        {/* Bottom buttons - Download for regular users, Edit/Delete/Download for editors */}
-                        <div className="flex items-center gap-2">
+                        <div className="grid grid-cols-2 gap-1.5 w-full">
                           {isEditor ? (
                             <>
                               <button
@@ -1174,7 +862,7 @@ useEffect(() => {
                                   e.stopPropagation();
                                   handleEditBook(book);
                                 }}
-                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-white/90 hover:bg-white text-black rounded-lg transition-colors text-xs shadow-lg"
+                                className="flex items-center justify-center gap-1 px-2 py-1.5 bg-white/90 hover:bg-white text-black rounded-lg transition-colors text-xs shadow-lg"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
                                 <span>تعديل</span>
@@ -1184,7 +872,7 @@ useEffect(() => {
                                   e.stopPropagation();
                                   handleDeleteBook(book.id);
                                 }}
-                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-red-500/90 hover:bg-red-500 text-white rounded-lg transition-colors text-xs shadow-lg"
+                                className="flex items-center justify-center gap-1 px-2 py-1.5 bg-red-500/90 hover:bg-red-500 text-white rounded-lg transition-colors text-xs shadow-lg"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                                 <span>حذف</span>
@@ -1194,10 +882,10 @@ useEffect(() => {
                                   e.stopPropagation();
                                   downloadBook(book);
                                 }}
-                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-white/90 hover:bg-white text-black rounded-lg transition-colors text-xs shadow-lg"
+                                className="col-span-2 flex items-center justify-center gap-1.5 px-3 py-2 bg-white/90 hover:bg-white text-black rounded-lg transition-colors text-xs font-medium shadow-lg"
                               >
                                 <Download className="w-3.5 h-3.5" />
-                                <span>تحمي</span>
+                                <span>تحميل الكتاب</span>
                               </button>
                             </>
                           ) : (
@@ -1206,7 +894,7 @@ useEffect(() => {
                                 e.stopPropagation();
                                 downloadBook(book);
                               }}
-                              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-white/90 hover:bg-white text-black rounded-lg transition-colors text-xs shadow-lg"
+                              className="col-span-2 flex items-center justify-center gap-1.5 px-3 py-2 bg-white/90 hover:bg-white text-black rounded-lg transition-colors text-xs shadow-lg"
                             >
                               <Download className="w-3.5 h-3.5" />
                               <span>تحميل</span>
@@ -1215,12 +903,10 @@ useEffect(() => {
                         </div>
                       </div>
 
-                      {/* Heart button - Always visible when favorited, only on hover when not favorited */}
+                      {/* Heart button */}
                       <div
                         className={`absolute top-3 left-3 z-10 transition-opacity duration-300 ${
-                          favoritedBooks.includes(book.id)
-                            ? "opacity-100"
-                            : "opacity-0 group-hover:opacity-100"
+                          favoritedBooks.includes(book.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                         }`}
                       >
                         <button
@@ -1234,15 +920,12 @@ useEffect(() => {
                               : "bg-white/90 hover:bg-white text-black"
                           }`}
                         >
-                          <Heart
-                            className={`w-4 h-4 ${favoritedBooks.includes(book.id) ? "fill-current" : ""}`}
-                          />
+                          <Heart className={`w-4 h-4 ${favoritedBooks.includes(book.id) ? "fill-current" : ""}`} />
                         </button>
                       </div>
                     </>
                   )}
 
-                  {/* Selection overlay - Show when book is selected */}
                   {bulkEditMode && selectedBookIds.includes(book.id) && (
                     <div className="absolute inset-0 bg-primary/10 pointer-events-none" />
                   )}
@@ -1250,9 +933,7 @@ useEffect(() => {
 
                 {/* Book Info */}
                 <div className="p-4 flex-1 group-hover:bg-muted transition-colors">
-                  <h3 className="font-bold text-base mb-1 line-clamp-2">
-                    {book.title}
-                  </h3>
+                  <h3 className="font-bold text-base mb-1 line-clamp-2">{book.title}</h3>
                   <p className="text-sm text-muted-foreground">{book.author}</p>
                 </div>
               </div>
