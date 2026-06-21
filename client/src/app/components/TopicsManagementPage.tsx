@@ -377,11 +377,14 @@ export function TopicsManagementPage() {
     setExpandedSections(newExpanded);
   };
 
+  const normalizeSearchText = (text: string) => normalizeArabic(text).toLowerCase();
+  const normalizedSearchQuery = normalizeSearchText(searchQuery);
+
   const filteredTopics = useMemo(() => {
-    return topics.filter(topic =>
-      topic.name.toLowerCase().includes(searchQuery.toLowerCase())
+    return topics.filter((topic) =>
+      normalizeSearchText(topic.name).includes(normalizedSearchQuery),
     );
-  }, [topics, searchQuery]);
+  }, [topics, normalizedSearchQuery]);
 
   const topicsWithUsage: TopicWithUsage[] = useMemo(() => {
     return filteredTopics.map(topic => ({
