@@ -94,3 +94,106 @@ export function loadGalleryImagesData(): Promise<GalleryImage[]> {
   }
   return p;
 }
+
+// ---------------------------------------------------------------------------
+// Server-driven (paged) gallery loading — used by the image library so it can
+// fetch one page at a time with server-side search / filters / sort.
+// ---------------------------------------------------------------------------
+
+export type GalleryQuery = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  tags?: string[];
+  artists?: string[];
+  types?: string[];
+  ai?: 'all' | 'yes' | 'no';
+  ids?: string[];
+  sort?: string; // backend sort key: 'date-desc' | 'date-asc' | 'title-asc' | 'title-desc'
+  token?: string | null; // editor token -> includes unpublished images
+};
+
+function galleryParams(q: GalleryQuery): URLSearchParams {
+  const p = new URLSearchParams();
+  if (q.search?.trim()) p.set('search', q.search.trim());
+  if (q.tags?.length) p.set('tags', q.tags.join(','));
+  if (q.artists?.length) p.set('artists', q.artists.join(','));
+  if (q.types?.length) p.set('types', q.types.join(','));
+  if (q.ai && q.ai !== 'all') p.set('ai', q.ai);
+  if (q.sort) p.set('sort', q.sort);
+  return p;
+}
+
+function authInit(token?: string | null): RequestInit | undefined {
+  return token ? { headers: { Authorization: `Bearer ${token}` } } : undefined;
+}
+
+export async function fetchGalleryPage(
+  q: GalleryQuery,
+): Promise<{ items: GalleryImage[]; total: number; page: number }> {
+  const p = galleryParams(q);
+  p.set('page', String(q.page ?? 1));
+  p.set('limit', String(q.limit ?? 30));
+  if (q.ids?.length) p.set('ids', q.ids.join(','));
+  const res = await apiGetJson<{ data: ServerImageRow[]; total: number; page: number }>(
+    `/api/images?${p.toString()}`,
+    authInit(q.token),
+  );
+  return {
+    items: (res.data ?? []).map(mapServerImageToClient),
+    total: res.total ?? 0,
+    page: res.page ?? (q.page ?? 1),
+  };
+}
+
+// All image IDs matching the current filters (for "select all" across pages).
+export async function fetchGalleryIds(q: GalleryQuery): Promise<string[]> {
+  const p = galleryParams(q);
+  return apiGetJson<string[]>(`/api/images/ids?${p.toString()}`, authInit(q.token));
+}
+
+// Fetch specific images by id (e.g. favorites), chunked to respect the server's page cap.
+export async function fetchGalleryByIds(
+  ids: string[],
+  token?: string | null,
+): Promise<GalleryImage[]> {
+  if (!ids.length) return [];
+  const out: GalleryImage[] = [];
+  for (let i = 0; i < ids.length; i += 100) {
+    const chunk = ids.slice(i, i + 100);
+    const res = await apiGetJson<{ data: ServerImageRow[] }>(
+      `/api/images?ids=${chunk.join(',')}&limit=100`,
+      authInit(token),
+    );
+    out.push(...(res.data ?? []).map(mapServerImageToClient));
+  }
+  return out;
+}
+
+export async function fetchImageArtists(): Promise<string[]> {
+  const rows = await apiGetJson<{ name: string }[]>('/api/images/meta/authors');
+  return (rows ?? []).map((r) => r.name).filter(Boolean);
+}
+
+export async function fetchImageTypes(): Promise<string[]> {
+  const rows = await apiGetJson<{ name: string }[]>('/api/images/meta/types');
+  return (rows ?? []).map((r) => r.name).filter(Boolean);
+}
+
+// Faceted filter options for the current filter selection (each facet excludes its own filter),
+// so the dropdowns narrow as you select — computed server-side to work with pagination.
+export async function fetchGalleryFacets(
+  q: GalleryQuery,
+): Promise<{ tags: string[]; artists: string[]; types: string[]; ai: ('yes' | 'no')[] }> {
+  const p = galleryParams(q);
+  const res = await apiGetJson<{ tags: string[]; artists: string[]; types: string[]; ai: string[] }>(
+    `/api/images/facets?${p.toString()}`,
+    authInit(q.token),
+  );
+  return {
+    tags: res.tags ?? [],
+    artists: res.artists ?? [],
+    types: res.types ?? [],
+    ai: (res.ai ?? []).filter((v): v is 'yes' | 'no' => v === 'yes' || v === 'no'),
+  };
+}

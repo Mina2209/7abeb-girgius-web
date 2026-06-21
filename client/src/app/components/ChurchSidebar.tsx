@@ -3,7 +3,6 @@ import { ChevronRight, Menu, X, EyeOff } from 'lucide-react';
 import logoImg from '../../assets/7f2d73f44c853179b057f8217ffad677e12f814c.png';
 import { CopticIcon } from './icons/CopticIcon';
 import { FlatIcon } from './icons/FlatIcon';
-import { ThemeToggle } from './ThemeToggle';
 import { CompactThemeToggle } from './CompactThemeToggle';
 import { UserSection } from './UserSection';
 
@@ -20,13 +19,27 @@ interface SidebarProps {
 }
 
 // Icon wrapper components for Flaticon
-const HomeIcon = (props: any) => <FlatIcon iconClass="fi-sr-house-chimney" {...props} />;
-const PrayingHandsIcon = (props: any) => <FlatIcon iconClass="fi-sr-praying-hands" {...props} />;
-const MusicIcon = (props: any) => <FlatIcon iconClass="fi-ss-music-alt" {...props} />;
-const PresentationFolderIcon = (props: any) => <FlatIcon iconClass="fi-sr-folder" {...props} />;
-const PictureIcon = (props: any) => <FlatIcon iconClass="fi-sr-picture" {...props} />;
-const BookOpenIcon = (props: any) => <FlatIcon iconClass="fi-sr-book-alt" {...props} />;
-const QuoteIcon = (props: any) => <FlatIcon iconClass="fi-sr-comment-quote" {...props} />;
+const HomeIcon = (props: any) => (
+  <FlatIcon iconClass="fi-sr-house-chimney" {...props} />
+);
+const PrayingHandsIcon = (props: any) => (
+  <FlatIcon iconClass="fi-sr-praying-hands" {...props} />
+);
+const MusicIcon = (props: any) => (
+  <FlatIcon iconClass="fi-ss-music-alt" {...props} />
+);
+const PresentationFolderIcon = (props: any) => (
+  <FlatIcon iconClass="fi-sr-folder" {...props} />
+);
+const PictureIcon = (props: any) => (
+  <FlatIcon iconClass="fi-sr-picture" {...props} />
+);
+const BookOpenIcon = (props: any) => (
+  <FlatIcon iconClass="fi-sr-book-alt" {...props} />
+);
+const QuoteIcon = (props: any) => (
+  <FlatIcon iconClass="fi-sr-comment-quote" {...props} />
+);
 const InfoIcon = (props: any) => <FlatIcon iconClass="fi-sr-info" {...props} />;
 
 const menuItems = [
@@ -40,20 +53,22 @@ const menuItems = [
   { id: 'coptic', label: 'لغة قبطية', icon: CopticIcon },
 ];
 
-export function ChurchSidebar({ 
-  activeSection, 
-  onSectionChange, 
-  onCollapseChange, 
-  onOpenLogin, 
-  onNavigateToProfile, 
+export function ChurchSidebar({
+  activeSection,
+  onSectionChange,
+  onCollapseChange,
+  onOpenLogin,
+  onNavigateToProfile,
   onNavigateToFavorites,
   onNavigateToUserManagement,
   onNavigateToTopicsManagement,
-  onNavigateToSiteSettings
+  onNavigateToSiteSettings,
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [sectionsVisibility, setSectionsVisibility] = useState<Record<string, boolean>>({});
+  const [sectionsVisibility, setSectionsVisibility] = useState<
+    Record<string, boolean>
+  >({});
   const [userRole, setUserRole] = useState<string>('viewer');
 
   // Load visibility settings and user role
@@ -71,12 +86,18 @@ export function ChurchSidebar({
       loadUserRole();
     };
 
-    window.addEventListener('sectionsVisibilityChanged', handleVisibilityChange);
+    window.addEventListener(
+      'sectionsVisibilityChanged',
+      handleVisibilityChange,
+    );
     window.addEventListener('storage', handleUserChange);
     window.addEventListener('userChanged', handleUserChange);
-    
+
     return () => {
-      window.removeEventListener('sectionsVisibilityChanged', handleVisibilityChange);
+      window.removeEventListener(
+        'sectionsVisibilityChanged',
+        handleVisibilityChange,
+      );
       window.removeEventListener('storage', handleUserChange);
       window.removeEventListener('userChanged', handleUserChange);
     };
@@ -133,14 +154,16 @@ export function ChurchSidebar({
 
   // Filter menu items based on visibility
   // Admins and Editors see ALL sections, Viewers only see visible ones
-  const visibleMenuItems = userRole === 'admin' || userRole === 'editor' 
-    ? menuItems 
-    : menuItems.filter(item => isSectionVisible(item.id));
-  
+  const visibleMenuItems =
+    userRole === 'admin' || userRole === 'editor'
+      ? menuItems
+      : menuItems.filter((item) => isSectionVisible(item.id));
+
   // For "about" section - admins/editors always see it, viewers only if it's visible
-  const isAboutVisible = userRole === 'admin' || userRole === 'editor' 
-    ? true 
-    : isSectionVisible('about');
+  const isAboutVisible =
+    userRole === 'admin' || userRole === 'editor'
+      ? true
+      : isSectionVisible('about');
 
   const handleSectionChange = (section: string) => {
     onSectionChange(section);
@@ -156,7 +179,7 @@ export function ChurchSidebar({
     <>
       {/* Mobile Overlay */}
       {isMobileMenuOpen && (
-        <div 
+        <div
           className="lg:hidden fixed inset-0 bg-black/50 z-[110] animate-in fade-in duration-200"
           onClick={() => setIsMobileMenuOpen(false)}
         />
@@ -164,28 +187,41 @@ export function ChurchSidebar({
 
       {/* Mobile Top Bar */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-sidebar text-sidebar-foreground z-[200] border-b border-sidebar-border shadow-lg">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 rounded-md hover:bg-sidebar-accent transition-colors group"
-              aria-label="القائمة"
+          <div className="flex items-center justify-between px-3 py-3">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="p-2 rounded-md hover:bg-sidebar-accent transition-colors group"
+                aria-label="القائمة"
             >
-              {isMobileMenuOpen ? <X className="w-6 h-6 group-hover:text-sidebar-accent-foreground" /> : <Menu className="w-6 h-6 group-hover:text-sidebar-accent-foreground" />}
+              {isMobileMenuOpen ? (
+                <X className="w-6 h-6 group-hover:text-sidebar-accent-foreground" />
+              ) : (
+                <Menu className="w-6 h-6 group-hover:text-sidebar-accent-foreground" />
+              )}
             </button>
             <CompactThemeToggle />
           </div>
-          
+
           <div className="flex items-center gap-3">
-            <div className="text-center">
-              <h2 className="font-semibold text-sm leading-tight">خدمة الارشدياكون حبيب جرجس</h2>
+            <div className="flex flex-col items-center text-center leading-tight">
+              <p className="font-semibold text-sm">
+                خدمة الأرشيدياكون حبيب جرجس للداتا شو
+              </p>
+              <h2 className="text-[11px] font-medium text-sidebar-foreground/70">
+                كنيسة السيدة العذراء مريم النزهة الجديدة
+              </h2>
             </div>
-            <img src={logoImg} alt="Church Logo" className="w-10 h-10 rounded-lg object-cover" />
+            <img
+              src={logoImg}
+              alt="Church Logo"
+              className="w-10 h-10 rounded-lg object-cover"
+            />
           </div>
         </div>
 
         {/* Mobile Menu Dropdown */}
-        <div 
+        <div
           className={`bg-sidebar border-t border-sidebar-border overflow-y-auto transition-all duration-300 ease-in-out ${
             isMobileMenuOpen ? 'max-h-[80vh] opacity-100' : 'max-h-0 opacity-0'
           }`}
@@ -195,8 +231,9 @@ export function ChurchSidebar({
               {visibleMenuItems.map((item) => {
                 const Icon = item.icon;
                 const isHidden = isSectionHidden(item.id);
-                const canSeeHidden = userRole === 'editor' || userRole === 'admin';
-                
+                const canSeeHidden =
+                  userRole === 'editor' || userRole === 'admin';
+
                 return (
                   <li key={item.id}>
                     <button
@@ -235,9 +272,10 @@ export function ChurchSidebar({
                 {!isCollapsed && (
                   <>
                     <span className="text-right flex-1">عن الخدمة</span>
-                    {isSectionHidden('about') && (userRole === 'editor' || userRole === 'admin') && (
-                      <EyeOff className="w-4 h-4 flex-shrink-0 text-orange-500" />
-                    )}
+                    {isSectionHidden('about') &&
+                      (userRole === 'editor' || userRole === 'admin') && (
+                        <EyeOff className="w-4 h-4 flex-shrink-0 text-orange-500" />
+                      )}
                   </>
                 )}
               </button>
@@ -245,7 +283,7 @@ export function ChurchSidebar({
           )}
 
           {/* User Section - Mobile */}
-          <UserSection 
+          <UserSection
             isCollapsed={false}
             onOpenLogin={() => {
               onOpenLogin();
@@ -277,31 +315,45 @@ export function ChurchSidebar({
 
       {/* Desktop Sidebar */}
       <div
-        className={`hidden lg:flex h-screen bg-sidebar text-sidebar-foreground transition-all duration-300 flex-col fixed right-0 top-0 z-[200] shadow-lg ${
+        className={`hidden lg:flex inset-y-0 bg-sidebar text-sidebar-foreground transition-all duration-300 flex-col fixed right-0 top-0 bottom-0 z-[200] shadow-lg overflow-visible ${
           isCollapsed ? 'w-20' : 'w-64'
         }`}
       >
         {/* Header with Logo - Fixed at Top */}
-        <div className="p-4 border-b border-sidebar-border relative flex-shrink-0">
+        <div className="px-3 py-3 border-b border-sidebar-border relative flex-shrink-0">
           {!isCollapsed ? (
             <>
               <button
                 onClick={() => handleCollapse(true)}
-                className="p-2 rounded-md hover:bg-sidebar-accent transition-colors absolute top-4 left-4 z-10 group"
+                className="p-2 rounded-md hover:bg-sidebar-accent transition-colors absolute top-3 left-3 z-10 group"
                 aria-label="طي القائمة"
               >
                 <ChevronRight className="w-5 h-5 group-hover:text-sidebar-accent-foreground" />
               </button>
-              <div className="flex flex-col items-center gap-3 w-full px-[7.5%] px-[10px] py-[0px]">
-                <img src={logoImg} alt="Church Logo" className="w-full h-auto rounded-lg object-cover px-[15px] py-[0px]" />
-                <div className="text-center w-full">
-                  <h2 className="font-semibold leading-tight text-[20px]">خدمة الأرشيدياكون حبيب جرجس للداتا شو</h2>
+              <div className="flex flex-col items-center gap-2 w-full px-3 py-1.5">
+                <div className="text-center w-full px-1">
+                  <h2 className="text-[13px] font-semibold leading-snug line-clamp-2">
+                  خدمة الأرشيدياكون حبيب جرجس للداتا شو
+                  </h2>
                 </div>
+                
+                <img
+                  src={logoImg}
+                  alt="Church Logo"
+                  className="w-[76px] h-[76px] object-contain rounded-lg"
+                />
+                <p className="text-[11px] font-medium text-sidebar-foreground/70 text-center leading-tight">
+                    كنيسة السيدة العذراء مريم النزهة الجديدة  
+                </p>
               </div>
             </>
           ) : (
             <div className="flex flex-col items-center gap-2 w-full">
-              <img src={logoImg} alt="Church Logo" className="w-10 h-10 rounded-lg object-cover" />
+              <img
+                src={logoImg}
+                alt="Church Logo"
+                className="w-10 h-10 rounded-lg object-cover"
+              />
               <button
                 onClick={() => handleCollapse(false)}
                 className="p-2 rounded-md hover:bg-sidebar-accent transition-colors group"
@@ -314,32 +366,35 @@ export function ChurchSidebar({
         </div>
 
         {/* Navigation Menu - Scrollable */}
-        <nav className="flex-1 overflow-y-auto p-4">
-          <ul className="space-y-2">
+        <nav className="flex-1 min-h-0 overflow-y-auto scrollbar-hide [mask-image:linear-gradient(to_bottom,black_90%,transparent_100%)] px-3 py-2">
+          <ul className="space-y-1.5">
             {visibleMenuItems.map((item) => {
               const Icon = item.icon;
               const isHidden = isSectionHidden(item.id);
               const canSeeHidden = userRole === 'editor' || userRole === 'admin';
-              
-              // Build className without nested template literals
-              const baseClasses = 'w-full flex items-center gap-3 p-3 rounded-lg transition-colors';
-              const activeClasses = activeSection === item.id
-                ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                : 'hover:bg-sidebar-hover text-sidebar-foreground/80 hover:text-sidebar-foreground';
-              const hiddenClasses = (isHidden && canSeeHidden) ? 'opacity-70' : '';
-              const buttonClasses = `${baseClasses} ${activeClasses} ${hiddenClasses}`;
-              
+
+              const buttonClasses = [
+                'w-full flex items-center gap-2.5 p-2.5 rounded-lg transition-colors',
+                activeSection === item.id
+                  ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                  : 'hover:bg-sidebar-hover text-sidebar-foreground/80 hover:text-sidebar-foreground',
+                isHidden && canSeeHidden ? 'opacity-70' : '',
+              ]
+                .filter(Boolean)
+                .join(' ');
+
               return (
                 <li key={item.id}>
                   <button
                     onClick={() => onSectionChange(item.id)}
                     className={buttonClasses}
-                    title={item.label}
+                    title={isCollapsed ? item.label : ''}
                   >
                     <Icon className="w-5 h-5 flex-shrink-0" />
+
                     {!isCollapsed && (
                       <>
-                        <span className="text-right flex-1">{item.label}</span>
+                        <span className="text-right flex-1 truncate">{item.label}</span>
                         {isHidden && canSeeHidden && (
                           <EyeOff className="w-4 h-4 flex-shrink-0 text-orange-500" />
                         )}
@@ -356,7 +411,7 @@ export function ChurchSidebar({
         <div className="flex-shrink-0">
           {/* About Section */}
           {isAboutVisible && (
-            <div className="px-4 py-3 border-t border-sidebar-border">
+            <div className="px-3 py-2 border-t border-sidebar-border">
               <button
                 onClick={() => onSectionChange('about')}
                 className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${
@@ -370,9 +425,10 @@ export function ChurchSidebar({
                 {!isCollapsed && (
                   <>
                     <span className="text-right flex-1">عن الخدمة</span>
-                    {isSectionHidden('about') && (userRole === 'editor' || userRole === 'admin') && (
-                      <EyeOff className="w-4 h-4 flex-shrink-0 text-orange-500" />
-                    )}
+                    {isSectionHidden('about') &&
+                      (userRole === 'editor' || userRole === 'admin') && (
+                        <EyeOff className="w-4 h-4 flex-shrink-0 text-orange-500" />
+                      )}
                   </>
                 )}
               </button>
@@ -380,7 +436,7 @@ export function ChurchSidebar({
           )}
 
           {/* User Section */}
-          <UserSection 
+          <UserSection
             isCollapsed={isCollapsed}
             onOpenLogin={onOpenLogin}
             onNavigateToProfile={onNavigateToProfile}
@@ -390,13 +446,7 @@ export function ChurchSidebar({
             onNavigateToSiteSettings={onNavigateToSiteSettings}
           />
 
-          {/* Footer with Theme Toggle */}
-          {!isCollapsed ? (
-            <div className="p-4 border-t border-sidebar-border flex items-center justify-between gap-2">
-              <p className="text-xs text-sidebar-foreground/60 flex-1 text-center">© 2026 خدمة الارشدياكون حبيب جرجس</p>
-              <CompactThemeToggle />
-            </div>
-          ) : (
+          {isCollapsed && (
             <div className="border-t border-sidebar-border flex flex-col items-center py-2">
               <CompactThemeToggle />
             </div>

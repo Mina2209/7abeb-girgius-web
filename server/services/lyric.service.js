@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from './prisma.js';
 import { normalizeArabic } from './normalize.js';
-
-const prisma = new PrismaClient();
 
 export const LyricService = {
   /**

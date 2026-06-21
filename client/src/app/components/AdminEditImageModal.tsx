@@ -127,78 +127,35 @@ export function AdminEditImageModal({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
+const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const files = e.target.files;
+  if (!files || files.length === 0) return;
 
-    // Check if multiple files selected
-    if (files.length > 1) {
-      // Multiple images mode
-      setIsMultipleMode(true);
-      const newPendingImages: PendingImage[] = [];
+  // إذا قام المستخدم بتحديد أكثر من صورة
+  if (files.length > 1) {
+    setIsMultipleMode(true); // تحويل النموذج فوراً لوضع الصور المتعددة
 
-      Array.from(files).forEach((file, index) => {
-        // Validate file type
-        if (!file.type.match(/^image\/(jpeg|jpg|png)$/)) {
-          alert(`الملف ${file.name} ليس بصيغة JPG أو PNG`);
-          return;
-        }
-
-        // Validate file size (max 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-          alert(`حجم الملف ${file.name} يجب أن يكون أقل من 5 ميجابايت`);
-          return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const base64String = e.target?.result as string;
-          newPendingImages.push({
-            id: Date.now() + index,
-            src: base64String,
-            file: file,
-            title: file.name.replace(/\.(jpg|jpeg|png)$/i, ''),
-            tags: [],
-            artist: '',
-            type: '',
-            aiGenerated: false,
-          });
-
-          // When all files are loaded
-          if (newPendingImages.length === files.length) {
-            setPendingImages(newPendingImages);
-          }
-        };
-        reader.readAsDataURL(file);
-      });
-    } else {
-      // Single image mode
-      const file = files[0];
-
-      // Validate file type
-      if (!file.type.match(/^image\/(jpeg|jpg|png)$/)) {
-        alert('يرجى تحميل صورة بصيغة JPG أو PNG فقط');
-        return;
-      }
-
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        alert('حجم الصورة يجب أن يكون أقل من 5 ميجابايت');
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const base64String = e.target?.result as string;
-        setPreviewImage(base64String);
-        setFormData({ ...formData, src: base64String });
+    const newPendingImages = Array.from(files).map((file, index) => {
+      return {
+        id: Date.now() + index,
+        file,
+        src: URL.createObjectURL(file),
+        title: file.name.split('.').slice(0, -1).join('.'), // اسم الملف الافتراضي كعنوان
+        tags: [],
+        artist: commonArtist || '',
+        type: commonType || '',
+        aiGenerated: commonAiGenerated || false
       };
-      reader.readAsDataURL(file);
-    }
+    });
 
-    // Reset input
-    event.target.value = '';
-  };
+    setPendingImages((prev) => [...prev, ...newPendingImages]);
+  } else {
+    // إذا اختار صورة واحدة فقط وهو في وضع السينجل
+    const file = files[0];
+    setPreviewImage(URL.createObjectURL(file));
+    setFormData((prev) => ({ ...prev, image: file, title: file.name.split('.').slice(0, -1).join('.') }));
+  }
+};
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -381,7 +338,7 @@ export function AdminEditImageModal({
                   <TagMultiSelect
                     availableTags={topicNames}
                     selectedTags={commonTags}
-                    onTagsChange={setCommonTags}
+                    onTagsChange={(tags) => setCommonTags(tags)}
                   />
                 </div>
 
@@ -637,16 +594,16 @@ export function AdminEditImageModal({
                   {errors.type && <p className="text-red-500 text-sm mt-1">{errors.type}</p>}
                 </div>
 
-                {/* Upload Date */}
+                {/* Upload Date - Disabled to prevent modification */}
                 <div>
-                  <label className="block text-sm font-medium mb-2">
-                    تاريخ الرفع
+                  <label className="block text-sm font-medium mb-2 text-muted-foreground">
+                    تاريخ الرفع (تلقائي)
                   </label>
                   <input
                     type="date"
+                    disabled // يمنع المستخدم من تعديل تاريخ الرفع يدوياً نهائياً
                     value={formData.uploadDate}
-                    onChange={(e) => setFormData({ ...formData, uploadDate: e.target.value })}
-                    className="w-full px-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-muted-foreground cursor-not-allowed focus:outline-none"
                   />
                 </div>
               </div>

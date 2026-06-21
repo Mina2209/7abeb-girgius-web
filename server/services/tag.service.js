@@ -1,17 +1,17 @@
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+import { prisma } from './prisma.js';
 
 export const TagService = {
   getAll: async () => {
     return prisma.tag.findMany({
-      include: { hymns: true, sayings: true }
+      orderBy: { name: 'asc' },
+      include: { _count: { select: { hymns: true, sayings: true, images: true } } }
     });
   },
 
   getById: async (id) => {
     return prisma.tag.findUnique({
       where: { id },
-      include: { hymns: true, sayings: true }
+      include: { _count: { select: { hymns: true, sayings: true, images: true } } }
     });
   },
 
@@ -21,7 +21,7 @@ export const TagService = {
         name: data.name,
         category: data.category && data.category.trim() ? data.category.trim() : null
       },
-      include: { hymns: true, sayings: true }
+      include: { _count: { select: { hymns: true, sayings: true, images: true } } }
     });
   },
 
@@ -32,7 +32,7 @@ export const TagService = {
         name: data.name,
         category: data.category !== undefined ? (data.category && data.category.trim() ? data.category.trim() : null) : undefined
       },
-      include: { hymns: true, sayings: true }
+      include: { _count: { select: { hymns: true, sayings: true, images: true } } }
     });
   },
 

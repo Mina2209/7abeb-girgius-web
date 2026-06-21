@@ -1,42 +1,60 @@
 import { ImageService } from '../services/image.service.js';
-import { normalizeArabic } from '../services/normalize.js';
 import { logService } from '../services/log.service.js';
+
+// Parse a comma-separated query param into a trimmed array (or undefined).
+function csv(v) {
+  return v ? String(v).split(',').map((s) => s.trim()).filter(Boolean) : undefined;
+}
+
+// Extract the supported image filters from a request (incl. editor visibility of unpublished).
+function parseImageFilters(req) {
+  return {
+    search: req.query.search || req.query.q || '',
+    tags: csv(req.query.tags),
+    artists: csv(req.query.artists ?? req.query.artist),
+    types: csv(req.query.types ?? req.query.type),
+    ai: req.query.ai || undefined,
+    ids: csv(req.query.ids),
+    includeUnpublished: !!(req.user && (req.user.role === 'ADMIN' || req.user.role === 'EDITOR')),
+  };
+}
 
 export const ImageController = {
   getAll: async (req, res) => {
     try {
       const page = Math.max(1, parseInt(req.query.page) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
-      const searchRaw = req.query.search || req.query.q || '';
-
-      // Build Prisma where clause for server-side filtering
-      const where = {};
-
-      if (searchRaw) {
-        const search = normalizeArabic(searchRaw);
-        // Prisma doesn't support Arabic normalization natively,
-        // so we fetch with pagination and filter in-memory for search
-        const result = await ImageService.getAll({ page: 1, limit: 999999 });
-        const filtered = result.data.filter(img => {
-          const title = normalizeArabic(img.title || '');
-          if (title.includes(search)) return true;
-          const tagMatch = Array.isArray(img.tags) && img.tags.some(t => normalizeArabic(t.name || '').includes(search));
-          if (tagMatch) return true;
-          const authorMatch = img.author && normalizeArabic(img.author.name || '').includes(search);
-          return authorMatch;
-        });
-
-        const total = filtered.length;
-        const start = (page - 1) * limit;
-        const data = filtered.slice(start, start + limit);
-        return res.json({ data, total, page, limit });
-      }
-
-      const result = await ImageService.getAll({ page, limit, where });
+      const sort = req.query.sort || undefined;
+      // All filtering, sorting and pagination run in the database (server-side).
+      const result = await ImageService.getAll({ page, limit, sort, ...parseImageFilters(req) });
       res.json(result);
     } catch (err) {
       console.error('Error fetching images:', err);
       res.status(500).json({ error: 'Failed to fetch images' });
+    }
+  },
+
+  // Faceted filter options for the current selection (each facet excludes its own filter).
+  getFacets: async (req, res) => {
+    try {
+      const { search, tags, artists, types, ai, includeUnpublished } = parseImageFilters(req);
+      const facets = await ImageService.getFacets({ search, tags, artists, types, ai, includeUnpublished });
+      res.json(facets);
+    } catch (err) {
+      console.error('Error fetching image facets:', err);
+      res.status(500).json({ error: 'Failed to fetch image facets' });
+    }
+  },
+
+  // Returns all image IDs matching the current filters (used by "select all" across pages).
+  getIds: async (req, res) => {
+    try {
+      const { search, tags, artists, types, ai, includeUnpublished } = parseImageFilters(req);
+      const ids = await ImageService.getAllIds({ search, tags, artists, types, ai, includeUnpublished });
+      res.json(ids);
+    } catch (err) {
+      console.error('Error fetching image ids:', err);
+      res.status(500).json({ error: 'Failed to fetch image ids' });
     }
   },
 

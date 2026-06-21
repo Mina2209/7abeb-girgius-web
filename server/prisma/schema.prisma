@@ -58,6 +58,8 @@ model File {
   size         Int?
   duration     Int?
   createdAt    DateTime @default(now())
+
+  @@index([hymnId])
 }
 
 enum FileType {
@@ -70,6 +72,7 @@ enum FileType {
 model Image {
   id        String       @id @default(uuid())
   title     String
+  titleNorm String?      // Normalized (Arabic) copy of title for fast indexed search; kept in sync by the app.
   imageUrl  String
   tags      Tag[]
   author    ImageAuthor? @relation(fields: [authorId], references: [id])
@@ -80,6 +83,9 @@ model Image {
   published Boolean      @default(false)
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
+
+  @@index([authorId])
+  @@index([typeId])
 }
 
 model ImageAuthor {
@@ -113,6 +119,9 @@ model Log {
   entityId  String?
   details   String?
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 enum Role {

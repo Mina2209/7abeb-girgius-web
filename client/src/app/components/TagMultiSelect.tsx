@@ -1,5 +1,6 @@
 import { Search, X, Check, Plus } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { normalizeArabic } from '../utils/arabicUtils';
 
 interface TagMultiSelectProps {
   availableTags: string[];
@@ -9,6 +10,8 @@ interface TagMultiSelectProps {
   label?: string;
   error?: string;
 }
+
+const normalizeSearchText = (text: string) => normalizeArabic(text).toLowerCase();
 
 export function TagMultiSelect({
   availableTags,
@@ -47,8 +50,10 @@ export function TagMultiSelect({
     }
   }, [isOpen]);
 
-  const filteredTags = availableTags.filter(tag =>
-    tag.toLowerCase().includes(searchQuery.toLowerCase())
+  const normalizedSearchQuery = normalizeSearchText(searchQuery);
+
+  const filteredTags = availableTags.filter((tag) =>
+    normalizeSearchText(tag).includes(normalizedSearchQuery),
   );
 
   const handleToggleTag = (tag: string) => {

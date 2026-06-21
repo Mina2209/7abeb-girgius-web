@@ -1,9 +1,13 @@
 import { BackupService } from './backup.service.js';
+import { logService } from './log.service.js';
 
 /**
  * Simple scheduler for automatic backups
  * Uses setInterval instead of node-cron to avoid additional dependencies
  */
+
+// Activity logs older than this are pruned each backup cycle. Override via env.
+const LOG_RETENTION_DAYS = parseInt(process.env.LOG_RETENTION_DAYS) || 90;
 
 let schedulerInterval = null;
 let isRunning = false;
@@ -109,6 +113,15 @@ export const BackupScheduler = {
       console.error(error.message);
       throw error;
     } finally {
+      // Prune old activity logs each cycle, independent of backup success/failure.
+      try {
+        const removed = await logService.deleteOldLogs(LOG_RETENTION_DAYS);
+        if (removed > 0) {
+          console.log(`Pruned ${removed} activity log row(s) older than ${LOG_RETENTION_DAYS} days`);
+        }
+      } catch (e) {
+        console.error('Log retention cleanup failed:', e.message);
+      }
       isRunning = false;
     }
   },

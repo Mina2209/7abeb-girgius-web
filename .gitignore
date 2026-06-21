@@ -4,3 +4,9 @@ client/.env
 
 server/.env
 server/node_modules/
+server/_db_backups/
+server/backups/
+
+# local generated files
+server-review.html
+client/tsconfig.tsbuildinfo

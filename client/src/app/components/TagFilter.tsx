@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Search, ChevronDown, X, LucideIcon } from 'lucide-react';
 import { useUniversalTopics } from '../hooks/useUniversalTopics';
+import { normalizeArabic } from '../utils/arabicUtils';
 
 interface TagFilterProps {
   selectedTags: string[];
@@ -9,16 +10,30 @@ interface TagFilterProps {
   searchQuery?: string;
   showSearch?: boolean;
   icon?: LucideIcon;
-  containerRef?: React.RefObject<HTMLDivElement>;
+  containerRef?: React.RefObject<HTMLDivElement | null>; // ✅ التعديل الصح هنا
+  availableTopics?: string[];
 }
 
-export function TagFilter({ selectedTags, onTagsChange, onSearchChange, searchQuery = '', showSearch = true, icon, containerRef }: TagFilterProps) {
+export function TagFilter({
+  selectedTags,
+  onTagsChange,
+  onSearchChange,
+  searchQuery = '',
+  showSearch = true,
+  icon,
+  containerRef,
+  availableTopics,
+}: TagFilterProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [tagSearch, setTagSearch] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { topicNames, topicsBySection } = useUniversalTopics(); // Get topics grouped by sections
   
   const Icon = icon;
+  const availableTopicSet = useMemo(
+    () => (availableTopics ? new Set(availableTopics) : null),
+    [availableTopics],
+  );
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -49,14 +64,25 @@ export function TagFilter({ selectedTags, onTagsChange, onSearchChange, searchQu
     onTagsChange([]);
   };
 
+  const isVisibleTopic = (tag: string) =>
+    !availableTopicSet || availableTopicSet.has(tag) || selectedTags.includes(tag);
+
+  const normalizeSearchText = (text: string) => normalizeArabic(text).toLowerCase();
+  const normalizedTagSearch = normalizeSearchText(tagSearch);
+
   // Filter topics: if search is active, use flat filtered list, otherwise use grouped by section
-  const filteredTags = topicNames.filter(tag =>
-    tag.toLowerCase().includes(tagSearch.toLowerCase())
+  const filteredTags = topicNames.filter((tag) =>
+    isVisibleTopic(tag) && normalizeSearchText(tag).includes(normalizedTagSearch),
   );
 
   const filteredSections = tagSearch
     ? null // When searching, show flat list
-    : topicsBySection.filter(group => group.topics.length > 0); // When not searching, show grouped by section
+    : topicsBySection
+        .map((group) => ({
+          ...group,
+          topics: group.topics.filter(isVisibleTopic),
+        }))
+        .filter((group) => group.topics.length > 0); // When not searching, show grouped by section
 
   return (
     <div className="space-y-4">

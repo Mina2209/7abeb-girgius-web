@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { User as UserIcon, LogIn, Heart, LogOut, ChevronLeft, Users, Tag, Settings } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useIsAdmin } from '../utils/adminUtils';
+import { CompactThemeToggle } from './CompactThemeToggle';
 
 interface UserSectionProps {
   isCollapsed: boolean;
@@ -46,16 +47,34 @@ export function UserSection({
 
   if (!user || !profile) {
     // Not logged in
+    if (isCollapsed) {
+      return (
+        <div className="px-4 py-3 border-t border-sidebar-border">
+          <button
+            onClick={onOpenLogin}
+            className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors bg-primary text-primary-foreground hover:opacity-90"
+            title="تسجيل الدخول"
+          >
+            <LogIn className="w-5 h-5 flex-shrink-0" />
+            {!isCollapsed && <span className="text-right flex-1">تسجيل الدخول</span>}
+          </button>
+        </div>
+      );
+    }
+
     return (
-      <div className="px-4 py-3 border-t border-sidebar-border">
-        <button
-          onClick={onOpenLogin}
-          className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors bg-primary text-primary-foreground hover:opacity-90"
-          title="تسجيل الدخول"
-        >
-          <LogIn className="w-5 h-5 flex-shrink-0" />
-          {!isCollapsed && <span className="text-right flex-1">تسجيل الدخول</span>}
-        </button>
+      <div className="px-3 py-2.5 border-t border-sidebar-border">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onOpenLogin}
+            className="flex-1 flex items-center gap-3 p-2.5 rounded-lg transition-colors bg-primary text-primary-foreground hover:opacity-90"
+            title="تسجيل الدخول"
+          >
+            <LogIn className="w-5 h-5 flex-shrink-0" />
+            <span className="text-right flex-1">تسجيل الدخول</span>
+          </button>
+          <CompactThemeToggle />
+        </div>
       </div>
     );
   }
@@ -156,24 +175,27 @@ export function UserSection({
 
   // Expanded view with dropdown
   return (
-    <div className="px-4 py-3 border-t border-sidebar-border relative" ref={dropdownRef}>
-      <button
-        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-        className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors hover:bg-sidebar-hover"
-      >
-        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
-          {profile.avatar_url ? (
-            <img src={profile.avatar_url} alt={profile.full_name} className="w-full h-full rounded-full object-cover" />
-          ) : (
-            <UserIcon className="w-5 h-5" />
-          )}
-        </div>
-        <div className="flex-1 text-right overflow-hidden">
-          <p className="font-medium truncate">{profile.full_name}</p>
-          <p className="text-xs text-muted-foreground truncate">{profile.church_role}</p>
-        </div>
-        <ChevronLeft className="w-4 h-4" />
-      </button>
+    <div className="px-3 py-2.5 border-t border-sidebar-border relative" ref={dropdownRef}>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          className="flex-1 flex items-center gap-3 p-2.5 rounded-lg transition-colors hover:bg-sidebar-hover"
+        >
+          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+            {profile.avatar_url ? (
+              <img src={profile.avatar_url} alt={profile.full_name} className="w-full h-full rounded-full object-cover" />
+            ) : (
+              <UserIcon className="w-5 h-5" />
+            )}
+          </div>
+          <div className="flex-1 text-right overflow-hidden">
+            <p className="font-medium truncate">{profile.full_name}</p>
+            <p className="text-xs text-muted-foreground truncate">{profile.church_role}</p>
+          </div>
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <CompactThemeToggle />
+      </div>
 
       {/* Dropdown Menu - opens to the left */}
       {isDropdownOpen && (

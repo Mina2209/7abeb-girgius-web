@@ -215,7 +215,7 @@ export function AdminEditSayingModal({
             error={errors.tags}
           />
 
-          {/* Date Added */}
+          {/* Date Added ( تم قفل الحقل هنا لمنع التعديل اليدوي) */}
           <div>
             <label className="block text-sm font-medium mb-2">
               تاريخ الإضافة
@@ -223,8 +223,9 @@ export function AdminEditSayingModal({
             <input
               type="date"
               value={formData.dateAdded}
-              onChange={(e) => setFormData({ ...formData, dateAdded: e.target.value })}
-              className="w-full px-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50"
+              disabled
+              className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-muted-foreground cursor-not-allowed opacity-80"
+              title="يتم تحديد تاريخ الإضافة تلقائياً للبيانات"
             />
           </div>
         </form>

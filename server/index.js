@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from "cors";
-import { PrismaClient } from '@prisma/client';
+import compression from 'compression';
+import { prisma } from './services/prisma.js';
 
 import hymnRoutes from './routes/hymn.routes.js';
 import tagRoutes from './routes/tag.routes.js';
@@ -12,21 +13,58 @@ import lyricRoutes from './routes/lyric.routes.js';
 import backupRoutes from './routes/backup.routes.js';
 import imageRoutes from './routes/image.routes.js';
 import { BackupScheduler } from './services/backup.scheduler.js';
+import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
+
+// Fail fast: never run in production without a real JWT secret (tokens would be forgeable).
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET is not set. Refusing to start in production.');
+  process.exit(1);
+}
 
 const app = express();
-const prisma = new PrismaClient();
 
-const corsOrigin =
-  (process.env.NODE_ENV === 'production'
-    ? process.env.CORS_ORIGIN_PROD
-    : 'http://localhost:5173');
+// Behind nginx / a load balancer, trust the first proxy hop so req.ip (used by the
+// login rate limiter) reflects the real client IP rather than the proxy's address.
+app.set('trust proxy', 1);
+
+// Gzip-compress responses. Large JSON payloads (e.g. the full hymns list) shrink
+// ~85% on the wire. Responds to the client's Accept-Encoding; small bodies are skipped.
+app.use(compression());
+
+// Allowed browser origins for CORS.
+// Production: set CORS_ORIGIN_PROD to a comma-separated list, e.g.
+//   CORS_ORIGIN_PROD="https://your-frontend.com,http://localhost:5173"
+// Development: defaults to the Vite dev server.
+const allowedOrigins = (
+  process.env.NODE_ENV === 'production'
+    ? (process.env.CORS_ORIGIN_PROD || '')
+    : 'http://localhost:5173'
+)
+  .split(',')
+  // An Origin is scheme://host:port with no path — strip any trailing slash so
+  // "https://site.com/" in config still matches the browser's "https://site.com".
+  .map((origin) => origin.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
+
+if (process.env.NODE_ENV === 'production' && allowedOrigins.length === 0) {
+  console.warn('[CORS] CORS_ORIGIN_PROD is not set — browser requests from other origins will be blocked.');
+}
 
 app.use(
   cors({
-    origin: corsOrigin,
+    origin(origin, callback) {
+      // No Origin header (curl, health checks, same-origin, server-to-server) is always allowed.
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      // Disallowed origin: omit CORS headers so the browser blocks it, but don't error the request.
+      return callback(null, false);
+    },
     credentials: true,
   })
 );
+
+console.log('[CORS] Allowed origins:', allowedOrigins.length ? allowedOrigins.join(', ') : '(none)');
 
 // Image create/update can send base64 in JSON; default 100kb limit causes 413 (often shown as CORS in the browser).
 const jsonLimit = process.env.JSON_BODY_LIMIT || '32mb';
@@ -47,6 +85,12 @@ app.use('/api/images', imageRoutes);
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
+
+// 404 for unmatched routes (must come after all real routes).
+app.use(notFoundHandler);
+
+// Centralized error handler (must be the last middleware registered).
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 8080;
 

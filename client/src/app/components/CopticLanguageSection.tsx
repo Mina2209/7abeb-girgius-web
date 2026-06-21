@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Download, Eye } from 'lucide-react';
 
 const copticResources = [
@@ -43,18 +44,70 @@ const copticResources = [
     type: 'مستند',
     size: '4.7 MB',
   },
+  {
+    id: 6,
+    title: 'تمارين وتدريبات',
+    description: 'تمارين عملية لتعلم اللغة القبطية',
+    type: 'مستند',
+    size: '4.7 MB',
+  },
+  {
+    id: 6,
+    title: 'تمارين وتدريبات',
+    description: 'تمارين عملية لتعلم اللغة القبطية',
+    type: 'مستند',
+    size: '4.7 MB',
+  },
+  {
+    id: 6,
+    title: 'تمارين وتدريبات',
+    description: 'تمارين عملية لتعلم اللغة القبطية',
+    type: 'مستند',
+    size: '4.7 MB',
+  },  
 ];
 
 export function CopticLanguageSection() {
+  // 1️⃣ تعيين حالة السكرول فوق خالص (جوه المكون وبشكل صحيح)
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  // 2️⃣ مراقبة السكرول والتعامل مع الـ Navigation والـ Mount الفوري
+  useEffect(() => {
+    const checkScroll = () => {
+      if (window.scrollY > 40) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    };
+
+    // تشغيل فوري لتفادي مشكلة التنقل بين الصفحات
+    checkScroll();
+
+    window.addEventListener('scroll', checkScroll);
+    return () => window.removeEventListener('scroll', checkScroll);
+  }, []);
+
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="mb-2 font-bold text-[36px]">لغة قبطية</h1>
-        <p className="text-muted-foreground">
-          موارد ومراجع لتعلم اللغة القبطية
-        </p>
+      
+      {/* 3️⃣ تطبيق الأنيميشن الموحد للهيدر بناءً على الـ isScrolled */}
+      <div 
+        className={`transition-all duration-500 ease-in-out overflow-hidden ${
+          isScrolled 
+            ? 'max-h-0 opacity-0 mb-0 pointer-events-none transform -translate-y-2' 
+            : 'max-h-[200px] opacity-100 mb-6 transform translate-y-0'
+        }`}
+      >
+        <div>
+          <h1 className="mb-2 font-bold text-[36px]">لغة قبطية</h1>
+          <p className="text-muted-foreground">
+            موارد ومراجع لتعلم اللغة القبطية
+          </p>
+        </div>
       </div>
 
+      {/* شبكة الكروت تفضل ثابتة وممتازة */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {copticResources.map((resource) => (
           <div
