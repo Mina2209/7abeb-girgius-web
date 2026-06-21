@@ -29,6 +29,7 @@ import { TagFilter } from "./TagFilter";
 import { useAuth } from "../contexts/AuthContext";
 import { LoginRequiredModal } from "./LoginRequiredModal";
 import { useIsEditor } from "../utils/adminUtils";
+import { normalizeArabic } from "../utils/arabicUtils";
 import { AdminEditHymnModal } from "./AdminEditHymnModal";
 import { VideoModal } from "./VideoModal";
 import { useHymnsData } from "../hooks/useHymnsData";
@@ -95,6 +96,87 @@ const getFileTypeLabel = (fileType: FileType) => {
   }
 };
 
+type HymnFacet = "tags" | "fileTypes";
+
+const sortArabic = (a: string, b: string) => a.localeCompare(b, "ar");
+
+const uniqueSorted = (values: string[]) =>
+  Array.from(new Set(values.filter(Boolean))).sort(sortArabic);
+
+const normalizeSearchText = (text: string) => normalizeArabic(text).toLowerCase();
+
+function hymnMatchesSearch(hymn: Hymn, query: string) {
+  if (!query) return true;
+  const normalizedQuery = normalizeSearchText(query);
+  return (
+    normalizeSearchText(hymn.title).includes(normalizedQuery) ||
+    hymn.tags.some((tag) => normalizeSearchText(tag).includes(normalizedQuery))
+  );
+}
+
+function hymnMatchesTags(hymn: Hymn, selectedTags: string[]) {
+  return (
+    selectedTags.length === 0 ||
+    selectedTags.some((tag) => hymn.tags.includes(tag))
+  );
+}
+
+function hymnMatchesFileTypes(hymn: Hymn, selectedFileTypes: FileType[]) {
+  return (
+    selectedFileTypes.length === 0 ||
+    selectedFileTypes.some((fileType) => hymn.fileTypes.includes(fileType))
+  );
+}
+
+function hymnMatchesFavorites(
+  hymn: Hymn,
+  showFavoritesOnly: boolean,
+  favoritedHymns: ContentId[],
+) {
+  return (
+    !showFavoritesOnly ||
+    favoritedHymns.some((f) => String(f) === String(hymn.id))
+  );
+}
+
+function getHymnsForFacet(
+  hymns: Hymn[],
+  params: {
+    searchQuery: string;
+    selectedTags: string[];
+    selectedFileTypes: FileType[];
+    showFavoritesOnly: boolean;
+    favoritedHymns: ContentId[];
+    excludeFacet?: HymnFacet;
+  },
+) {
+  const {
+    searchQuery,
+    selectedTags,
+    selectedFileTypes,
+    showFavoritesOnly,
+    favoritedHymns,
+    excludeFacet,
+  } = params;
+
+  return hymns.filter((hymn) => {
+    if (!hymnMatchesSearch(hymn, searchQuery)) return false;
+    if (excludeFacet !== "tags" && !hymnMatchesTags(hymn, selectedTags)) {
+      return false;
+    }
+    if (
+      excludeFacet !== "fileTypes" &&
+      !hymnMatchesFileTypes(hymn, selectedFileTypes)
+    ) {
+      return false;
+    }
+    if (!hymnMatchesFavorites(hymn, showFavoritesOnly, favoritedHymns)) {
+      return false;
+    }
+    return true;
+  });
+}
+
 export function HymnsSection({
   isSidebarCollapsed,
 }: {
@@ -153,6 +235,7 @@ export function HymnsSection({
   const fileTypeDropdownRef = useRef<HTMLDivElement>(null);
   const filtersContainerRef = useRef<HTMLDivElement>(null!);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const hymnCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   // Use browser-compatible timer type to avoid NodeJS namespace issues
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -180,6 +263,16 @@ export function HymnsSection({
     // شيلنا isLoading وسيبنا الـ Ref ومصفوفة الداتا بس
   }, [scrollContainerRef.current, hymns]);
 
+  useEffect(() => {
+    if (!expandedHymnId) return;
+
+    const hymnsContainer = scrollContainerRef.current;
+    const hymnElement = hymnCardRefs.current[String(expandedHymnId)];
+    if (!hymnsContainer || !hymnElement) return;
+
+    hymnElement.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+  }, [expandedHymnId]);
+
   // Get unique tags from hymns
   const allTags = useMemo(
     () => Array.from(new Set(hymns.flatMap((h) => h.tags))),
@@ -188,29 +281,40 @@ export function HymnsSection({
 
   // Favorites are kept in-memory only.
 
-  // Close sort dropdown when clicking outside
+  // Close sort/file-type dropdown when clicking outside or pressing Escape
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        sortDropdownRef.current &&
-        !sortDropdownRef.current.contains(event.target as Node)
-      ) {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+
+      const isInsideSort =
+        sortDropdownRef.current?.contains(target) ?? false;
+      const isInsideFileType =
+        fileTypeDropdownRef.current?.contains(target) ?? false;
+
+      if (!isInsideSort && !isInsideFileType) {
         setIsSortDropdownOpen(false);
+        setIsFileTypeDropdownOpen(false);
       }
-      if (
-        fileTypeDropdownRef.current &&
-        !fileTypeDropdownRef.current.contains(event.target as Node)
-      ) {
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsSortDropdownOpen(false);
         setIsFileTypeDropdownOpen(false);
       }
     };
 
     if (isSortDropdownOpen || isFileTypeDropdownOpen) {
       document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("touchstart", handleClickOutside);
+      document.addEventListener("keydown", handleEscape);
     }
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
     };
   }, [isSortDropdownOpen, isFileTypeDropdownOpen]);
 
@@ -523,11 +627,7 @@ export function HymnsSection({
     let result = hymns.filter((hymn) => {
       // Filter by search query - search in title and tags
       const matchesSearch =
-        searchQuery === "" ||
-        hymn.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        hymn.tags.some((tag) =>
-          tag.toLowerCase().includes(searchQuery.toLowerCase()),
-        );
+        searchQuery === "" || hymnMatchesSearch(hymn, searchQuery);
 
       // Filter by tags
       const matchesTags =
@@ -583,6 +683,75 @@ export function HymnsSection({
     showFavoritesOnly,
     favoritedHymns,
   ]);
+
+  const availableHymnsForTags = useMemo(
+    () =>
+      getHymnsForFacet(hymns, {
+        searchQuery,
+        selectedTags,
+        selectedFileTypes,
+        showFavoritesOnly,
+        favoritedHymns,
+        excludeFacet: "tags",
+      }),
+    [
+      hymns,
+      searchQuery,
+      selectedTags,
+      selectedFileTypes,
+      showFavoritesOnly,
+      favoritedHymns,
+    ],
+  );
+
+  const availableHymnsForFileTypes = useMemo(
+    () =>
+      getHymnsForFacet(hymns, {
+        searchQuery,
+        selectedTags,
+        selectedFileTypes,
+        showFavoritesOnly,
+        favoritedHymns,
+        excludeFacet: "fileTypes",
+      }),
+    [
+      hymns,
+      searchQuery,
+      selectedTags,
+      selectedFileTypes,
+      showFavoritesOnly,
+      favoritedHymns,
+    ],
+  );
+
+  const availableTagNames = useMemo(
+    () => uniqueSorted(availableHymnsForTags.flatMap((hymn) => hymn.tags)),
+    [availableHymnsForTags],
+  );
+
+  const availableFileTypeNames = useMemo(
+    () =>
+      uniqueSorted(
+        availableHymnsForFileTypes.flatMap((hymn) => hymn.fileTypes),
+      ),
+    [availableHymnsForFileTypes],
+  );
+
+  const availableFileTypeSet = useMemo(
+    () => new Set(availableFileTypeNames),
+    [availableFileTypeNames],
+  );
+
+  const visibleFileTypes = useMemo(
+    () =>
+      allFileTypes.filter(
+        (fileType) =>
+          availableFileTypeSet.has(fileType) ||
+          selectedFileTypes.includes(fileType),
+      ),
+    [availableFileTypeSet, selectedFileTypes],
+  );
+
   const displayedHymns = useMemo(() => {
     return filteredHymns.slice(0, visibleCount);
   }, [filteredHymns, visibleCount]);
@@ -834,6 +1003,7 @@ export function HymnsSection({
                   showSearch={false}
                   icon={Tags}
                   containerRef={filtersContainerRef}
+                  availableTopics={availableTagNames}
                 />
               </div>
 
@@ -890,28 +1060,34 @@ export function HymnsSection({
 
                       {/* File Type Options */}
                       <div className="p-4 max-h-[60vh] overflow-y-auto">
-                        <div className="space-y-2">
-                          {allFileTypes.map((fileType) => {
-                            const Icon = getFileTypeIcon(fileType);
-                            return (
-                              <button
-                                key={fileType}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleFileType(fileType);
-                                }}
-                                className={`w-full text-right px-4 py-3.5 rounded-xl transition-colors flex items-center gap-3 ${
-                                  selectedFileTypes.includes(fileType)
-                                    ? "bg-primary text-primary-foreground font-medium"
-                                    : "hover:bg-muted"
-                                }`}
-                              >
-                                <Icon className="w-5 h-5" />
-                                <span>{getFileTypeLabel(fileType)}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
+                        {visibleFileTypes.length > 0 ? (
+                          <div className="space-y-2">
+                            {visibleFileTypes.map((fileType) => {
+                              const Icon = getFileTypeIcon(fileType);
+                              return (
+                                <button
+                                  key={fileType}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleFileType(fileType);
+                                  }}
+                                  className={`w-full text-right px-4 py-3.5 rounded-xl transition-colors flex items-center gap-3 ${
+                                    selectedFileTypes.includes(fileType)
+                                      ? "bg-primary text-primary-foreground font-medium"
+                                      : "hover:bg-muted"
+                                  }`}
+                                >
+                                  <Icon className="w-5 h-5" />
+                                  <span>{getFileTypeLabel(fileType)}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-sm text-muted-foreground">
+                            لا توجد خيارات متاحة
+                          </div>
+                        )}
                       </div>
 
                       {/* Footer with Apply/Clear buttons */}
@@ -942,23 +1118,29 @@ export function HymnsSection({
                     {/* Desktop: Dropdown aligned to button */}
                     <div className="hidden sm:block absolute right-0 top-full mt-2 w-56 bg-card border border-border rounded-xl shadow-lg z-[100]">
                       <div className="p-2">
-                        {allFileTypes.map((fileType) => {
-                          const Icon = getFileTypeIcon(fileType);
-                          return (
-                            <button
-                              key={fileType}
-                              onClick={() => toggleFileType(fileType)}
-                              className={`w-full text-right px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 ${
-                                selectedFileTypes.includes(fileType)
-                                  ? "bg-primary/10 text-primary"
-                                  : "hover:bg-muted"
-                              }`}
-                            >
-                              <Icon className="w-4 h-4" />
-                              <span>{getFileTypeLabel(fileType)}</span>
-                            </button>
-                          );
-                        })}
+                        {visibleFileTypes.length > 0 ? (
+                          visibleFileTypes.map((fileType) => {
+                            const Icon = getFileTypeIcon(fileType);
+                            return (
+                              <button
+                                key={fileType}
+                                onClick={() => toggleFileType(fileType)}
+                                className={`w-full text-right px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 ${
+                                  selectedFileTypes.includes(fileType)
+                                    ? "bg-primary/10 text-primary"
+                                    : "hover:bg-muted"
+                                }`}
+                              >
+                                <Icon className="w-4 h-4" />
+                                <span>{getFileTypeLabel(fileType)}</span>
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <div className="text-center py-6 text-sm text-muted-foreground">
+                            لا توجد خيارات متاحة
+                          </div>
+                        )}
                       </div>
                     </div>
                   </>
@@ -1053,6 +1235,13 @@ export function HymnsSection({
             filteredHymns.map((hymn) => (
               <div
                 key={hymn.id}
+                ref={(element) => {
+                  if (element) {
+                    hymnCardRefs.current[String(hymn.id)] = element;
+                  } else {
+                    delete hymnCardRefs.current[String(hymn.id)];
+                  }
+                }}
                 className="bg-card rounded-xl border border-border relative group/card hover:z-10"
               >
                 {/* Collapsed State - Always Visible */}
@@ -1429,7 +1618,7 @@ export function HymnsSection({
                 <div
                   className="overflow-hidden transition-all duration-500 ease-in-out"
                   style={{
-                    maxHeight: expandedHymnId === hymn.id ? '400px' : '0',
+                    maxHeight: expandedHymnId === hymn.id ? '9999px' : '0',
                     opacity: expandedHymnId === hymn.id ? 1 : 0,
                   }}
                 >
@@ -1449,31 +1638,6 @@ export function HymnsSection({
                             ))}
                           </div>
 
-                          <div className="space-y-2 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold">المدة:</span>
-                              <span>{hymn.duration}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold">
-                                تاريخ الإنشاء:
-                              </span>
-                              <span>
-                                {new Date(hymn.createdAt).toLocaleDateString(
-                                  "ar-EG",
-                                )}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold">آخر تحديث:</span>
-                              <span>
-                                {new Date(hymn.updatedAt).toLocaleDateString(
-                                  "ar-EG",
-                                )}
-                              </span>
-                            </div>
-                          </div>
-
                           {/* Lyrics Section */}
                           <div className="pt-2">
                             <h3 className="text-sm font-semibold mb-2 text-muted-foreground">
@@ -1486,14 +1650,24 @@ export function HymnsSection({
                                   maxHeight: expandedLyricsIds.some(
                                     (x) => String(x) === String(hymn.id),
                                   )
-                                    ? "200px"
+                                    ? "260px"
                                     : "103px",
                                 }}
                               >
-                                <p className="text-sm leading-relaxed whitespace-pre-line text-center">
-                                  {hymn.lyrics}
-                                </p>
-                                {/* Fade gradient when collapsed */}
+                                <div
+                                  className="overflow-y-auto pr-1"
+                                  style={{
+                                    height: expandedLyricsIds.some(
+                                      (x) => String(x) === String(hymn.id),
+                                    )
+                                      ? "260px"
+                                      : "103px",
+                                  }}
+                                >
+                                  <p className="text-sm leading-relaxed whitespace-pre-line text-center">
+                                    {hymn.lyrics}
+                                  </p>
+                                </div>
                                 {!expandedLyricsIds.some(
                                   (x) => String(x) === String(hymn.id),
                                 ) &&
@@ -1502,10 +1676,12 @@ export function HymnsSection({
                                   )}
                               </div>
 
-                              {/* Read more/less button - only show if text is long */}
                               {hymn.lyrics.split("\n").length > 4 && (
                                 <button
-                                  onClick={() => toggleLyricsExpansion(hymn.id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleLyricsExpansion(hymn.id);
+                                  }}
                                   className="mt-3 w-full text-sm text-primary hover:text-primary/80 transition-colors font-medium"
                                 >
                                   {expandedLyricsIds.some(
@@ -1515,6 +1691,35 @@ export function HymnsSection({
                                     : "قراءة المزيد"}
                                 </button>
                               )}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm text-muted-foreground">
+                            <div className="rounded-lg bg-muted/20 p-3">
+                              <div className="text-xs font-semibold text-muted-foreground/80">
+                                المدة
+                              </div>
+                              <div className="mt-1 font-medium">{hymn.duration}</div>
+                            </div>
+                            <div className="rounded-lg bg-muted/20 p-3">
+                              <div className="text-xs font-semibold text-muted-foreground/80">
+                                تاريخ الإنشاء
+                              </div>
+                              <div className="mt-1 font-medium">
+                                {new Date(hymn.createdAt).toLocaleDateString(
+                                  "ar-EG",
+                                )}
+                              </div>
+                            </div>
+                            <div className="rounded-lg bg-muted/20 p-3">
+                              <div className="text-xs font-semibold text-muted-foreground/80">
+                                آخر تحديث
+                              </div>
+                              <div className="mt-1 font-medium">
+                                {new Date(hymn.updatedAt).toLocaleDateString(
+                                  "ar-EG",
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1683,8 +1888,8 @@ export function HymnsSection({
       {/* Selection Mode Bottom Bar */}
       {isSelectionMode && (
         <div
-          className={`fixed bottom-0 left-8 right-8 z-[100] bg-card border-t border-border shadow-2xl animate-in slide-in-from-bottom duration-300 pb-safe transition-all ${
-            isSidebarCollapsed ? "lg:mr-20" : "lg:mr-64"
+          className={`fixed bottom-0 left-8 right-8 lg:right-[18rem] z-[100] bg-card border border-border rounded-t-xl shadow-2xl animate-in slide-in-from-bottom duration-300 pb-safe transition-all ${
+            isSidebarCollapsed ? "lg:right-[7rem]" : "lg:right-[18rem]"
           }`}
         >
           {/* Desktop Bar */}
@@ -1898,7 +2103,7 @@ export function HymnsSection({
               {previewType === "PowerPoint file" && (
                 <div className="w-full h-[450px] rounded-lg overflow-hidden border border-border bg-black">
                   <iframe
-                    src={`https://docs.google.com/viewer?url=${encodeURIComponent(previewUrl)}&embedded=true`}
+                    src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`}
                     className="w-full h-full border-0"
                     allowFullScreen
                     title="PowerPoint Preview"

@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { ChevronDown, Sparkles } from 'lucide-react';
 
 interface AIGeneratedFilterProps {
   value: 'all' | 'yes' | 'no';
   onChange: (value: 'all' | 'yes' | 'no') => void;
+  availableValues?: Array<'yes' | 'no'>;
 }
 
 const options = [
@@ -12,9 +13,17 @@ const options = [
   { value: 'no' as const, label: 'بدون AI' },
 ];
 
-export function AIGeneratedFilter({ value, onChange }: AIGeneratedFilterProps) {
+export function AIGeneratedFilter({
+  value,
+  onChange,
+  availableValues,
+}: AIGeneratedFilterProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const availableValueSet = useMemo(
+    () => new Set(availableValues ?? ['yes', 'no']),
+    [availableValues],
+  );
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -33,7 +42,13 @@ export function AIGeneratedFilter({ value, onChange }: AIGeneratedFilterProps) {
     };
   }, [isDropdownOpen]);
 
-  const currentLabel = options.find(opt => opt.value === value)?.label || 'الكل';
+  const currentLabel = options.find((opt) => opt.value === value)?.label || 'الكل';
+  const visibleOptions = options.filter(
+    (option) =>
+      option.value === 'all' ||
+      availableValueSet.has(option.value) ||
+      option.value === value,
+  );
 
   return (
     <div className="relative w-full sm:w-auto" ref={dropdownRef}>
@@ -52,7 +67,7 @@ export function AIGeneratedFilter({ value, onChange }: AIGeneratedFilterProps) {
           {/* Mobile: Full width dropdown */}
           <div className="sm:hidden absolute right-0 left-0 top-full mt-2 bg-card border border-border rounded-xl shadow-lg z-[100]">
             <div className="p-2">
-              {options.map((option) => (
+              {visibleOptions.map((option) => (
                 <button
                   key={option.value}
                   onClick={() => {
@@ -74,7 +89,7 @@ export function AIGeneratedFilter({ value, onChange }: AIGeneratedFilterProps) {
           {/* Desktop: Dropdown aligned to button */}
           <div className="hidden sm:block absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-xl shadow-lg z-[100]">
             <div className="p-2">
-              {options.map((option) => (
+              {visibleOptions.map((option) => (
                 <button
                   key={option.value}
                   onClick={() => {

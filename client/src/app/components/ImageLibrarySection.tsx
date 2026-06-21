@@ -18,11 +18,10 @@ import {
   Trash2,
   Upload,
   CheckSquare,
-  Square,
   CheckCheck,
   Video,
 } from 'lucide-react';
-import { useState, useMemo, useRef, useEffect, type RefObject } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { TagFilter } from './TagFilter';
 import { MultiSelectFilter } from './MultiSelectFilter';
 import { AIGeneratedFilter } from './AIGeneratedFilter';
@@ -33,21 +32,17 @@ import { ArtistProfileModal } from './ArtistProfileModal';
 import { getArtistByName } from '../data/artists';
 import { useIsEditor } from '../utils/adminUtils';
 import { AdminEditImageModal } from './AdminEditImageModal';
-import {
-  AdminBulkEditImagesModal,
-  BulkImageUpdates,
-} from './AdminBulkEditImagesModal';
+import { AdminBulkEditImagesModal, BulkImageUpdates } from './AdminBulkEditImagesModal';
 import { VideoModal } from './VideoModal';
 import { useGalleryImagesData } from '../hooks/useGalleryImagesData';
 import type { ContentId, GalleryImage } from '../types/content';
-import {
-  createImage,
-  deleteImage,
-  updateImage,
-} from '../services/contentWriteService';
-import { getApiBaseUrl } from '../config/api'; // تأكد إن مسار ملف api.ts صح بالنسبة للملف ده
+import { createImage, deleteImage, updateImage } from '../services/contentWriteService';
+import { getApiBaseUrl } from '../config/api';
+import { normalizeArabic } from '../utils/arabicUtils';
 
 type SortOption = 'alpha-asc' | 'alpha-desc' | 'date-asc' | 'date-desc';
+
+type ImageFacet = 'tags' | 'artists' | 'types' | 'ai';
 
 const sortOptions = [
   { value: 'alpha-asc' as SortOption, label: 'أبجدياً (أ - ي)' },
@@ -56,27 +51,118 @@ const sortOptions = [
   { value: 'date-desc' as SortOption, label: 'الأحدث' },
 ];
 
+const sortArabic = (a: string, b: string) => a.localeCompare(b, 'ar');
+
+const uniqueSorted = (values: string[]) =>
+  Array.from(new Set(values.filter(Boolean))).sort(sortArabic);
+
+const normalizeSearchText = (text: string) => normalizeArabic(text).toLowerCase();
+
+function imageMatchesSearch(image: GalleryImage, query: string) {
+  if (!query) return true;
+  const normalizedQuery = normalizeSearchText(query);
+  return (
+    normalizeSearchText(image.title).includes(normalizedQuery) ||
+    image.tags.some((tag) => normalizeSearchText(tag).includes(normalizedQuery)) ||
+    normalizeSearchText(image.artist).includes(normalizedQuery) ||
+    normalizeSearchText(image.type).includes(normalizedQuery)
+  );
+}
+
+function imageMatchesPublished(image: GalleryImage, isEditor: boolean) {
+  return isEditor || image.published;
+}
+
+function imageMatchesFavorites(
+  image: GalleryImage,
+  showFavoritesOnly: boolean,
+  favoritedIds: Set<string>,
+) {
+  return !showFavoritesOnly || favoritedIds.has(String(image.id));
+}
+
+function imageMatchesTags(image: GalleryImage, selectedTags: string[]) {
+  return (
+    selectedTags.length === 0 ||
+    selectedTags.some((tag) => image.tags.includes(tag))
+  );
+}
+
+function imageMatchesArtists(image: GalleryImage, selectedArtists: string[]) {
+  return (
+    selectedArtists.length === 0 || selectedArtists.includes(image.artist)
+  );
+}
+
+function imageMatchesTypes(image: GalleryImage, selectedTypes: string[]) {
+  return selectedTypes.length === 0 || selectedTypes.includes(image.type);
+}
+
+function imageMatchesAi(image: GalleryImage, aiFilter: 'all' | 'yes' | 'no') {
+  return (
+    aiFilter === 'all' ||
+    (aiFilter === 'yes' && image.aiGenerated) ||
+    (aiFilter === 'no' && !image.aiGenerated)
+  );
+}
+
+function getImagesForFacet(
+  images: GalleryImage[],
+  params: {
+    isEditor: boolean;
+    searchQuery: string;
+    selectedTags: string[];
+    selectedArtists: string[];
+    selectedTypes: string[];
+    aiFilter: 'all' | 'yes' | 'no';
+    showFavoritesOnly: boolean;
+    favoritedIds: Set<string>;
+    excludeFacet?: ImageFacet;
+  },
+) {
+  const {
+    isEditor,
+    searchQuery,
+    selectedTags,
+    selectedArtists,
+    selectedTypes,
+    aiFilter,
+    showFavoritesOnly,
+    favoritedIds,
+    excludeFacet,
+  } = params;
+
+  return images.filter((image) => {
+    if (!imageMatchesPublished(image, isEditor)) return false;
+    if (!imageMatchesSearch(image, searchQuery)) return false;
+    if (!imageMatchesFavorites(image, showFavoritesOnly, favoritedIds)) return false;
+    if (excludeFacet !== 'tags' && !imageMatchesTags(image, selectedTags)) return false;
+    if (excludeFacet !== 'artists' && !imageMatchesArtists(image, selectedArtists)) return false;
+    if (excludeFacet !== 'types' && !imageMatchesTypes(image, selectedTypes)) return false;
+    if (excludeFacet !== 'ai' && !imageMatchesAi(image, aiFilter)) return false;
+    return true;
+  });
+}
+
 export function ImageLibrarySection({
   isSidebarCollapsed,
 }: {
   isSidebarCollapsed: boolean;
 }) {
-  const [visibleCount, setVisibleCount] = useState(20);
   const { user, profile, accessToken } = useAuth();
   const isEditor = useIsEditor();
   const { images, setImages, loading: imagesLoading } = useGalleryImagesData();
 
-  // Get unique artists, tags, and types from current images
   const allArtists = useMemo(
-    () => Array.from(new Set(images.map((img) => img.artist))),
+    () => uniqueSorted(images.map((img) => img.artist)),
     [images],
   );
   const allTypes = useMemo(
-    () => Array.from(new Set(images.map((img) => img.type))),
+    () => uniqueSorted(images.map((img) => img.type)),
     [images],
   );
   const allTags = useMemo(
-    () => Array.from(new Set(images.flatMap((img) => img.tags))),
+    () => uniqueSorted(images.flatMap((img) => img.tags)),
     [images],
   );
 
@@ -98,22 +184,16 @@ export function ImageLibrarySection({
   const [isScrolled, setIsScrolled] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
-  // Artist Profile Modal state
   const [artistProfileOpen, setArtistProfileOpen] = useState(false);
-  const [selectedArtistName, setSelectedArtistName] = useState<string | null>(
-    null,
-  );
+  const [selectedArtistName, setSelectedArtistName] = useState<string | null>(null);
 
-  // Admin states
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingImage, setEditingImage] = useState<GalleryImage | null>(null);
 
-  // Video tutorial modal state
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [bulkEditMode, setBulkEditMode] = useState(false);
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
 
-  // Touch/swipe detection state for lightbox
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
@@ -122,100 +202,19 @@ export function ImageLibrarySection({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Favorites are kept in-memory only.
+  const favoritedImageIds = useMemo(
+    () => new Set(favoritedImages.map((id) => String(id))),
+    [favoritedImages],
+  );
 
-  // 1. أضف هذا الـ Ref في أعلى الكومبوننت بجانب الـ refs الأخرى (حوالي السطر 80):
-  const imageBulkInputRef = useRef<HTMLInputElement>(null);
-  const [isUploadingBulk, setIsUploadingBulk] = useState(false); // لحالة التحميل أثناء الرفع الجماعي
-  // 2. أضف دالة معالجة الـ Bulk Upload الجماعي داخل الكومبوننت:
-  const handleImageBulkChange = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-
-    setIsUploadingBulk(true);
-    setShareMessage(`جاري تحضير ورفع ${files.length} صورة...`);
-
-    try {
-      const newImagesPromises = Array.from(files).map((file) => {
-        return new Promise<GalleryImage>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            if (e.target?.result) {
-              // تجهيز مصفوفة بيانات الصورة بالقيم الافتراضية
-              const base64String = e.target.result as string;
-              resolve({
-                id: 0, // السيرفر هيولد الـ id تلقائياً
-                title:
-                  file.name.split('.').slice(0, -1).join('.') || 'صورة جديدة',
-                src: base64String,
-                artist: 'غير محدد',
-                type: 'متنوع',
-                tags: [],
-                aiGenerated: false,
-                published: true, // رفع ونشر تلقائي مثل الـ Dashboard
-                uploadDate: new Date().toISOString(),
-              });
-            } else {
-              reject(new Error('فشل قراءة الملف'));
-            }
-          };
-          reader.onerror = () => reject(new Error('خطأ في الملف'));
-          reader.readAsDataURL(file);
-        });
-      });
-
-      const preparedImages = await Promise.all(newImagesPromises);
-
-      // استدعاء الدالة المجهزة مسبقاً في السيكشن لرفع المصفوفة كاملة للسيرفر
-      await handleSaveMultipleImages(preparedImages);
-    } catch (error) {
-      console.error(error);
-      setShareMessage('حدث خطأ أثناء رفع الصور الجماعي');
-    } finally {
-      setIsUploadingBulk(false);
-      if (imageBulkInputRef.current) imageBulkInputRef.current.value = ''; // تصفير الـ input
-      setTimeout(() => setShareMessage(''), 3000);
-    }
-  };
-  // --- لوجيك إخفاء الهيدر عند السكرول (Figma Style) ---
-  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
-  const lastScrollY = useRef(0);
-  useEffect(() => {
-    setVisibleCount(20);
-  }, [
-    searchQuery,
-    selectedTags,
-    selectedArtists,
-    selectedTypes,
-    aiFilter,
-    showFavoritesOnly,
-  ]);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-
-      // إذا سكرول لأسفل ومعدي مسافة 50 بكسل عشان ميتأثرش بالهزات البسيطة
-      if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
-        setIsHeaderVisible(false); // إخفاء
-      } else {
-        setIsHeaderVisible(true); // إظهار عند السكرول لأعلى
-      }
-
-      lastScrollY.current = currentScrollY;
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-  // Detect scroll to hide title/description
   useEffect(() => {
     const handleScroll = () => {
       if (scrollContainerRef.current) {
         const scrollTop = scrollContainerRef.current.scrollTop;
         setIsScrolled(scrollTop > 20);
+        const scrollRange = 50;
+        const progress = Math.min(scrollTop / scrollRange, 1);
+        setScrollProgress(progress);
       }
     };
 
@@ -232,7 +231,6 @@ export function ImageLibrarySection({
     };
   }, [scrollContainerRef.current, images]);
 
-  // Close sort dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -252,7 +250,6 @@ export function ImageLibrarySection({
     };
   }, [isSortDropdownOpen]);
 
-  // Close lightbox on escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && lightboxOpen) {
@@ -283,16 +280,13 @@ export function ImageLibrarySection({
   };
 
   const prevImage = () => {
-    setCurrentImageIndex(
-      (prev) => (prev - 1 + sortedImages.length) % sortedImages.length,
-    );
+    setCurrentImageIndex((prev) => (prev - 1 + sortedImages.length) % sortedImages.length);
   };
 
-  // Minimum swipe distance (in px) to be considered a swipe
   const minSwipeDistance = 50;
 
   const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null); // Reset touchEnd
+    setTouchEnd(null);
     setTouchStart(e.targetTouches[0].clientX);
   };
 
@@ -308,11 +302,9 @@ export function ImageLibrarySection({
     const isRightSwipe = distance < -minSwipeDistance;
 
     if (isLeftSwipe) {
-      // Swipe left - go to previous image (RTL)
       prevImage();
     }
     if (isRightSwipe) {
-      // Swipe right - go to next image (RTL)
       nextImage();
     }
   };
@@ -333,7 +325,6 @@ export function ImageLibrarySection({
   };
 
   const downloadImage = (image: GalleryImage) => {
-    // Create a temporary link and trigger download
     const link = document.createElement('a');
     link.href = image.src;
     link.download = `${image.title}.png`;
@@ -342,7 +333,6 @@ export function ImageLibrarySection({
     document.body.removeChild(link);
   };
 
-  // Multi-select helper functions
   const toggleImageSelection = (imageId: ContentId) => {
     setSelectedImages((prev) =>
       prev.some((id) => String(id) === String(imageId))
@@ -364,7 +354,6 @@ export function ImageLibrarySection({
     setSelectedImages([]);
   };
 
-  // Admin Functions
   const handleAddNew = () => {
     setEditingImage(null);
     setIsEditModalOpen(true);
@@ -384,9 +373,7 @@ export function ImageLibrarySection({
       }
       try {
         await deleteImage(id, accessToken);
-        setImages((prev) =>
-          prev.filter((img) => String(img.id) !== String(id)),
-        );
+        setImages((prev) => prev.filter((img) => String(img.id) !== String(id)));
         setShareMessage('تم الحذف بنجاح');
       } catch {
         setShareMessage('فشل الحذف من الخادم');
@@ -399,9 +386,7 @@ export function ImageLibrarySection({
   const handleBulkDelete = async () => {
     if (selectedImages.length === 0) return;
     if (confirm(`هل أنت متأكد من حذف ${selectedImages.length} صورة؟`)) {
-      const ids = selectedImages.filter(
-        (id): id is string => typeof id === 'string',
-      );
+      const ids = selectedImages.filter((id): id is string => typeof id === 'string');
       await Promise.allSettled(ids.map((id) => deleteImage(id, accessToken)));
       setImages((prev) => prev.filter((img) => !ids.includes(String(img.id))));
       setSelectedImages([]);
@@ -444,10 +429,8 @@ export function ImageLibrarySection({
   const handleSelectAllImages = () => {
     const allVisibleIds = sortedImages.map((img) => img.id);
     if (selectedImages.length === allVisibleIds.length) {
-      // Deselect all
       setSelectedImages([]);
     } else {
-      // Select all
       setSelectedImages(allVisibleIds);
     }
   };
@@ -455,46 +438,32 @@ export function ImageLibrarySection({
   const handleBulkEditSave = (updates: BulkImageUpdates) => {
     setImages((prev) =>
       prev.map((img) => {
-        if (!selectedImages.some((sid) => String(sid) === String(img.id)))
-          return img;
+        if (!selectedImages.some((sid) => String(sid) === String(img.id))) return img;
 
         const updatedImage = { ...img };
 
-        // Apply artist if checked
         if (updates.applyArtist && updates.artist) {
           updatedImage.artist = updates.artist;
         }
 
-        // Apply type if checked
         if (updates.applyType && updates.type) {
           updatedImage.type = updates.type;
         }
 
-        // Apply AI status if checked
         if (updates.applyAiStatus) {
           updatedImage.aiGenerated = updates.aiGenerated;
         }
 
-        // Apply tags if checked
         if (updates.applyTags) {
           if (updates.tagOperation === 'add') {
-            // Add new tags without duplicates
-            const newTags = [
-              ...new Set([...updatedImage.tags, ...updates.tags]),
-            ];
-            updatedImage.tags = newTags;
+            updatedImage.tags = [...new Set([...updatedImage.tags, ...updates.tags])];
           } else if (updates.tagOperation === 'replace') {
-            // Replace all tags
             updatedImage.tags = updates.tags;
           } else if (updates.tagOperation === 'remove') {
-            // Remove specified tags
-            updatedImage.tags = updatedImage.tags.filter(
-              (tag) => !updates.tags.includes(tag),
-            );
+            updatedImage.tags = updatedImage.tags.filter((tag) => !updates.tags.includes(tag));
           }
         }
 
-        // Apply published status if checked
         if (updates.applyPublished) {
           updatedImage.published = updates.published;
         }
@@ -514,9 +483,7 @@ export function ImageLibrarySection({
     try {
       if (editingImage && typeof editingImage.id === 'string') {
         const updated = await updateImage(editingImage.id, image, accessToken);
-        setImages((prev) =>
-          prev.map((img) => (img.id === updated.id ? updated : img)),
-        );
+        setImages((prev) => prev.map((img) => (img.id === updated.id ? updated : img)));
         setShareMessage('تم التحديث بنجاح');
       } else {
         const created = await createImage(image, accessToken);
@@ -531,14 +498,9 @@ export function ImageLibrarySection({
   };
 
   const handleSaveMultipleImages = async (images: GalleryImage[]) => {
-    const created = await Promise.allSettled(
-      images.map((img) => createImage(img, accessToken)),
-    );
+    const created = await Promise.allSettled(images.map((img) => createImage(img, accessToken)));
     const ok = created
-      .filter(
-        (x): x is PromiseFulfilledResult<GalleryImage> =>
-          x.status === 'fulfilled',
-      )
+      .filter((x): x is PromiseFulfilledResult<GalleryImage> => x.status === 'fulfilled')
       .map((x) => x.value);
     setImages((prev) => [...prev, ...ok]);
     setShareMessage(`تمت إضافة ${ok.length} صورة بنجاح`);
@@ -572,19 +534,15 @@ export function ImageLibrarySection({
               'هل تريد استبدال البيانات الحالية أم دمجها?\n\nاضغط OK للاستبدال، أو Cancel للدمج',
             )
           ) {
-            // Replace
             setImages(imported);
             setShareMessage('تم الاستيراد بنجاح (استبدال)');
           } else {
-            // Merge
             const existingIds = new Set(images.map((img) => img.id));
             const newImages = imported.filter(
               (img: GalleryImage) => !existingIds.has(img.id),
             );
             setImages((prev) => [...prev, ...newImages]);
-            setShareMessage(
-              `تم الاستيراد بنجاح (${newImages.length} عنصر جديد)`,
-            );
+            setShareMessage(`تم الاستيراد بنجاح (${newImages.length} عنصر جديد)`);
           }
           setTimeout(() => setShareMessage(''), 2000);
         } else {
@@ -595,8 +553,6 @@ export function ImageLibrarySection({
       }
     };
     reader.readAsText(file);
-
-    // Reset input
     event.target.value = '';
   };
 
@@ -608,8 +564,6 @@ export function ImageLibrarySection({
 
     setShareMessage(`تم تحميل ${toDownload.length} صورة`);
     setTimeout(() => setShareMessage(''), 3000);
-
-    // Exit selection mode after download
     exitSelectionMode();
   };
 
@@ -619,7 +573,6 @@ export function ImageLibrarySection({
       return;
     }
 
-    // Add all selected images to favorites
     setFavoritedImages((prev) => {
       const newFavorites = [...prev];
       selectedImages.forEach((id) => {
@@ -630,76 +583,161 @@ export function ImageLibrarySection({
       return newFavorites;
     });
 
-    // Show success message
     setShareMessage(`تم إضافة ${selectedImages.length} صورة إلى المفضلة`);
     setTimeout(() => setShareMessage(''), 3000);
-
-    // Exit selection mode
     exitSelectionMode();
   };
 
-  // Filter image categories based on selected tags and search query
-  const filteredImages = useMemo(() => {
-    return images.filter((image) => {
-      // Filter by published status - hide unpublished images for non-editor users
-      if (!isEditor && !image.published) {
-        return false;
-      }
+  const filteredImages = useMemo(
+    () =>
+      getImagesForFacet(images, {
+        isEditor,
+        searchQuery,
+        selectedTags,
+        selectedArtists,
+        selectedTypes,
+        aiFilter,
+        showFavoritesOnly,
+        favoritedIds: favoritedImageIds,
+      }),
+    [
+      images,
+      isEditor,
+      searchQuery,
+      selectedTags,
+      selectedArtists,
+      selectedTypes,
+      aiFilter,
+      showFavoritesOnly,
+      favoritedImageIds,
+    ],
+  );
 
-      // Filter by search query
-      const matchesSearch =
-        searchQuery === '' ||
-        image.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        image.tags.some((tag) =>
-          tag.toLowerCase().includes(searchQuery.toLowerCase()),
-        );
+  const availableImagesForTags = useMemo(
+    () =>
+      getImagesForFacet(images, {
+        isEditor,
+        searchQuery,
+        selectedTags,
+        selectedArtists,
+        selectedTypes,
+        aiFilter,
+        showFavoritesOnly,
+        favoritedIds: favoritedImageIds,
+        excludeFacet: 'tags',
+      }),
+    [
+      images,
+      isEditor,
+      searchQuery,
+      selectedTags,
+      selectedArtists,
+      selectedTypes,
+      aiFilter,
+      showFavoritesOnly,
+      favoritedImageIds,
+    ],
+  );
 
-      // Filter by tags
-      const matchesTags =
-        selectedTags.length === 0 ||
-        selectedTags.some((tag) => image.tags.includes(tag));
+  const availableImagesForArtists = useMemo(
+    () =>
+      getImagesForFacet(images, {
+        isEditor,
+        searchQuery,
+        selectedTags,
+        selectedArtists,
+        selectedTypes,
+        aiFilter,
+        showFavoritesOnly,
+        favoritedIds: favoritedImageIds,
+        excludeFacet: 'artists',
+      }),
+    [
+      images,
+      isEditor,
+      searchQuery,
+      selectedTags,
+      selectedArtists,
+      selectedTypes,
+      aiFilter,
+      showFavoritesOnly,
+      favoritedImageIds,
+    ],
+  );
 
-      // Filter by artists
-      const matchesArtists =
-        selectedArtists.length === 0 || selectedArtists.includes(image.artist);
+  const availableImagesForTypes = useMemo(
+    () =>
+      getImagesForFacet(images, {
+        isEditor,
+        searchQuery,
+        selectedTags,
+        selectedArtists,
+        selectedTypes,
+        aiFilter,
+        showFavoritesOnly,
+        favoritedIds: favoritedImageIds,
+        excludeFacet: 'types',
+      }),
+    [
+      images,
+      isEditor,
+      searchQuery,
+      selectedTags,
+      selectedArtists,
+      selectedTypes,
+      aiFilter,
+      showFavoritesOnly,
+      favoritedImageIds,
+    ],
+  );
 
-      // Filter by types
-      const matchesTypes =
-        selectedTypes.length === 0 || selectedTypes.includes(image.type);
+  const availableImagesForAi = useMemo(
+    () =>
+      getImagesForFacet(images, {
+        isEditor,
+        searchQuery,
+        selectedTags,
+        selectedArtists,
+        selectedTypes,
+        aiFilter,
+        showFavoritesOnly,
+        favoritedIds: favoritedImageIds,
+        excludeFacet: 'ai',
+      }),
+    [
+      images,
+      isEditor,
+      searchQuery,
+      selectedTags,
+      selectedArtists,
+      selectedTypes,
+      aiFilter,
+      showFavoritesOnly,
+      favoritedImageIds,
+    ],
+  );
 
-      // Filter by AI generated
-      const matchesAi =
-        aiFilter === 'all' ||
-        (aiFilter === 'yes' && image.aiGenerated) ||
-        (aiFilter === 'no' && !image.aiGenerated);
+  const availableTopicNames = useMemo(
+    () => uniqueSorted(availableImagesForTags.flatMap((image) => image.tags)),
+    [availableImagesForTags],
+  );
 
-      // Filter by favorites
-      const matchesFavorites =
-        !showFavoritesOnly ||
-        favoritedImages.some((f) => String(f) === String(image.id));
+  const availableArtistNames = useMemo(
+    () => uniqueSorted(availableImagesForArtists.map((image) => image.artist)),
+    [availableImagesForArtists],
+  );
 
-      return (
-        matchesSearch &&
-        matchesTags &&
-        matchesArtists &&
-        matchesTypes &&
-        matchesAi &&
-        matchesFavorites
-      );
-    });
-  }, [
-    images,
-    selectedTags,
-    selectedArtists,
-    selectedTypes,
-    aiFilter,
-    searchQuery,
-    showFavoritesOnly,
-    favoritedImages,
-    isEditor,
-  ]);
+  const availableTypeNames = useMemo(
+    () => uniqueSorted(availableImagesForTypes.map((image) => image.type)),
+    [availableImagesForTypes],
+  );
 
-  // Sort filtered categories based on sort key and order
+  const availableAiValues = useMemo(() => {
+    const values = new Set<'yes' | 'no'>();
+    availableImagesForAi.forEach((image) => values.add(image.aiGenerated ? 'yes' : 'no'));
+    return Array.from(values);
+  }, [availableImagesForAi]);
+
   const sortedImages = useMemo(() => {
     return [...filteredImages].sort((a, b) => {
       if (sortBy === 'alpha-asc') {
@@ -707,35 +745,16 @@ export function ImageLibrarySection({
       } else if (sortBy === 'alpha-desc') {
         return b.title.localeCompare(a.title);
       } else if (sortBy === 'date-asc') {
-        return (
-          new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime()
-        );
+        return new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime();
       } else if (sortBy === 'date-desc') {
-        return (
-          new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
-        );
+        return new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime();
       }
       return 0;
     });
   }, [filteredImages, sortBy]);
-  const displayedImages = useMemo(() => {
-    return sortedImages.slice(0, visibleCount);
-  }, [sortedImages, visibleCount]);
-
-  useEffect(() => {
-    setVisibleCount(20);
-  }, [
-    searchQuery,
-    selectedTags,
-    selectedArtists,
-    selectedTypes,
-    aiFilter,
-    showFavoritesOnly,
-  ]);
 
   const handleLogin = () => {
     setShowLoginModal(false);
-    // Dispatch custom event to open the login modal
     window.dispatchEvent(new CustomEvent('openLoginModal'));
   };
 
@@ -776,21 +795,14 @@ export function ImageLibrarySection({
           </div>
         </div>
 
-        {/* Admin Toolbar - Option 1: Dedicated Row */}
         {isEditor && (
           <div className="mt-4 mb-4 px-3 py-2 bg-primary/5 border border-primary/20 rounded-lg">
             <div className="flex items-center justify-between gap-3 flex-wrap">
-              {/* Label */}
               <div className="flex items-center gap-2">
                 <Edit2 className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium text-primary">
-                  أدوات التحرير:
-                </span>
+                <span className="text-sm font-medium text-primary">أدوات التحرير:</span>
               </div>
-
-              {/* Buttons */}
               <div className="flex items-center gap-2 flex-wrap">
-                {/* Manual Add button in the format of a group upload button */}
                 <button
                   type="button"
                   onClick={handleAddNew}
@@ -800,8 +812,6 @@ export function ImageLibrarySection({
                   <Plus className="w-4 h-4" />
                   <span>إضافة صورة يدوية</span>
                 </button>
-
-                {/* 3. زر التحديد المتعدد */}
                 <button
                   type="button"
                   onClick={() => {
@@ -818,8 +828,6 @@ export function ImageLibrarySection({
                   <CheckSquare className="w-4 h-4" />
                   <span>{bulkEditMode ? 'إلغاء' : 'تحديد'}</span>
                 </button>
-
-                {/* 4. زر تصدير JSON */}
                 <button
                   type="button"
                   onClick={handleExport}
@@ -829,8 +837,6 @@ export function ImageLibrarySection({
                   <Download className="w-4 h-4" />
                   <span>تصدير</span>
                 </button>
-
-                {/* 5. زر استيراد JSON */}
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -852,21 +858,16 @@ export function ImageLibrarySection({
           </div>
         )}
 
-        {/* Bulk Actions Bar */}
         {isEditor && bulkEditMode && selectedImages.length > 0 && (
           <div className="mt-4 p-3 bg-primary/10 border border-primary rounded-xl flex items-center justify-between flex-wrap gap-2">
-            <span className="text-sm font-medium">
-              {selectedImages.length} عنصر محدد
-            </span>
+            <span className="text-sm font-medium">{selectedImages.length} عنصر محدد</span>
             <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={handleSelectAllImages}
                 className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg hover:bg-muted transition-colors text-sm"
               >
                 <CheckCheck className="w-4 h-4" />
-                {selectedImages.length === sortedImages.length
-                  ? 'إلغاء الكل'
-                  : 'تحديد الكل'}
+                {selectedImages.length === sortedImages.length ? 'إلغاء الكل' : 'تحديد الكل'}
               </button>
               <button
                 onClick={() => setIsBulkEditModalOpen(true)}
@@ -900,9 +901,7 @@ export function ImageLibrarySection({
           </div>
         )}
 
-        {/* Search and Filters Container */}
         <div className="space-y-4 sm:space-y-8">
-          {/* Search Bar with Sort Button (Mobile) */}
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
@@ -915,7 +914,6 @@ export function ImageLibrarySection({
               />
             </div>
 
-            {/* Select Mode Button - Changes to Cancel when in selection mode */}
             <button
               onClick={() =>
                 isSelectionMode ? exitSelectionMode() : setIsSelectionMode(true)
@@ -939,11 +937,7 @@ export function ImageLibrarySection({
               )}
             </button>
 
-            {/* Sort Button - Icon only on mobile, beside search bar */}
-            <div
-              className="relative flex-shrink-0 sm:hidden"
-              ref={sortDropdownRef}
-            >
+            <div className="relative flex-shrink-0 sm:hidden" ref={sortDropdownRef}>
               <button
                 onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
                 className="flex items-center justify-center w-[50px] h-[50px] bg-card border border-border rounded-xl hover:bg-muted transition-colors"
@@ -951,7 +945,6 @@ export function ImageLibrarySection({
                 <ArrowUpDown className="w-5 h-5 text-muted-foreground" />
               </button>
 
-              {/* Dropdown menu - Mobile */}
               {isSortDropdownOpen && (
                 <div className="absolute left-0 right-0 top-full mt-2 bg-card border border-border rounded-xl shadow-lg z-[100]">
                   <div className="p-2">
@@ -977,14 +970,11 @@ export function ImageLibrarySection({
             </div>
           </div>
 
-          {/* Filters and Sort Row */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3 -mt-2 sm:-mt-3.5">
-            {/* Filters on the right */}
             <div
               className="relative flex items-center gap-2 sm:gap-3 w-full sm:w-auto"
               ref={filtersContainerRef}
             >
-              {/* Tag Filter */}
               <div className="flex-1 sm:flex-initial">
                 <TagFilter
                   selectedTags={selectedTags}
@@ -994,10 +984,10 @@ export function ImageLibrarySection({
                   showSearch={false}
                   icon={Tags}
                   containerRef={filtersContainerRef}
+                  availableTopics={availableTopicNames}
                 />
               </div>
 
-              {/* Artist Filter */}
               <div className="flex-1 sm:flex-initial">
                 <MultiSelectFilter
                   label="الفنانون"
@@ -1005,10 +995,10 @@ export function ImageLibrarySection({
                   selectedOptions={selectedArtists}
                   onOptionsChange={setSelectedArtists}
                   icon={User}
+                  availableOptions={availableArtistNames}
                 />
               </div>
 
-              {/* Type Filter */}
               <div className="flex-1 sm:flex-initial">
                 <MultiSelectFilter
                   label="النواع"
@@ -1016,15 +1006,18 @@ export function ImageLibrarySection({
                   selectedOptions={selectedTypes}
                   onOptionsChange={setSelectedTypes}
                   icon={ImageIcon}
+                  availableOptions={availableTypeNames}
                 />
               </div>
 
-              {/* AI Generated Filter */}
               <div className="flex-1 sm:flex-initial">
-                <AIGeneratedFilter value={aiFilter} onChange={setAiFilter} />
+                <AIGeneratedFilter
+                  value={aiFilter}
+                  onChange={setAiFilter}
+                  availableValues={availableAiValues}
+                />
               </div>
 
-              {/* Favorites Only Toggle - Only visible when user is logged in */}
               {user && profile && (
                 <button
                   onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
@@ -1038,7 +1031,9 @@ export function ImageLibrarySection({
                   }
                 >
                   <Heart
-                    className={`w-4 h-4 flex-shrink-0 transition-all ${showFavoritesOnly ? 'fill-current' : ''}`}
+                    className={`w-4 h-4 flex-shrink-0 transition-all ${
+                      showFavoritesOnly ? 'fill-current' : ''
+                    }`}
                   />
                   <span className="text-sm hidden lg:inline">المفضلة فقط</span>
                   {showFavoritesOnly && favoritedImages.length > 0 && (
@@ -1049,7 +1044,6 @@ export function ImageLibrarySection({
                 </button>
               )}
 
-              {/* Results Count Info Chip */}
               <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 h-[42px] bg-muted/50 border border-border/50 rounded-xl pointer-events-none">
                 <ImageIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                 <span className="text-sm text-muted-foreground font-medium whitespace-nowrap">
@@ -1058,7 +1052,6 @@ export function ImageLibrarySection({
               </div>
             </div>
 
-            {/* Sort Dropdown on the left */}
             <div
               className="relative flex-shrink-0 order-1 sm:order-2 hidden sm:block"
               ref={sortDropdownRef}
@@ -1072,11 +1065,12 @@ export function ImageLibrarySection({
                   {sortOptions.find((option) => option.value === sortBy)?.label}
                 </span>
                 <ChevronDown
-                  className={`w-4 h-4 transition-transform flex-shrink-0 ${isSortDropdownOpen ? 'rotate-180' : ''}`}
+                  className={`w-4 h-4 transition-transform flex-shrink-0 ${
+                    isSortDropdownOpen ? 'rotate-180' : ''
+                  }`}
                 />
               </button>
 
-              {/* Dropdown menu */}
               {isSortDropdownOpen && (
                 <div className="absolute left-0 right-0 sm:left-0 sm:right-auto top-full mt-2 sm:w-56 bg-card border border-border rounded-xl shadow-lg z-[100]">
                   <div className="p-2">
@@ -1104,9 +1098,7 @@ export function ImageLibrarySection({
         </div>
       </div>
 
-      {/* Scrollable Content Area */}
       <div className="flex-1 overflow-y-auto pt-6" ref={scrollContainerRef}>
-        {/* Image Gallery Grid */}
         <ResponsiveMasonry
           columnsCountBreakPoints={{ 350: 1, 750: 2, 900: 3, 1200: 4 }}
         >
@@ -1129,12 +1121,10 @@ export function ImageLibrarySection({
                     }
                   }}
                 >
-                  {/* Image */}
                   {(() => {
                     const baseUrl = getApiBaseUrl();
                     const fullImageUrl =
-                      image.src.startsWith('http') ||
-                      image.src.startsWith('data:')
+                      image.src.startsWith('http') || image.src.startsWith('data:')
                         ? image.src
                         : `${baseUrl}${image.src.startsWith('/') ? '' : '/'}${image.src}`;
 
@@ -1148,19 +1138,15 @@ export function ImageLibrarySection({
                     );
                   })()}
 
-                  {/* Unpublished Badge - Only visible to editors/admins - TOP RIGHT */}
-                  {isEditor &&
-                    !image.published &&
-                    !(isSelectionMode || bulkEditMode) && (
-                      <div className="absolute top-3 right-3 z-10">
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 text-white rounded-lg shadow-lg text-xs font-semibold">
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>مخفية</span>
-                        </div>
+                  {isEditor && !image.published && !(isSelectionMode || bulkEditMode) && (
+                    <div className="absolute top-3 right-3 z-10">
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 text-white rounded-lg shadow-lg text-xs font-semibold">
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>مخفية</span>
                       </div>
-                    )}
+                    </div>
+                  )}
 
-                  {/* Selection Checkbox - Shows ONLY in selection mode or bulk edit mode */}
                   {(isSelectionMode || bulkEditMode) && (
                     <div
                       className="absolute top-3 right-3 z-10"
@@ -1171,28 +1157,21 @@ export function ImageLibrarySection({
                     >
                       <div
                         className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer shadow-lg ${
-                          selectedImages.some(
-                            (x) => String(x) === String(image.id),
-                          )
+                          selectedImages.some((x) => String(x) === String(image.id))
                             ? 'bg-primary border-primary'
                             : 'border-white bg-white/90 hover:bg-white'
                         }`}
                       >
-                        {selectedImages.some(
-                          (x) => String(x) === String(image.id),
-                        ) && (
+                        {selectedImages.some((x) => String(x) === String(image.id)) && (
                           <Check className="w-4 h-4 text-primary-foreground" />
                         )}
                       </div>
                     </div>
                   )}
 
-                  {/* Overlay - Shows on hover OR when favorited (for heart button visibility) */}
                   {!isSelectionMode && !bulkEditMode && (
                     <>
-                      {/* Background overlay - only on hover */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                        {/* Bottom buttons - Download for regular users, Edit/Delete/Download for editors */}
                         <div className="flex items-center gap-2">
                           {isEditor ? (
                             <>
@@ -1242,7 +1221,6 @@ export function ImageLibrarySection({
                         </div>
                       </div>
 
-                      {/* Heart button - Always visible when favorited, only on hover when not favorited */}
                       <div
                         className={`absolute top-3 left-3 z-10 transition-opacity duration-300 ${
                           favoritedImages.includes(image.id)
@@ -1262,18 +1240,17 @@ export function ImageLibrarySection({
                           }`}
                         >
                           <Heart
-                            className={`w-4 h-4 ${favoritedImages.includes(image.id) ? 'fill-current' : ''}`}
+                            className={`w-4 h-4 ${
+                              favoritedImages.includes(image.id) ? 'fill-current' : ''
+                            }`}
                           />
                         </button>
                       </div>
                     </>
                   )}
 
-                  {/* Selection overlay - Show when image is selected */}
                   {(isSelectionMode || bulkEditMode) &&
-                    selectedImages.some(
-                      (x) => String(x) === String(image.id),
-                    ) && (
+                    selectedImages.some((x) => String(x) === String(image.id)) && (
                       <div className="absolute inset-0 bg-primary/10 pointer-events-none" />
                     )}
                 </div>
@@ -1289,13 +1266,11 @@ export function ImageLibrarySection({
         </ResponsiveMasonry>
       </div>
 
-      {/* Lightbox Modal */}
       {lightboxOpen && sortedImages.length > 0 && (
         <div
           className="fixed inset-0 bg-black/95 flex items-center justify-center z-[300]"
           onClick={() => setLightboxOpen(false)}
         >
-          {/* Close button */}
           <button
             className="absolute top-4 left-4 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white rounded-full p-3 transition-colors z-10"
             onClick={() => setLightboxOpen(false)}
@@ -1303,23 +1278,16 @@ export function ImageLibrarySection({
             <X className="w-5 h-5" />
           </button>
 
-          {/* Image info header */}
           <div className="absolute top-4 right-4 left-20 bg-black/60 backdrop-blur-sm text-white rounded-xl p-4 z-10 max-w-2xl">
-            <h2 className="font-bold mb-1">
-              {sortedImages[currentImageIndex].title}
-            </h2>
+            <h2 className="font-bold mb-1">{sortedImages[currentImageIndex].title}</h2>
             <div className="flex items-center gap-2 text-xs text-white/70 flex-wrap">
               <span>الفنان: </span>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  const artist = getArtistByName(
-                    sortedImages[currentImageIndex].artist,
-                  );
+                  const artist = getArtistByName(sortedImages[currentImageIndex].artist);
                   if (artist) {
-                    setSelectedArtistName(
-                      sortedImages[currentImageIndex].artist,
-                    );
+                    setSelectedArtistName(sortedImages[currentImageIndex].artist);
                     setArtistProfileOpen(true);
                   }
                 }}
@@ -1344,7 +1312,6 @@ export function ImageLibrarySection({
             </p>
           </div>
 
-          {/* Action buttons at bottom */}
           <div className="absolute bottom-4 right-4 left-4 flex flex-wrap items-center justify-center gap-3 z-10">
             <button
               onClick={(e) => {
@@ -1362,29 +1329,26 @@ export function ImageLibrarySection({
                 toggleFavorite(sortedImages[currentImageIndex].id);
               }}
               className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-colors backdrop-blur-sm ${
-                favoritedImages.some(
-                  (f) =>
-                    String(f) === String(sortedImages[currentImageIndex].id),
-                )
+                favoritedImages.some((f) => String(f) === String(sortedImages[currentImageIndex].id))
                   ? 'bg-red-500 hover:bg-red-600 text-white'
                   : 'bg-white/20 hover:bg-white/30 text-white'
               }`}
             >
               <Heart
-                className={`w-5 h-5 ${favoritedImages.some((f) => String(f) === String(sortedImages[currentImageIndex].id)) ? 'fill-current' : ''}`}
+                className={`w-5 h-5 ${
+                  favoritedImages.some((f) => String(f) === String(sortedImages[currentImageIndex].id))
+                    ? 'fill-current'
+                    : ''
+                }`}
               />
               <span>
-                {favoritedImages.some(
-                  (f) =>
-                    String(f) === String(sortedImages[currentImageIndex].id),
-                )
+                {favoritedImages.some((f) => String(f) === String(sortedImages[currentImageIndex].id))
                   ? 'مفضلة'
                   : 'إضافة للمفضلة'}
               </span>
             </button>
           </div>
 
-          {/* Navigation buttons */}
           {sortedImages.length > 1 && (
             <>
               <button
@@ -1408,12 +1372,10 @@ export function ImageLibrarySection({
             </>
           )}
 
-          {/* Image counter */}
           <div className="absolute bottom-24 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm text-white rounded-full px-4 py-2 text-sm z-10">
             {currentImageIndex + 1} / {sortedImages.length}
           </div>
 
-          {/* Main image - centered with proper fitting */}
           <div
             className="absolute inset-0 flex items-center justify-center px-4 py-32 md:px-20"
             onClick={(e) => e.stopPropagation()}
@@ -1441,30 +1403,24 @@ export function ImageLibrarySection({
         </div>
       )}
 
-      {/* Share Message */}
       {shareMessage && (
         <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-primary text-primary-foreground px-6 py-3 rounded-xl shadow-lg z-50 animate-fade-in">
           {shareMessage}
         </div>
       )}
 
-      {/* Selection Mode Bottom Bar */}
       {isSelectionMode && (
         <div
-          className={`fixed bottom-0 left-8 right-8 z-[100] bg-card border-t border-border shadow-2xl animate-in slide-in-from-bottom duration-300 pb-safe transition-all ${
-            isSidebarCollapsed ? 'lg:mr-20' : 'lg:mr-64'
+          className={`fixed bottom-0 left-0 sm:left-8 right-0 lg:right-[18rem] z-[100] bg-card border border-border rounded-t-xl shadow-2xl animate-in slide-in-from-bottom duration-300 pb-safe transition-all ${
+            isSidebarCollapsed ? 'lg:right-[7rem]' : 'lg:right-[18rem]'
           }`}
         >
-          {/* Desktop Bar */}
           <div className="hidden sm:flex items-center justify-between gap-4 p-4">
-            {/* Left Side - Counter */}
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">
                 {selectedImages.length} من {sortedImages.length} محدد
               </span>
             </div>
-
-            {/* Right Side - Actions */}
             <div className="flex items-center gap-2">
               <button
                 onClick={handleBatchDownload}
@@ -1474,7 +1430,6 @@ export function ImageLibrarySection({
                 <Download className="w-4 h-4" />
                 <span>تحميل ({selectedImages.length})</span>
               </button>
-
               <button
                 onClick={handleBatchAddToFavorites}
                 disabled={selectedImages.length === 0}
@@ -1483,9 +1438,7 @@ export function ImageLibrarySection({
                 <Heart className="w-4 h-4" />
                 <span>مفضلة ({selectedImages.length})</span>
               </button>
-
               <div className="w-px h-6 bg-border mx-2" />
-
               <button
                 onClick={selectAllImages}
                 className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg hover:bg-muted transition-all text-sm"
@@ -1493,7 +1446,6 @@ export function ImageLibrarySection({
                 <Check className="w-4 h-4" />
                 <span>تحديد الكل</span>
               </button>
-
               <button
                 onClick={clearSelection}
                 disabled={selectedImages.length === 0}
@@ -1502,7 +1454,6 @@ export function ImageLibrarySection({
                 <X className="w-4 h-4" />
                 <span>إلغاء التحديد</span>
               </button>
-
               <button
                 onClick={exitSelectionMode}
                 className="flex items-center gap-2 px-4 py-2 bg-destructive/10 text-destructive border border-destructive/20 rounded-lg hover:bg-destructive/20 transition-all text-sm"
@@ -1513,9 +1464,7 @@ export function ImageLibrarySection({
             </div>
           </div>
 
-          {/* Mobile Bar */}
           <div className="sm:hidden">
-            {/* Counter and Cancel on same row */}
             <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between gap-3">
               <p className="text-sm font-medium">
                 {selectedImages.length} من {sortedImages.length} محدد
@@ -1528,10 +1477,7 @@ export function ImageLibrarySection({
                 <span>إلغاء</span>
               </button>
             </div>
-
-            {/* Actions */}
             <div className="p-4 space-y-2">
-              {/* Select All / Clear Selection Row */}
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={selectAllImages}
@@ -1540,7 +1486,6 @@ export function ImageLibrarySection({
                   <Check className="w-4 h-4" />
                   <span>تحديد الكل</span>
                 </button>
-
                 <button
                   onClick={clearSelection}
                   disabled={selectedImages.length === 0}
@@ -1550,8 +1495,6 @@ export function ImageLibrarySection({
                   <span>إلغاء التحديد</span>
                 </button>
               </div>
-
-              {/* Download and Favorite side by side */}
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={handleBatchDownload}
@@ -1561,7 +1504,6 @@ export function ImageLibrarySection({
                   <Download className="w-5 h-5" />
                   <span>تحميل ({selectedImages.length})</span>
                 </button>
-
                 <button
                   onClick={handleBatchAddToFavorites}
                   disabled={selectedImages.length === 0}
@@ -1576,14 +1518,12 @@ export function ImageLibrarySection({
         </div>
       )}
 
-      {/* Login Required Modal */}
       <LoginRequiredModal
         isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}
         onLoginClick={handleLogin}
       />
 
-      {/* Artist Profile Modal */}
       <ArtistProfileModal
         isOpen={artistProfileOpen}
         onClose={() => setArtistProfileOpen(false)}
@@ -1599,7 +1539,6 @@ export function ImageLibrarySection({
         onDownloadImage={downloadImage as any}
       />
 
-      {/* Admin Edit Modal */}
       {isEditor && (
         <AdminEditImageModal
           isOpen={isEditModalOpen}
@@ -1615,7 +1554,6 @@ export function ImageLibrarySection({
         />
       )}
 
-      {/* Admin Bulk Edit Modal */}
       {isEditor && (
         <AdminBulkEditImagesModal
           isOpen={isBulkEditModalOpen}
@@ -1627,7 +1565,6 @@ export function ImageLibrarySection({
         />
       )}
 
-      {/* Video Tutorial Modal */}
       <VideoModal
         isOpen={isVideoModalOpen}
         onClose={() => setIsVideoModalOpen(false)}

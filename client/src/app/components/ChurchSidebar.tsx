@@ -3,7 +3,6 @@ import { ChevronRight, Menu, X, EyeOff } from 'lucide-react';
 import logoImg from '../../assets/7f2d73f44c853179b057f8217ffad677e12f814c.png';
 import { CopticIcon } from './icons/CopticIcon';
 import { FlatIcon } from './icons/FlatIcon';
-import { ThemeToggle } from './ThemeToggle';
 import { CompactThemeToggle } from './CompactThemeToggle';
 import { UserSection } from './UserSection';
 
@@ -188,12 +187,12 @@ export function ChurchSidebar({
 
       {/* Mobile Top Bar */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-sidebar text-sidebar-foreground z-[200] border-b border-sidebar-border shadow-lg">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 rounded-md hover:bg-sidebar-accent transition-colors group"
-              aria-label="القائمة"
+          <div className="flex items-center justify-between px-3 py-3">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="p-2 rounded-md hover:bg-sidebar-accent transition-colors group"
+                aria-label="القائمة"
             >
               {isMobileMenuOpen ? (
                 <X className="w-6 h-6 group-hover:text-sidebar-accent-foreground" />
@@ -205,9 +204,12 @@ export function ChurchSidebar({
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="text-center">
-              <h2 className="font-semibold text-sm leading-tight">
-                خدمة الارشدياكون حبيب جرجس
+            <div className="flex flex-col items-center text-center leading-tight">
+              <p className="font-semibold text-sm">
+                خدمة الأرشيدياكون حبيب جرجس للداتا شو
+              </p>
+              <h2 className="text-[11px] font-medium text-sidebar-foreground/70">
+                كنيسة السيدة العذراء مريم النزهة الجديدة
               </h2>
             </div>
             <img
@@ -313,32 +315,36 @@ export function ChurchSidebar({
 
       {/* Desktop Sidebar */}
       <div
-        className={`hidden lg:flex h-screen bg-sidebar text-sidebar-foreground transition-all duration-300 flex-col fixed right-0 top-0 z-[200] shadow-lg ${
+        className={`hidden lg:flex inset-y-0 bg-sidebar text-sidebar-foreground transition-all duration-300 flex-col fixed right-0 top-0 bottom-0 z-[200] shadow-lg overflow-visible ${
           isCollapsed ? 'w-20' : 'w-64'
         }`}
       >
         {/* Header with Logo - Fixed at Top */}
-        <div className="p-4 border-b border-sidebar-border relative flex-shrink-0">
+        <div className="px-3 py-3 border-b border-sidebar-border relative flex-shrink-0">
           {!isCollapsed ? (
             <>
               <button
                 onClick={() => handleCollapse(true)}
-                className="p-2 rounded-md hover:bg-sidebar-accent transition-colors absolute top-4 left-4 z-10 group"
+                className="p-2 rounded-md hover:bg-sidebar-accent transition-colors absolute top-3 left-3 z-10 group"
                 aria-label="طي القائمة"
               >
                 <ChevronRight className="w-5 h-5 group-hover:text-sidebar-accent-foreground" />
               </button>
-              <div className="flex flex-col items-center gap-2 w-full px-[15%] py-2">
+              <div className="flex flex-col items-center gap-2 w-full px-3 py-1.5">
+                <div className="text-center w-full px-1">
+                  <h2 className="text-[13px] font-semibold leading-snug line-clamp-2">
+                  خدمة الأرشيدياكون حبيب جرجس للداتا شو
+                  </h2>
+                </div>
+                
                 <img
                   src={logoImg}
                   alt="Church Logo"
-                  className="w-24 h-24 object-contain rounded-lg"
+                  className="w-[76px] h-[76px] object-contain rounded-lg"
                 />
-                <div className="text-center w-full px-2">
-                  <h2 className="text-sm font-semibold leading-tight line-clamp-2">
-                    خدمة الأرشيدياكون حبيب جرجس للداتا شو
-                  </h2>
-                </div>
+                <p className="text-[11px] font-medium text-sidebar-foreground/70 text-center leading-tight">
+                    كنيسة السيدة العذراء مريم النزهة الجديدة  
+                </p>
               </div>
             </>
           ) : (
@@ -359,54 +365,53 @@ export function ChurchSidebar({
           )}
         </div>
 
-{/* Navigation Menu - Scrollable */}
-<nav className="flex-1 overflow-y-auto scrollbar-hide [mask-image:linear-gradient(to_bottom,black_90%,transparent_100%)] p-4">
-  <ul className="space-y-2">
-    {visibleMenuItems.map((item) => {
-      const Icon = item.icon;
-      const isHidden = isSectionHidden(item.id);
-      const canSeeHidden = userRole === 'editor' || userRole === 'admin';
+        {/* Navigation Menu - Scrollable */}
+        <nav className="flex-1 min-h-0 overflow-y-auto scrollbar-hide [mask-image:linear-gradient(to_bottom,black_90%,transparent_100%)] px-3 py-2">
+          <ul className="space-y-1.5">
+            {visibleMenuItems.map((item) => {
+              const Icon = item.icon;
+              const isHidden = isSectionHidden(item.id);
+              const canSeeHidden = userRole === 'editor' || userRole === 'admin';
 
-      // دمج كلاسات احترافي وأكثر نظافة
-      const buttonClasses = [
-        'w-full flex items-center gap-3 p-3 rounded-lg transition-colors',
-        activeSection === item.id 
-          ? 'bg-sidebar-accent text-sidebar-accent-foreground' 
-          : 'hover:bg-sidebar-hover text-sidebar-foreground/80 hover:text-sidebar-foreground',
-        isHidden && canSeeHidden ? 'opacity-70' : ''
-      ].filter(Boolean).join(' ');
+              const buttonClasses = [
+                'w-full flex items-center gap-2.5 p-2.5 rounded-lg transition-colors',
+                activeSection === item.id
+                  ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                  : 'hover:bg-sidebar-hover text-sidebar-foreground/80 hover:text-sidebar-foreground',
+                isHidden && canSeeHidden ? 'opacity-70' : '',
+              ]
+                .filter(Boolean)
+                .join(' ');
 
-      return (
-        <li key={item.id}>
-          <button
-            onClick={() => onSectionChange(item.id)}
-            className={buttonClasses}
-            // يظهر التايتل عند الطي فقط ليعرف المستخدم الزرار ده بتاع إيه
-            title={isCollapsed ? item.label : ''}
-          >
-            <Icon className="w-5 h-5 flex-shrink-0" />
-            
-            {/* إخفاء النص والأيقونات الفرعية عند الطي */}
-            {!isCollapsed && (
-              <>
-                <span className="text-right flex-1 truncate">{item.label}</span>
-                {isHidden && canSeeHidden && (
-                  <EyeOff className="w-4 h-4 flex-shrink-0 text-orange-500" />
-                )}
-              </>
-            )}
-          </button>
-        </li>
-      );
-    })}
-  </ul>
-</nav>
+              return (
+                <li key={item.id}>
+                  <button
+                    onClick={() => onSectionChange(item.id)}
+                    className={buttonClasses}
+                    title={isCollapsed ? item.label : ''}
+                  >
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+
+                    {!isCollapsed && (
+                      <>
+                        <span className="text-right flex-1 truncate">{item.label}</span>
+                        {isHidden && canSeeHidden && (
+                          <EyeOff className="w-4 h-4 flex-shrink-0 text-orange-500" />
+                        )}
+                      </>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
 
         {/* Bottom Section - Anchored at Bottom */}
         <div className="flex-shrink-0">
           {/* About Section */}
           {isAboutVisible && (
-            <div className="px-4 py-3 border-t border-sidebar-border">
+            <div className="px-3 py-2 border-t border-sidebar-border">
               <button
                 onClick={() => onSectionChange('about')}
                 className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${
@@ -441,15 +446,7 @@ export function ChurchSidebar({
             onNavigateToSiteSettings={onNavigateToSiteSettings}
           />
 
-          {/* Footer with Theme Toggle */}
-          {!isCollapsed ? (
-            <div className="p-4 border-t border-sidebar-border flex items-center justify-between gap-2">
-              <p className="text-xs text-sidebar-foreground/60 flex-1 text-center">
-                © 2026 خدمة الارشدياكون حبيب جرجس
-              </p>
-              <CompactThemeToggle />
-            </div>
-          ) : (
+          {isCollapsed && (
             <div className="border-t border-sidebar-border flex flex-col items-center py-2">
               <CompactThemeToggle />
             </div>

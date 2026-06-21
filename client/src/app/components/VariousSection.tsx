@@ -12,7 +12,6 @@ import {
   Edit3,
   Check,
   X,
-  GripVertical,
   Settings2,
   Upload,
   RefreshCw,
@@ -26,20 +25,21 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { useAuth } from "../contexts/AuthContext";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "./ui/dialog";
 
-// Mock data for initial state if localStorage is empty
+// إضافة روابط تجريبية عامة للمعاينة لحين ربطها بسيرفرك الحقيقي لضمان عمل المعاينة فوراً
 const initialPowerpointCategories = [
   {
     id: "cat1",
     title: "طقوس وألحان الكنيسة",
     icon: "🕯️",
     files: [
-      { id: "p1", name: "بوربوينت القداس الغريغوري - كامل" },
-      { id: "p2", name: "ألحان أسبوع الآلام - بصخة" },
-      { id: "p3", name: "طقس رفع بخور عشية وباكر" },
-      { id: "p4", name: "ألحان القداس الباسيلي للمؤمنين" },
-      { id: "p5", name: "تسبحة كيهك - السبع وأربع" },
-      { id: "p6", name: "طقس سيامة الشمامسة" },
+      { id: "p1", name: "بوربوينت القداس الغريغوري - كامل", url: "https://calibre-ebook.com/downloads/demos/demo.docx" }, // مثال لرابط ملف يعمل
+      { id: "p2", name: "ألحان أسبوع الآلام - بصخة", url: "" },
+      { id: "p3", name: "طقس رفع بخور عشية وباكر", url: "" },
+      { id: "p4", name: "ألحان القداس الباسيلي للمؤمنين", url: "" },
+      { id: "p5", name: "تسبحة كيهك - السبع وأربع", url: "" },
+      { id: "p6", name: "طقس سيامة الشمامسة", url: "" },
     ],
   },
   {
@@ -47,11 +47,11 @@ const initialPowerpointCategories = [
     title: "سير القديسين والشهداء",
     icon: "⛪",
     files: [
-      { id: "p7", name: "حياة الأنبا أنطونيوس كوكب البرية" },
-      { id: "p8", name: "الشهيد العظيم مارجرجس الروماني" },
-      { id: "p9", name: "القديس البابا كيرلس السادس" },
-      { id: "p10", name: "الشهيدة دميانة والأربعين عذراء" },
-      { id: "p11", name: "قصة حياة القديس أبانوب النهيسي" },
+      { id: "p7", name: "حياة الأنبا أنطونيوس كوكب البرية", url: "" },
+      { id: "p8", name: "الشهيد العظيم مارجرجس الروماني", url: "" },
+      { id: "p9", name: "القديس البابا كيرلس السادس", url: "" },
+      { id: "p10", name: "الشهيدة دميانة والأربعين عذراء", url: "" },
+      { id: "p11", name: "قصة حياة القديس أبانوب النهيسي", url: "" },
     ],
   },
   {
@@ -59,10 +59,10 @@ const initialPowerpointCategories = [
     title: "عقيدة ودفاعيات",
     icon: "🛡️",
     files: [
-      { id: "p12", name: "شرح قانون الإيمان الأرثوذكسي" },
-      { id: "p13", name: "عقيدة التجسد الإلهي" },
-      { id: "p14", name: "سر القربان - الأفخارستيا" },
-      { id: "p15", name: "الرد على الشكوك حول الكتاب المقدس" },
+      { id: "p12", name: "شرح قانون الإيمان الأرثوذكسي", url: "" },
+      { id: "p13", name: "عقيدة التجسد الإلهي", url: "" },
+      { id: "p14", name: "سر القربان - الأفخارستيا", url: "" },
+      { id: "p15", name: "الرد على الشكوك حول الكتاب المقدس", url: "" },
     ],
   },
 ];
@@ -81,12 +81,13 @@ export function VariousSection() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [tempName, setTempName] = useState("");
 
-  // Save to localStorage whenever categories change
+  // States الخاصة بنافذة المعاينة المضافة
+  const [previewFile, setPreviewFile] = useState<{ name: string; url: string } | null>(null);
+
   useEffect(() => {
     localStorage.setItem("powerpoint_data", JSON.stringify(categories));
   }, [categories]);
 
-  // Management functions
   const addCategory = () => {
     const newCat = {
       id: `cat-${Date.now()}`,
@@ -125,16 +126,18 @@ export function VariousSection() {
   };
 
   const addFile = (catId: string) => {
-    // Create a hidden input to trigger file selection
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = ".ppt,.pptx,.pdf"; // Allowed formats
+    input.accept = ".ppt,.pptx,.pdf";
     input.onchange = (e: any) => {
       const file = e.target.files[0];
       if (file) {
+        // محاكاة مسار حفظ الملف ليعمل أونلاين أو محلياً لاحقاً
+        const fileUrl = URL.createObjectURL(file); 
         const newFile = {
           id: `p-${Date.now()}`,
           name: file.name.split(".").slice(0, -1).join(".") || file.name,
+          url: fileUrl, // حفظ المسار
         };
         setCategories(
           categories.map((cat: any) =>
@@ -153,6 +156,7 @@ export function VariousSection() {
     input.onchange = (e: any) => {
       const file = e.target.files[0];
       if (file) {
+        const fileUrl = URL.createObjectURL(file);
         setCategories(
           categories.map((cat: any) => {
             if (cat.id !== catId) return cat;
@@ -162,9 +166,8 @@ export function VariousSection() {
                 f.id === fileId
                   ? {
                       ...f,
-                      name:
-                        file.name.split(".").slice(0, -1).join(".") ||
-                        file.name,
+                      name: file.name.split(".").slice(0, -1).join(".") || file.name,
+                      url: fileUrl,
                     }
                   : f,
               ),
@@ -479,7 +482,11 @@ export function VariousSection() {
                         {!isEditMode ? (
                           <>
                             <div className="relative group/tooltip">
-                              <button className="h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-card hover:bg-muted hover:text-primary transition-colors">
+                              {/* تفعيل حدث المعاينة عند الضغط على زر العين */}
+                              <button 
+                                onClick={() => setPreviewFile({ name: file.name, url: file.url })}
+                                className="h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-card hover:bg-muted hover:text-primary transition-colors"
+                              >
                                 <Eye className="h-4 w-4" />
                               </button>
                               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-popover text-popover-foreground text-xs rounded-lg shadow-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-10">
@@ -489,9 +496,13 @@ export function VariousSection() {
                             </div>
 
                             <div className="relative group/tooltip">
-                              <button className="h-8 w-8 flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-colors">
+                              <a 
+                                href={file.url || "#"} 
+                                download={file.name}
+                                className={`h-8 w-8 flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-colors ${!file.url && 'opacity-40 pointer-events-none'}`}
+                              >
                                 <Download className="h-4 w-4" />
-                              </button>
+                              </a>
                               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-popover text-popover-foreground text-xs rounded-lg shadow-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-10">
                                 تحميل
                                 <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-popover"></div>
@@ -540,6 +551,37 @@ export function VariousSection() {
             عرض الكل
           </Button>
         </div>
+      )}
+
+      {/* نافذة المعاينة التفاعلية المضافة (Preview Dialog Modal) */}
+      {previewFile && (
+        <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
+          <DialogContent className="max-w-4xl w-[90vw] h-[85vh] flex flex-col p-4 bg-background border-border">
+            <DialogHeader className="flex flex-row items-center justify-between border-b pb-2">
+              <DialogTitle className="text-xl font-bold truncate max-w-[80%] text-right">
+                معاينة: {previewFile.name}
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="flex-1 w-full h-full rounded-lg overflow-hidden border border-border bg-black mt-4">
+              {previewFile.url ? (
+                // استخدام مفسر جوجل درايف المستقر لحل مشاكل 404 مايكروسوفت على السيرفرات المحلية
+                <iframe
+                  src={`https://docs.google.com/gview?url=${encodeURIComponent(previewFile.url)}&embedded=true`}
+                  className="w-full h-full border-0"
+                  allowFullScreen
+                  title="PowerPoint Preview"
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground p-6 text-center">
+                  <Presentation className="w-16 h-16 mb-4 opacity-40 animate-pulse" />
+                  <p className="text-lg font-medium">عذراً، هذا الملف لا يحتوي على رابط معاينة متاح حالياً.</p>
+                  <p className="text-sm opacity-70 mt-1">يرجى رفع ملف بوربوينت جديد في وضع الإدارة لتفعيل الرابط.</p>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

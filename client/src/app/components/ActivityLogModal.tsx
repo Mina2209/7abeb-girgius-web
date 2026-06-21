@@ -1,6 +1,7 @@
 import { X, Download, Search, Filter, Clock, User, LogIn, LogOut, Heart, Share2, Edit2, Trash2, Upload, Settings, Tag, Eye, ChevronDown, ChevronUp, FileText, Image, Music, BookOpen, MessageSquareQuote } from 'lucide-react';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import type { ActivityLog, ActivityType, ContentType } from '../utils/activityLogger';
+import { normalizeArabic } from '../utils/arabicUtils';
 import { getUserLogs, getUserActivityStats, formatRelativeTime, formatAbsoluteTime, exportLogsToCSV, exportLogsToJSON } from '../utils/activityLogger';
 
 interface ActivityLogModalProps {
@@ -45,7 +46,7 @@ const contentTypeIcons: Record<ContentType, any> = {
   section: Eye,
   settings: Settings,
 };
-
+const normalizeSearchText = (text: string) => normalizeArabic(text).toLowerCase();
 export function ActivityLogModal({ isOpen, onClose, userId, username, userRole }: ActivityLogModalProps) {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [stats, setStats] = useState<ReturnType<typeof getUserActivityStats> | null>(null);
@@ -92,9 +93,11 @@ export function ActivityLogModal({ isOpen, onClose, userId, username, userRole }
   // Filter logs
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
-      const matchesSearch = searchQuery === '' ||
-        log.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        log.contentTitle?.toLowerCase().includes(searchQuery.toLowerCase());
+      const normalizedQuery = normalizeSearchText(searchQuery);
+      const matchesSearch =
+        searchQuery === '' ||
+        normalizeSearchText(log.description).includes(normalizedQuery) ||
+        (log.contentTitle ? normalizeSearchText(log.contentTitle).includes(normalizedQuery) : false);
 
       const matchesActivityType = selectedActivityType === 'all' || log.activityType === selectedActivityType;
       const matchesContentType = selectedContentType === 'all' || log.contentType === selectedContentType;

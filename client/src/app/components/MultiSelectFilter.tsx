@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { ChevronDown, X, LucideIcon, Search } from 'lucide-react';
+import { normalizeArabic } from '../utils/arabicUtils';
 
 interface MultiSelectFilterProps {
   label: string;
@@ -7,14 +8,30 @@ interface MultiSelectFilterProps {
   selectedOptions: string[];
   onOptionsChange: (options: string[]) => void;
   icon?: LucideIcon;
+  availableOptions?: string[];
 }
 
-export function MultiSelectFilter({ label, options, selectedOptions, onOptionsChange, icon }: MultiSelectFilterProps) {
+export function MultiSelectFilter({
+  label,
+  options,
+  selectedOptions,
+  onOptionsChange,
+  icon,
+  availableOptions,
+}: MultiSelectFilterProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const Icon = icon;
+  const normalizeSearchText = (text: string) => normalizeArabic(text).toLowerCase();
+
+  const availableOptionSet = useMemo(
+    () => new Set((availableOptions ?? options).filter(Boolean)),
+    [availableOptions, options],
+  );
+
+  const normalizedSearchQuery = normalizeSearchText(searchQuery);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -53,8 +70,10 @@ export function MultiSelectFilter({ label, options, selectedOptions, onOptionsCh
   };
 
   // Filter options based on search query
-  const filteredOptions = options.filter(option =>
-    option.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredOptions = options.filter(
+    (option) =>
+      (availableOptionSet.has(option) || selectedOptions.includes(option)) &&
+      normalizeSearchText(option).includes(normalizedSearchQuery),
   );
 
   return (
