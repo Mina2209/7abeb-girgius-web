@@ -6,6 +6,7 @@
   import { FatherProfileModal } from './FatherProfileModal';
   import { getFatherByName } from '../data/fathers';
   import { useIsEditor } from '../utils/adminUtils';
+  import { normalizeArabic } from '../utils/arabicUtils';
   import { AdminEditSayingModal } from './AdminEditSayingModal';
   import { VideoModal } from './VideoModal';
   import { useSayingsData } from '../hooks/useSayingsData';
@@ -23,6 +24,106 @@
     { value: 'date-asc' as SortOption, label: 'الأقدم' },
     { value: 'date-desc' as SortOption, label: 'الأحدث' },
   ];
+
+  type SayingFacet = 'tags' | 'authors' | 'sources';
+
+  const sortArabic = (a: string, b: string) => a.localeCompare(b, 'ar');
+
+  const uniqueSorted = (values: string[]) =>
+    Array.from(new Set(values.filter(Boolean))).sort(sortArabic);
+
+  const normalizeSearchText = (text: string) => normalizeArabic(text).toLowerCase();
+
+  function sayingMatchesSearch(item: Saying, query: string) {
+    if (!query) return true;
+    const normalizedQuery = normalizeSearchText(query);
+    return (
+      normalizeSearchText(item.quote).includes(normalizedQuery) ||
+      normalizeSearchText(item.author).includes(normalizedQuery) ||
+      normalizeSearchText(item.source).includes(normalizedQuery) ||
+      item.tags.some((tag) => normalizeSearchText(tag).includes(normalizedQuery))
+    );
+  }
+
+  function sayingMatchesTags(item: Saying, selectedTags: string[]) {
+    return (
+      selectedTags.length === 0 ||
+      selectedTags.some((tag) => item.tags.includes(tag))
+    );
+  }
+
+  function sayingMatchesAuthors(item: Saying, selectedAuthors: string[]) {
+    return (
+      selectedAuthors.length === 0 ||
+      selectedAuthors.includes(item.author)
+    );
+  }
+
+  function sayingMatchesSources(item: Saying, selectedSources: string[]) {
+    return (
+      selectedSources.length === 0 ||
+      selectedSources.includes(item.source)
+    );
+  }
+
+  function sayingMatchesFavorites(
+    item: Saying,
+    showFavoritesOnly: boolean,
+    favoritedQuotes: ContentId[],
+  ) {
+    return (
+      !showFavoritesOnly ||
+      favoritedQuotes.some((f) => String(f) === String(item.id))
+    );
+  }
+
+  function getSayingsForFacet(
+    sayings: Saying[],
+    params: {
+      searchQuery: string;
+      selectedTags: string[];
+      selectedAuthors: string[];
+      selectedSources: string[];
+      showFavoritesOnly: boolean;
+      favoritedQuotes: ContentId[];
+      excludeFacet?: SayingFacet;
+    },
+  ) {
+    const {
+      searchQuery,
+      selectedTags,
+      selectedAuthors,
+      selectedSources,
+      showFavoritesOnly,
+      favoritedQuotes,
+      excludeFacet,
+    } = params;
+
+    return sayings.filter((item) => {
+      if (!sayingMatchesSearch(item, searchQuery)) return false;
+      if (excludeFacet !== 'tags' && !sayingMatchesTags(item, selectedTags)) {
+        return false;
+      }
+      if (
+        excludeFacet !== 'authors' &&
+        !sayingMatchesAuthors(item, selectedAuthors)
+      ) {
+        return false;
+      }
+      if (
+        excludeFacet !== 'sources' &&
+        !sayingMatchesSources(item, selectedSources)
+      ) {
+        return false;
+      }
+      if (
+        !sayingMatchesFavorites(item, showFavoritesOnly, favoritedQuotes)
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }
 
   export function SayingsSection() {
 
@@ -331,10 +432,8 @@ useEffect(() => {
     // Filter sayings
     const filteredSayings = useMemo(() => {
       return sayings.filter(item => {
-        const matchesSearch = searchQuery === '' || 
-          item.quote.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          item.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          item.source.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch =
+          searchQuery === "" || sayingMatchesSearch(item, searchQuery);
 
         const matchesTags = selectedTags.length === 0 || 
           selectedTags.some(tag => item.tags.includes(tag));
@@ -352,6 +451,89 @@ useEffect(() => {
         return matchesSearch && matchesTags && matchesAuthors && matchesSources && matchesFavorites;
       });
     }, [selectedTags, selectedAuthors, selectedSources, searchQuery, showFavoritesOnly, favoritedQuotes, sayings]);
+
+    const availableSayingsForTags = useMemo(
+      () =>
+        getSayingsForFacet(sayings, {
+          searchQuery,
+          selectedTags,
+          selectedAuthors,
+          selectedSources,
+          showFavoritesOnly,
+          favoritedQuotes,
+          excludeFacet: 'tags',
+        }),
+      [
+        sayings,
+        searchQuery,
+        selectedTags,
+        selectedAuthors,
+        selectedSources,
+        showFavoritesOnly,
+        favoritedQuotes,
+      ],
+    );
+
+    const availableSayingsForAuthors = useMemo(
+      () =>
+        getSayingsForFacet(sayings, {
+          searchQuery,
+          selectedTags,
+          selectedAuthors,
+          selectedSources,
+          showFavoritesOnly,
+          favoritedQuotes,
+          excludeFacet: 'authors',
+        }),
+      [
+        sayings,
+        searchQuery,
+        selectedTags,
+        selectedAuthors,
+        selectedSources,
+        showFavoritesOnly,
+        favoritedQuotes,
+      ],
+    );
+
+    const availableSayingsForSources = useMemo(
+      () =>
+        getSayingsForFacet(sayings, {
+          searchQuery,
+          selectedTags,
+          selectedAuthors,
+          selectedSources,
+          showFavoritesOnly,
+          favoritedQuotes,
+          excludeFacet: 'sources',
+        }),
+      [
+        sayings,
+        searchQuery,
+        selectedTags,
+        selectedAuthors,
+        selectedSources,
+        showFavoritesOnly,
+        favoritedQuotes,
+      ],
+    );
+
+    const availableTagNames = useMemo(
+      () => uniqueSorted(availableSayingsForTags.flatMap((item) => item.tags)),
+      [availableSayingsForTags],
+    );
+
+    const availableAuthorNames = useMemo(
+      () =>
+        uniqueSorted(availableSayingsForAuthors.map((item) => item.author)),
+      [availableSayingsForAuthors],
+    );
+
+    const availableSourceNames = useMemo(
+      () =>
+        uniqueSorted(availableSayingsForSources.map((item) => item.source)),
+      [availableSayingsForSources],
+    );
 
     // Sort filtered sayings
     const sortedSayings = useMemo(() => {
@@ -568,34 +750,37 @@ useEffect(() => {
                   <TagFilter
                     selectedTags={selectedTags}
                     onTagsChange={setSelectedTags}
-                    onSearchChange={setSearchQuery}
-                    searchQuery={searchQuery}
-                    showSearch={false}
-                    icon={Tags}
-                    containerRef={filtersContainerRef}
-                  />
+                  onSearchChange={setSearchQuery}
+                  searchQuery={searchQuery}
+                  showSearch={false}
+                  icon={Tags}
+                  containerRef={filtersContainerRef}
+                  availableTopics={availableTagNames}
+                />
                 </div>
 
                 {/* Author Filter */}
                 <div className="flex-1 sm:flex-initial">
                   <MultiSelectFilter
                     label="القائل"
-                    options={allAuthors}
-                    selectedOptions={selectedAuthors}
-                    onOptionsChange={setSelectedAuthors}
-                    icon={User}
-                  />
+                  options={allAuthors}
+                  selectedOptions={selectedAuthors}
+                  onOptionsChange={setSelectedAuthors}
+                  icon={User}
+                  availableOptions={availableAuthorNames}
+                />
                 </div>
 
                 {/* Source Filter */}
                 <div className="flex-1 sm:flex-initial">
                   <MultiSelectFilter
                     label="المصدر"
-                    options={allSources}
-                    selectedOptions={selectedSources}
-                    onOptionsChange={setSelectedSources}
-                    icon={BookOpen}
-                  />
+                  options={allSources}
+                  selectedOptions={selectedSources}
+                  onOptionsChange={setSelectedSources}
+                  icon={BookOpen}
+                  availableOptions={availableSourceNames}
+                />
                 </div>
 
                 {/* Favorites Only Toggle - Always visible */}
