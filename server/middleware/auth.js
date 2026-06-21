@@ -1,6 +1,8 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+// No fallback: if JWT_SECRET is unset, signing/verifying fails loudly rather than
+// silently using a guessable default. Production startup also refuses to boot without it.
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Auth middleware to verify JWT tokens
 export function authenticate(req, res, next) {
@@ -22,6 +24,20 @@ export function authenticate(req, res, next) {
   } catch (error) {
     return res.status(401).json({ error: 'Unauthorized - Invalid token' });
   }
+}
+
+// Like authenticate, but never rejects: attaches req.user if a valid token is present,
+// otherwise just continues. Used on public endpoints that show extra data to editors.
+export function optionalAuthenticate(req, res, next) {
+  const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      req.user = jwt.verify(authHeader.substring(7), JWT_SECRET);
+    } catch {
+      // Invalid/expired token on a public route — ignore and continue unauthenticated.
+    }
+  }
+  next();
 }
 
 // Middleware to check if user is an admin

@@ -34,7 +34,14 @@ import { useIsEditor } from '../utils/adminUtils';
 import { AdminEditImageModal } from './AdminEditImageModal';
 import { AdminBulkEditImagesModal, BulkImageUpdates } from './AdminBulkEditImagesModal';
 import { VideoModal } from './VideoModal';
-import { useGalleryImagesData } from '../hooks/useGalleryImagesData';
+import { useGalleryImagesPaged } from '../hooks/useGalleryImagesPaged';
+import {
+  fetchGalleryIds,
+  fetchGalleryFacets,
+  fetchImageArtists,
+  fetchImageTypes,
+} from '../services/contentLoaders';
+import { fetchAllTags } from '../services/tagsService';
 import type { ContentId, GalleryImage } from '../types/content';
 import { createImage, deleteImage, updateImage } from '../services/contentWriteService';
 import { getApiBaseUrl } from '../config/api';
@@ -151,20 +158,30 @@ export function ImageLibrarySection({
 }) {
   const { user, profile, accessToken } = useAuth();
   const isEditor = useIsEditor();
-  const { images, setImages, loading: imagesLoading } = useGalleryImagesData();
+  const {
+    items: images,
+    setItems: setImages,
+    total: totalImages,
+    loading: imagesLoading,
+    loadingMore,
+    hasMore,
+    applyFilters,
+    loadMore,
+    refetch: refetchGallery,
+  } = useGalleryImagesPaged(30);
 
-  const allArtists = useMemo(
-    () => uniqueSorted(images.map((img) => img.artist)),
-    [images],
-  );
-  const allTypes = useMemo(
-    () => uniqueSorted(images.map((img) => img.type)),
-    [images],
-  );
-  const allTags = useMemo(
-    () => uniqueSorted(images.flatMap((img) => img.tags)),
-    [images],
-  );
+  // Full filter option lists come from the meta endpoints (the whole catalog),
+  // independent of the currently-loaded page.
+  const [allArtists, setAllArtists] = useState<string[]>([]);
+  const [allTypes, setAllTypes] = useState<string[]>([]);
+  const [allTags, setAllTags] = useState<string[]>([]);
+  useEffect(() => {
+    fetchImageArtists().then(setAllArtists).catch(() => {});
+    fetchImageTypes().then(setAllTypes).catch(() => {});
+    fetchAllTags()
+      .then((t) => setAllTags(t.map((x) => x.name)))
+      .catch(() => {});
+  }, []);
 
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedArtists, setSelectedArtists] = useState<string[]>([]);
@@ -276,11 +293,18 @@ export function ImageLibrarySection({
   };
 
   const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev + 1) % sortedImages.length);
+    setCurrentImageIndex((prev) => {
+      const next = prev + 1;
+      if (next >= sortedImages.length) {
+        if (hasMore) loadMore(); // pull in the next page; stay until it arrives
+        return prev;
+      }
+      return next;
+    });
   };
 
   const prevImage = () => {
-    setCurrentImageIndex((prev) => (prev - 1 + sortedImages.length) % sortedImages.length);
+    setCurrentImageIndex((prev) => (prev > 0 ? prev - 1 : prev));
   };
 
   const minSwipeDistance = 50;
@@ -341,8 +365,21 @@ export function ImageLibrarySection({
     );
   };
 
+  // Select every image matching the current filters (across all pages, not just loaded).
+  const selectAllMatching = async () => {
+    if (showFavoritesOnly) {
+      setSelectedImages(sortedImages.map((img) => img.id));
+      return;
+    }
+    try {
+      setSelectedImages(await fetchGalleryIds(currentFilters));
+    } catch {
+      setSelectedImages(sortedImages.map((img) => img.id));
+    }
+  };
+
   const selectAllImages = () => {
-    setSelectedImages(sortedImages.map((img) => img.id));
+    void selectAllMatching();
   };
 
   const clearSelection = () => {
@@ -427,11 +464,10 @@ export function ImageLibrarySection({
   };
 
   const handleSelectAllImages = () => {
-    const allVisibleIds = sortedImages.map((img) => img.id);
-    if (selectedImages.length === allVisibleIds.length) {
+    if (totalImages > 0 && selectedImages.length >= totalImages) {
       setSelectedImages([]);
     } else {
-      setSelectedImages(allVisibleIds);
+      void selectAllMatching();
     }
   };
 
@@ -588,170 +624,91 @@ export function ImageLibrarySection({
     exitSelectionMode();
   };
 
-  const filteredImages = useMemo(
-    () =>
-      getImagesForFacet(images, {
-        isEditor,
-        searchQuery,
-        selectedTags,
-        selectedArtists,
-        selectedTypes,
-        aiFilter,
-        showFavoritesOnly,
-        favoritedIds: favoritedImageIds,
-      }),
+  // Map the UI sort option to the server's sort key.
+  const backendSort =
+    sortBy === 'alpha-asc'
+      ? 'title-asc'
+      : sortBy === 'alpha-desc'
+        ? 'title-desc'
+        : sortBy; // 'date-asc' | 'date-desc' pass through
+
+  // Debounce the search box so we don't query the server on every keystroke.
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // Active server-side filter set ("favorites only" -> id list).
+  const currentFilters = useMemo(
+    () => ({
+      search: debouncedSearch,
+      tags: selectedTags,
+      artists: selectedArtists,
+      types: selectedTypes,
+      ai: aiFilter,
+      ids: showFavoritesOnly ? favoritedImages.map(String) : undefined,
+      token: accessToken,
+    }),
     [
-      images,
-      isEditor,
-      searchQuery,
+      debouncedSearch,
       selectedTags,
       selectedArtists,
       selectedTypes,
       aiFilter,
       showFavoritesOnly,
-      favoritedImageIds,
+      favoritedImages,
+      accessToken,
     ],
   );
 
-  const availableImagesForTags = useMemo(
-    () =>
-      getImagesForFacet(images, {
-        isEditor,
-        searchQuery,
-        selectedTags,
-        selectedArtists,
-        selectedTypes,
-        aiFilter,
-        showFavoritesOnly,
-        favoritedIds: favoritedImageIds,
-        excludeFacet: 'tags',
-      }),
-    [
-      images,
-      isEditor,
-      searchQuery,
-      selectedTags,
-      selectedArtists,
-      selectedTypes,
-      aiFilter,
-      showFavoritesOnly,
-      favoritedImageIds,
-    ],
-  );
+  // Refetch page 1 whenever the filters or sort change.
+  useEffect(() => {
+    applyFilters({ ...currentFilters, sort: backendSort });
+  }, [currentFilters, backendSort, applyFilters]);
 
-  const availableImagesForArtists = useMemo(
-    () =>
-      getImagesForFacet(images, {
-        isEditor,
-        searchQuery,
-        selectedTags,
-        selectedArtists,
-        selectedTypes,
-        aiFilter,
-        showFavoritesOnly,
-        favoritedIds: favoritedImageIds,
-        excludeFacet: 'artists',
-      }),
-    [
-      images,
-      isEditor,
-      searchQuery,
-      selectedTags,
-      selectedArtists,
-      selectedTypes,
-      aiFilter,
-      showFavoritesOnly,
-      favoritedImageIds,
-    ],
-  );
+  // Server-computed faceted options (each facet narrows by the OTHER active filters).
+  const [facets, setFacets] = useState<{
+    tags: string[];
+    artists: string[];
+    types: string[];
+    ai: ('yes' | 'no')[];
+  }>({ tags: [], artists: [], types: [], ai: [] });
+  useEffect(() => {
+    let cancelled = false;
+    fetchGalleryFacets(currentFilters)
+      .then((f) => {
+        if (!cancelled) setFacets(f);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [currentFilters]);
 
-  const availableImagesForTypes = useMemo(
-    () =>
-      getImagesForFacet(images, {
-        isEditor,
-        searchQuery,
-        selectedTags,
-        selectedArtists,
-        selectedTypes,
-        aiFilter,
-        showFavoritesOnly,
-        favoritedIds: favoritedImageIds,
-        excludeFacet: 'types',
-      }),
-    [
-      images,
-      isEditor,
-      searchQuery,
-      selectedTags,
-      selectedArtists,
-      selectedTypes,
-      aiFilter,
-      showFavoritesOnly,
-      favoritedImageIds,
-    ],
-  );
+  // Infinite scroll: load the next page when the sentinel nears the viewport.
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) loadMore();
+      },
+      { root: scrollContainerRef.current ?? null, rootMargin: '600px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loadMore, hasMore]);
 
-  const availableImagesForAi = useMemo(
-    () =>
-      getImagesForFacet(images, {
-        isEditor,
-        searchQuery,
-        selectedTags,
-        selectedArtists,
-        selectedTypes,
-        aiFilter,
-        showFavoritesOnly,
-        favoritedIds: favoritedImageIds,
-        excludeFacet: 'ai',
-      }),
-    [
-      images,
-      isEditor,
-      searchQuery,
-      selectedTags,
-      selectedArtists,
-      selectedTypes,
-      aiFilter,
-      showFavoritesOnly,
-      favoritedImageIds,
-    ],
-  );
+  // Faceted option lists now come from the server (computed against the current filters).
+  const availableTopicNames = facets.tags;
+  const availableArtistNames = facets.artists;
+  const availableTypeNames = facets.types;
+  const availableAiValues = facets.ai;
 
-  const availableTopicNames = useMemo(
-    () => uniqueSorted(availableImagesForTags.flatMap((image) => image.tags)),
-    [availableImagesForTags],
-  );
-
-  const availableArtistNames = useMemo(
-    () => uniqueSorted(availableImagesForArtists.map((image) => image.artist)),
-    [availableImagesForArtists],
-  );
-
-  const availableTypeNames = useMemo(
-    () => uniqueSorted(availableImagesForTypes.map((image) => image.type)),
-    [availableImagesForTypes],
-  );
-
-  const availableAiValues = useMemo(() => {
-    const values = new Set<'yes' | 'no'>();
-    availableImagesForAi.forEach((image) => values.add(image.aiGenerated ? 'yes' : 'no'));
-    return Array.from(values);
-  }, [availableImagesForAi]);
-
-  const sortedImages = useMemo(() => {
-    return [...filteredImages].sort((a, b) => {
-      if (sortBy === 'alpha-asc') {
-        return a.title.localeCompare(b.title);
-      } else if (sortBy === 'alpha-desc') {
-        return b.title.localeCompare(a.title);
-      } else if (sortBy === 'date-asc') {
-        return new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime();
-      } else if (sortBy === 'date-desc') {
-        return new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime();
-      }
-      return 0;
-    });
-  }, [filteredImages, sortBy]);
+  // The server already filtered + sorted; `images` holds the pages loaded so far.
+  const sortedImages = images;
 
   const handleLogin = () => {
     setShowLoginModal(false);
@@ -867,7 +824,7 @@ export function ImageLibrarySection({
                 className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg hover:bg-muted transition-colors text-sm"
               >
                 <CheckCheck className="w-4 h-4" />
-                {selectedImages.length === sortedImages.length ? 'إلغاء الكل' : 'تحديد الكل'}
+                {totalImages > 0 && selectedImages.length >= totalImages ? 'إلغاء الكل' : 'تحديد الكل'}
               </button>
               <button
                 onClick={() => setIsBulkEditModalOpen(true)}
@@ -1047,7 +1004,7 @@ export function ImageLibrarySection({
               <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 h-[42px] bg-muted/50 border border-border/50 rounded-xl pointer-events-none">
                 <ImageIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                 <span className="text-sm text-muted-foreground font-medium whitespace-nowrap">
-                  {sortedImages.length} / {images.length}
+                  {sortedImages.length} / {totalImages}
                 </span>
               </div>
             </div>
@@ -1133,7 +1090,8 @@ export function ImageLibrarySection({
                         src={fullImageUrl}
                         alt={image.title}
                         loading="lazy"
-                        className="w-full h-auto object-cover transition-transform duration-300"
+                        decoding="async"
+                        className="w-full h-auto object-cover transition-transform duration-300 bg-muted min-h-[200px]"
                       />
                     );
                   })()}
@@ -1264,6 +1222,14 @@ export function ImageLibrarySection({
             )}
           </Masonry>
         </ResponsiveMasonry>
+
+        {/* Infinite-scroll sentinel + loading indicator */}
+        {hasMore && <div ref={sentinelRef} className="h-px w-full" />}
+        {loadingMore && (
+          <div className="flex justify-center py-6 text-muted-foreground">
+            <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent" />
+          </div>
+        )}
       </div>
 
       {lightboxOpen && sortedImages.length > 0 && (
@@ -1418,7 +1384,7 @@ export function ImageLibrarySection({
           <div className="hidden sm:flex items-center justify-between gap-4 p-4">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">
-                {selectedImages.length} من {sortedImages.length} محدد
+                {selectedImages.length} من {totalImages} محدد
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -1467,7 +1433,7 @@ export function ImageLibrarySection({
           <div className="sm:hidden">
             <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between gap-3">
               <p className="text-sm font-medium">
-                {selectedImages.length} من {sortedImages.length} محدد
+                {selectedImages.length} من {totalImages} محدد
               </p>
               <button
                 onClick={exitSelectionMode}

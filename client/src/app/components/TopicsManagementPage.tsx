@@ -13,6 +13,7 @@ import {
   type Topic,
 } from '../services/tagsService';
 import type { GalleryImage, Hymn, Saying } from '../types/content';
+import { normalizeArabic } from '../utils/arabicUtils';
 import { Plus, Edit2, Trash2, Search, Tag, AlertTriangle, Save, X, ChevronDown, ChevronUp, FolderOpen, Folder } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';

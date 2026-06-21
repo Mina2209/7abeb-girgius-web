@@ -16,17 +16,23 @@ const BACKUP_PREFIX = 'backups/';
 function parseDatabaseUrl() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL not set');
-  
-  // Format: postgresql://user:password@host:port/database
-  const match = url.match(/postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
-  if (!match) throw new Error('Invalid DATABASE_URL format');
-  
+
+  // Use the built-in URL parser instead of a regex so passwords containing
+  // special characters (@, :, %, &, etc.) and an optional/missing port are
+  // all handled correctly.
+  let u;
+  try {
+    u = new URL(url);
+  } catch {
+    throw new Error('Invalid DATABASE_URL format');
+  }
+
   return {
-    user: decodeURIComponent(match[1]),
-    password: decodeURIComponent(match[2]), // Decode URL-encoded password
-    host: match[3],
-    port: match[4],
-    database: match[5].split('?')[0] // Remove query params if any
+    user: decodeURIComponent(u.username),
+    password: decodeURIComponent(u.password),
+    host: u.hostname,
+    port: u.port || '5432',
+    database: u.pathname.replace(/^\//, '').split('?')[0],
   };
 }
 
@@ -215,7 +221,9 @@ export const BackupService = {
     const db = parseDatabaseUrl();
     const env = { ...process.env, PGPASSWORD: db.password };
 
-    const command = `psql -h ${db.host} -p ${db.port} -U ${db.user} -d ${db.database} -f "${filepath}"`;
+    // --single-transaction: the whole restore succeeds or rolls back, so a
+    // failure can't leave the database half-restored.
+    const command = `psql -h ${db.host} -p ${db.port} -U ${db.user} -d ${db.database} --single-transaction -f "${filepath}"`;
     
     try {
       await execAsync(command, { env });

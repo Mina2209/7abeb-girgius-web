@@ -5,8 +5,8 @@ export type ServerTag = {
   id: string;
   name: string;
   category: string | null;
-  hymns?: unknown[];
-  sayings?: unknown[];
+  // Server returns lightweight relation counts instead of full hymn/saying arrays.
+  _count?: { hymns: number; sayings: number; images: number };
 };
 
 export interface Section {
