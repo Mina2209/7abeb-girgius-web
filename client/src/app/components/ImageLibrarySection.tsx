@@ -1128,7 +1128,11 @@ export function ImageLibrarySection({
                         src={fullImageUrl}
                         alt={image.title}
                         loading="lazy"
-                        className="w-full h-auto object-cover transition-transform duration-300"
+                        decoding="async"
+                        // Reserve space before load (bg placeholder + min height) so the
+                        // layout isn't collapsed to 0px — otherwise the browser treats every
+                        // card as "near the viewport" and eagerly downloads all of them.
+                        className="w-full h-auto object-cover transition-transform duration-300 bg-muted min-h-[200px]"
                       />
                     );
                   })()}
