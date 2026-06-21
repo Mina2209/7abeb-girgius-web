@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { ChurchSidebar } from './components/ChurchSidebar';
 import { HomeSection } from './components/HomeSection';
@@ -30,6 +30,7 @@ const sectionToPath: Record<string, string> = {
   coptic: '/coptic',
   about: '/about',
 };
+
 
 const pathToSection = (pathname: string): string => {
   switch (pathname) {
@@ -63,6 +64,32 @@ export default function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isSignupModalOpen, setIsSignupModalOpen] = useState(false);
+
+  // تأثير جلب وتحديث عنوان الـ Tab بناءً على المسار الحالي بدقة
+  useEffect(() => {
+    const pageTitles: Record<string, string> = {
+      '/': ' خدمة الأرشيدياكون حبيب جرجس',
+      '/liturgy': 'بوربوينت الليتورجية',
+      '/hymns': 'مكتبة الترانيم',
+      '/various': 'بوربوينت متنوعة',
+      '/images': 'مكتبة الصور',
+      '/books': 'مكتبة الكتب',
+      '/sayings': 'أقوال أباء',
+      '/coptic': 'لغة قبطية',
+      '/about': 'عن الخدمة',
+      '/profile': 'الملف الشخصي',
+      '/favorites': 'المفضلة',
+      '/admin/users': 'إدارة المستخدمين',
+      '/admin/topics': 'إدارة الموضوعات',
+      '/admin/settings': 'إعدادات الموقع',
+    };
+
+    // جلب الاسم المطابق للمسار الحالي، وفي حال عدم وجوده نضع اسماً افتراضياً
+    const currentTitle = pageTitles[location.pathname] || 'لوحة التحكم';
+    
+    // تحديث عنوان المتصفح فوراً
+    document.title = `${currentTitle}`;
+  }, [location.pathname]); // يشتغل تلقائياً مع كل حركة انتقال أو ضغطة زرار تغير الـ URL
 
   return (
     <AuthProvider>
