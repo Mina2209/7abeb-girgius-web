@@ -151,6 +151,14 @@ function getImagesForFacet(
   });
 }
 
+// The grid shows small thumbnails. Rewrite the stable image-proxy URL to the
+// thumbnail endpoint; external/data URLs are returned unchanged. The lightbox and
+// downloads keep using the full-size original.
+function toThumbUrl(url: string, width = 700): string {
+  if (!url.includes('/api/uploads/url?key=')) return url;
+  return url.replace('/api/uploads/url?key=', '/api/uploads/thumb?key=') + `&w=${width}`;
+}
+
 export function ImageLibrarySection({
   isSidebarCollapsed,
 }: {
@@ -1087,7 +1095,7 @@ export function ImageLibrarySection({
 
                     return (
                       <img
-                        src={fullImageUrl}
+                        src={toThumbUrl(fullImageUrl, 700)}
                         alt={image.title}
                         loading="lazy"
                         decoding="async"

@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import defaultS3Service from '../services/s3.service.js';
 
 // Controller factory that accepts an S3 service instance (for easier testing/DI)
@@ -50,6 +51,35 @@ export function createUploadController(s3Service = defaultS3Service) {
         const url = await s3Service.getPresignedGetUrl(key);
         // redirect browser to S3 presigned URL
         return res.redirect(url);
+      },
+
+    // Serve a resized thumbnail for a stored image (generated once, then cached in S3).
+    // query: ?key=objectKey&w=400 — the full-size original is never modified.
+      thumb: async (req, res) => {
+        const { key } = req.query;
+        if (!key) return res.status(400).send('key required');
+        const width = Math.min(1600, Math.max(50, parseInt(req.query.w) || 400));
+        const thumbKey = `thumbnails/${width}/${key}`;
+        try {
+          if (!(await s3Service.objectExists(thumbKey))) {
+            const original = await s3Service.getObjectBuffer(key);
+            const resized = await sharp(original)
+              .rotate() // honor EXIF orientation
+              .resize({ width, withoutEnlargement: true })
+              .jpeg({ quality: 80 })
+              .toBuffer();
+            await s3Service.putObjectBuffer(thumbKey, resized, 'image/jpeg');
+          }
+          return res.redirect(await s3Service.getPresignedGetUrl(thumbKey));
+        } catch (err) {
+          // On any failure, fall back to the original so the grid still renders.
+          console.error('thumbnail error for', key, '-', err.message);
+          try {
+            return res.redirect(await s3Service.getPresignedGetUrl(key));
+          } catch {
+            return res.status(404).send('not found');
+          }
+        }
       },
 
     // Delete an object from S3. Accepts key in URL param or body.

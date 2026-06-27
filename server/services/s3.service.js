@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 // Sanitize filename for S3 keys - use ASCII-safe characters
@@ -88,6 +88,27 @@ export function createS3Service({ region, bucket, prefix = 'Uploads/' } = {}) {
     async deleteObject(key) {
       const command = new DeleteObjectCommand({ Bucket: bucket, Key: key });
       return s3.send(command);
+    },
+
+    // Read an object's raw bytes (used for server-side thumbnail generation).
+    async getObjectBuffer(key) {
+      const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+      return Buffer.from(await res.Body.transformToByteArray());
+    },
+
+    // Write bytes to a key (used to cache generated thumbnails).
+    async putObjectBuffer(key, body, contentType) {
+      await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType }));
+    },
+
+    // True if the object exists, false otherwise (used to serve cached thumbnails).
+    async objectExists(key) {
+      try {
+        await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+        return true;
+      } catch {
+        return false;
+      }
     },
 
     async createMultipartUpload({ filename, contentType, folder } = {}) {

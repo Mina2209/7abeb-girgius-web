@@ -8,6 +8,7 @@ const router = Router();
 // bind controller methods to routes
 router.post('/presign', authenticate, requireEditor, UploadController.presign);
 router.get('/url', UploadController.url); // Public - for viewing files
+router.get('/thumb', UploadController.thumb); // Public - resized thumbnails for the gallery grid
 router.delete('/:key', authenticate, requireEditor, UploadController.remove);
 
 // multipart - require authentication
