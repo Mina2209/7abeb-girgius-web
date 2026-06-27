@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Settings, Image as ImageIcon, BookOpen, Save, RotateCcw, Eye, EyeOff, Globe, Shield, AlertTriangle, Database, Download, Upload, Clock, HardDrive, CheckCircle2, Info } from 'lucide-react';
 import { Button } from './ui/button';
 import { getDefaultBookCover } from './BooksSection';
+import { useAuth } from '../contexts/AuthContext';
+import { apiRequest } from '../services/apiClient';
 
 const FALLBACK_BOOK_COVER = 'https://images.unsplash.com/photo-1569690484582-58b478f46805?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxib29rJTIwY292ZXIlMjBwbGFjZWhvbGRlcnxlbnwxfHx8fDE3Njg1NzEyMTd8MA&ixlib=rb-4.1.0&q=80&w=1080';
 
@@ -12,10 +14,9 @@ interface SectionConfig {
 }
 
 interface Backup {
-  id: string;
-  timestamp: number;
+  key: string; // S3 object key — used for download/delete
+  filename: string;
   date: string;
-  type: 'auto' | 'manual';
   size: string;
 }
 
@@ -32,6 +33,10 @@ const MAIN_SECTIONS: SectionConfig[] = [
 ];
 
 export function SiteSettingsPage() {
+  const { accessToken } = useAuth();
+  const authHeader = (): Record<string, string> =>
+    accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+
   // Book cover states
   const [defaultBookCover, setDefaultBookCover] = useState(getDefaultBookCover());
   const [previewCover, setPreviewCover] = useState(getDefaultBookCover());
@@ -48,8 +53,13 @@ export function SiteSettingsPage() {
   useEffect(() => {
     loadSettings();
     loadVisibilitySettings();
-    loadBackups();
   }, []);
+
+  // Backups are admin-only; (re)load them once the auth token is available.
+  useEffect(() => {
+    void loadBackups();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken]);
 
   // Book cover functions
   const loadSettings = () => {
@@ -139,31 +149,63 @@ export function SiteSettingsPage() {
   const hasAnyChanges = coverHasChanges || visibilityHasChanges;
 
   // Backup functions
-  const loadBackups = () => {
-    const savedBackups = localStorage.getItem('site_backups');
-    if (savedBackups) {
-      setBackups(JSON.parse(savedBackups));
-    } else {
+  // Load the real backups from the server (S3).
+  const loadBackups = async () => {
+    try {
+      const res = await apiRequest('/api/backup', { headers: authHeader() });
+      if (!res.ok) {
+        setBackups([]);
+        return;
+      }
+      const data = await res.json();
+      const list: Backup[] = (data.backups || []).map((b: {
+        key: string;
+        filename: string;
+        size?: number;
+        sizeFormatted?: string;
+        lastModified?: string;
+      }) => ({
+        key: b.key,
+        filename: b.filename,
+        date: b.lastModified ? new Date(b.lastModified).toLocaleString() : '',
+        size: b.sizeFormatted || `${b.size ?? ''}`,
+      }));
+      setBackups(list);
+    } catch {
       setBackups([]);
     }
   };
 
-  const createBackup = () => {
+  // Trigger a real server-side backup, then refresh the list.
+  const createBackup = async () => {
     setIsCreatingBackup(true);
-    setTimeout(() => {
-      const newBackup: Backup = {
-        id: Date.now().toString(),
-        timestamp: Date.now(),
-        date: new Date().toLocaleString(),
-        type: 'manual',
-        size: '10MB' // Placeholder size
-      };
-      const updatedBackups = [...backups, newBackup];
-      localStorage.setItem('site_backups', JSON.stringify(updatedBackups));
-      setBackups(updatedBackups);
-      setIsCreatingBackup(false);
+    try {
+      const res = await apiRequest('/api/backup', { method: 'POST', headers: authHeader() });
+      if (!res.ok) throw new Error('create failed');
+      await loadBackups();
       alert('تم إنشاء نسخة احتياطية جديدة بنجاح!');
-    }, 2000); // Simulate a delay for backup creation
+    } catch {
+      alert('فشل إنشاء النسخة الاحتياطية');
+    } finally {
+      setIsCreatingBackup(false);
+    }
+  };
+
+  // Get a presigned download URL for a backup and open it.
+  const downloadBackup = async (key: string) => {
+    try {
+      const res = await apiRequest(`/api/backup/download?key=${encodeURIComponent(key)}`, {
+        headers: authHeader(),
+      });
+      const data = await res.json();
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      } else {
+        alert('فشل تنزيل النسخة الاحتياطية');
+      }
+    } catch {
+      alert('فشل تنزيل النسخة الاحتياطية');
+    }
   };
 
   return (
@@ -457,7 +499,7 @@ export function SiteSettingsPage() {
             <div className="divide-y divide-border">
               {backups.map((backup) => (
                 <div
-                  key={backup.id}
+                  key={backup.key}
                   className="p-4"
                 >
                   <div className="flex items-center gap-3">
@@ -468,7 +510,7 @@ export function SiteSettingsPage() {
 
                     {/* Backup Info */}
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold">{backup.type === 'auto' ? 'نسخة احتياطية آلية' : 'نسخة احتياطية يدوي'}</h4>
+                      <h4 className="font-semibold break-all">{backup.filename}</h4>
                       <div className="flex items-center gap-3 text-xs mt-1">
                         <span className="text-muted-foreground">
                           <code className="bg-muted px-1.5 py-0.5 rounded text-xs">{backup.date}</code>
@@ -481,7 +523,7 @@ export function SiteSettingsPage() {
 
                     {/* Download Button */}
                     <Button
-                      onClick={() => alert('تم تنزيل النسخة الاحتياطية!')}
+                      onClick={() => downloadBackup(backup.key)}
                       size="sm"
                       className="min-w-[100px] bg-blue-600 hover:bg-blue-700 text-white"
                     >
