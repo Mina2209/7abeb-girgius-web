@@ -46,6 +46,7 @@ import type { ContentId, GalleryImage } from '../types/content';
 import { createImage, deleteImage, updateImage } from '../services/contentWriteService';
 import { getApiBaseUrl } from '../config/api';
 import { normalizeArabic } from '../utils/arabicUtils';
+import { downloadFile } from '../utils/download';
 
 type SortOption = 'alpha-asc' | 'alpha-desc' | 'date-asc' | 'date-desc';
 
@@ -357,12 +358,7 @@ export function ImageLibrarySection({
   };
 
   const downloadImage = (image: GalleryImage) => {
-    const link = document.createElement('a');
-    link.href = image.src;
-    link.download = `${image.title}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    downloadFile(image.src, `${image.title}.png`);
   };
 
   const toggleImageSelection = (imageId: ContentId) => {

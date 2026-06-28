@@ -26,6 +26,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { useAuth } from "../contexts/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "./ui/dialog";
+import { downloadFile } from "../utils/download";
 
 // إضافة روابط تجريبية عامة للمعاينة لحين ربطها بسيرفرك الحقيقي لضمان عمل المعاينة فوراً
 const initialPowerpointCategories = [
@@ -496,9 +497,12 @@ export function VariousSection() {
                             </div>
 
                             <div className="relative group/tooltip">
-                              <a 
-                                href={file.url || "#"} 
-                                download={file.name}
+                              <a
+                                href={file.url || "#"}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  if (file.url) downloadFile(file.url, file.name);
+                                }}
                                 className={`h-8 w-8 flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-colors ${!file.url && 'opacity-40 pointer-events-none'}`}
                               >
                                 <Download className="h-4 w-4" />

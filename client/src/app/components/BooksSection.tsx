@@ -31,6 +31,7 @@ import { useIsEditor } from "../utils/adminUtils";
 import { useAuth } from "../contexts/AuthContext";
 import { useBooks } from "../hooks/useBooks";
 import { normalizeArabic } from "../utils/arabicUtils";
+import { downloadFile } from "../utils/download";
 
 // استدعاء دوال الـ API Client الجديد لإدارة الاتصال بالسيرفر
 import {
@@ -419,12 +420,7 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
   };
 
   const downloadBook = (book: Book) => {
-    const link = document.createElement("a");
-    link.href = book.pdfFile;
-    link.download = `${book.title}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    downloadFile(book.pdfFile, `${book.title}.pdf`);
   };
 
   // مجموعات الميمو للفلاتر

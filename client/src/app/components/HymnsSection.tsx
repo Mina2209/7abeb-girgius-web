@@ -36,6 +36,7 @@ import { useHymnsData } from "../hooks/useHymnsData";
 import type {
   ContentId,
   Hymn,
+  HymnFile,
   HymnFileType as FileType,
 } from "../types/content";
 import {
@@ -43,6 +44,7 @@ import {
   deleteHymn,
   updateHymn,
 } from "../services/contentWriteService";
+import { downloadFile } from "../utils/download";
 
 type SortOption =
   | "alpha-asc"
@@ -94,6 +96,40 @@ const getFileTypeLabel = (fileType: FileType) => {
     case "Music":
       return "موسيقى";
   }
+};
+
+// Extension to fall back to when a file has no real original name.
+const FILE_TYPE_EXT: Record<FileType, string> = {
+  "Video montage": "mp4",
+  "Video PowerPoint": "mp4",
+  "PowerPoint file": "pptx",
+  Music: "mp3",
+};
+
+// The real download name lives in the DB as `File.originalName`, exposed to the client as
+// `file.name` (already includes the real Arabic name + extension). The mapper falls back to
+// the raw URL when originalName is missing, so guard against that and only then derive a
+// name from the hymn title + file type.
+const getDownloadName = (file: HymnFile, hymnTitle: string): string => {
+  const original = file.name?.trim();
+  if (original && !/^https?:\/\//i.test(original) && !original.includes("/")) {
+    return original;
+  }
+  const ext = FILE_TYPE_EXT[file.type] ?? "bin";
+  return `${hymnTitle || "ترنيمة"}.${ext}`;
+};
+
+// Download a single hymn file natively under its real name.
+const downloadHymnFile = (file: HymnFile, hymnTitle: string) => {
+  if (file?.url) downloadFile(file.url, getDownloadName(file, hymnTitle));
+};
+
+// Download every file of a hymn under its real name.
+const downloadAllHymnFiles = (
+  files: HymnFile[] | undefined,
+  hymnTitle: string,
+) => {
+  files?.forEach((file) => downloadHymnFile(file, hymnTitle));
 };
 
 type HymnFacet = "tags" | "fileTypes";
@@ -225,10 +261,18 @@ export function HymnsSection({
   const [previewUrl, setPreviewUrl] = useState("");
   const [previewTitle, setPreviewTitle] = useState("");
   const [previewType, setPreviewType] = useState<FileType | null>(null);
-  const handleOpenPreview = (url: string, type: FileType, title: string) => {
+  // The file being previewed, so the modal's download button can use its real name.
+  const [previewFile, setPreviewFile] = useState<HymnFile | null>(null);
+  const handleOpenPreview = (
+    url: string,
+    type: FileType,
+    title: string,
+    file?: HymnFile | null,
+  ) => {
     setPreviewUrl(url);
     setPreviewType(type);
     setPreviewTitle(title);
+    setPreviewFile(file ?? null);
     setIsPreviewOpen(true);
   };
   const sortDropdownRef = useRef<HTMLDivElement>(null);
@@ -533,13 +577,12 @@ export function HymnsSection({
   };
 
   const handleBatchDownload = () => {
-    // Download all file types for all selected hymns
+    // Download all file types for all selected hymns, each under its real name.
     const selectedHymns = hymns.filter((hymn) =>
       selectedHymnIds.some((id) => String(id) === String(hymn.id)),
     );
-    console.log(
-      "Downloading files for hymns:",
-      selectedHymns.map((h) => h.title),
+    selectedHymns.forEach((hymn) =>
+      downloadAllHymnFiles(hymn.files, hymn.title),
     );
 
     // Show success message
@@ -1332,9 +1375,7 @@ export function HymnsSection({
                             className="flex items-center justify-center p-2.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all"
                             onClick={(e) => {
                               e.stopPropagation();
-                              console.log(
-                                `Downloading all files for ${hymn.title}`,
-                              );
+                              downloadAllHymnFiles(hymn.files, hymn.title);
                             }}
                           >
                             <Download className="w-4 h-4" />
@@ -1448,26 +1489,20 @@ export function HymnsSection({
                                 >
                                   <a
                                     href={fileUrl}
-                                    download={
-                                      fileType === "Music"
-                                        ? `${hymn.title || "ترنيمة"}.mp3`
-                                        : fileType === "PowerPoint file"
-                                          ? `${hymn.title || "بوربوينت"}.pptx`
-                                          : `${hymn.title || "فيديو"}.mp4`
-                                    }
                                     className="flex items-center justify-center p-3 bg-background/50 border border-border rounded-lg text-muted-foreground hover:bg-primary/10 hover:border-primary hover:text-primary transition-all w-11 h-11"
                                     onClick={(e) => {
                                       // لو الملف فيديو أو بوربوينت يفتح المعاينة، الموسيقى تنزل علطول
+                                      e.preventDefault();
+                                      e.stopPropagation();
                                       if (fileType !== "Music") {
-                                        e.preventDefault();
-                                        e.stopPropagation();
                                         handleOpenPreview(
                                           fileUrl,
                                           fileType,
                                           hymn.title,
+                                          fileObj,
                                         );
-                                      } else {
-                                        e.stopPropagation();
+                                      } else if (fileObj) {
+                                        downloadHymnFile(fileObj, hymn.title);
                                       }
                                     }}
                                   >
@@ -1492,24 +1527,8 @@ export function HymnsSection({
                               className="flex items-center justify-center p-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all w-11 h-11"
                               onClick={(e) => {
                                 e.stopPropagation();
-
-                                // المرور على كافة الملفات المتاحة للترنيمة وتحميلها تلقائياً
-                                hymn.files?.forEach((file) => {
-                                  if (file.url) {
-                                    const link = document.createElement("a");
-                                    link.href = file.url;
-                                    const ext =
-                                      file.type === "Music"
-                                        ? "mp3"
-                                        : file.type === "PowerPoint file"
-                                          ? "pptx"
-                                          : "mp4";
-                                    link.download = `${hymn.title || "ملف"}.${ext}`;
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-                                  }
-                                });
+                                // تحميل كل الملفات المتاحة للترنيمة بأسمائها الحقيقية
+                                downloadAllHymnFiles(hymn.files, hymn.title);
                               }}
                             >
                               <Download className="w-5 h-5" />
@@ -1773,6 +1792,7 @@ export function HymnsSection({
                                           `${label} - ${hymn.title}`,
                                         );
                                         setPreviewType(fileType);
+                                        setPreviewFile(actualFile ?? null);
                                         setIsPreviewOpen(true);
                                       }
                                     }}
@@ -1786,9 +1806,12 @@ export function HymnsSection({
                                   {/* Download Button */}
                                   <a
                                     href={fileUrl}
-                                    download={`${label} - ${hymn.title}`}
-                                    target="_blank"
-                                    rel="noreferrer"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      if (actualFile) {
+                                        downloadHymnFile(actualFile, hymn.title);
+                                      }
+                                    }}
                                     className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg hover:bg-primary/10 hover:border-primary transition-all text-foreground"
                                   >
                                     <Download className="w-4 h-4" />
@@ -1805,20 +1828,8 @@ export function HymnsSection({
                           <button
                             className="w-full flex items-center justify-center gap-3 p-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all"
                             onClick={() => {
-                              console.log(
-                                `Downloading all files for ${hymn.title}`,
-                              );
-                              // كود ذكي لتحميل كل الملفات المتاحة للترنيمة دي ورا بعض
-                              hymn.files?.forEach((file, index) => {
-                                setTimeout(() => {
-                                  const link = document.createElement("a");
-                                  link.href = file.url;
-                                  link.download = `${getFileTypeLabel(file.type)} - ${hymn.title}`;
-                                  document.body.appendChild(link);
-                                  link.click();
-                                  document.body.removeChild(link);
-                                }, index * 300); // تأخير بسيط بين كل ملف عشان المتصفح ميعملش Block للتحميل المتعدد
-                              });
+                              // تحميل كل الملفات المتاحة للترنيمة بأسمائها الحقيقية
+                              downloadAllHymnFiles(hymn.files, hymn.title);
                             }}
                           >
                             <Download className="w-5 h-5" />
@@ -2059,6 +2070,7 @@ export function HymnsSection({
                   setIsPreviewOpen(false);
                   setPreviewUrl("");
                   setPreviewType(null);
+                  setPreviewFile(null);
                 }}
                 className="w-9 h-9 flex items-center justify-center rounded-xl bg-muted hover:bg-destructive hover:text-white transition-colors"
               >
@@ -2116,18 +2128,16 @@ export function HymnsSection({
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-muted/10">
               <a
                 href={previewUrl}
-                /*  التعديل السحري هنا:
-      بنمرر اسم الترنيمة الفعلي جوه الـ download وبنحدد الامتداد بناءً على الـ previewType
-    */
-                download={
-                  previewType === "Music"
-                    ? `${previewTitle || "ترنيمة"}.mp3`
-                    : previewType === "PowerPoint file"
-                      ? `${previewTitle || "بوربوينت"}.pptx`
-                      : `${previewTitle || "فيديو"}.mp4`
-                }
+                /*  بنحمّل الملف بالاسم الحقيقي (originalName) عن طريق تمرير الاسم للسيرفر
+                    اللي بيوقّع رابط S3 بـ Content-Disposition الصحيح */
                 className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all font-medium text-sm"
-                onClick={() => setIsPreviewOpen(false)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (previewFile) {
+                    downloadHymnFile(previewFile, previewTitle);
+                  }
+                  setIsPreviewOpen(false);
+                }}
               >
                 <Download className="w-4 h-4" />
                 <span>تحميل الملف الآن</span>

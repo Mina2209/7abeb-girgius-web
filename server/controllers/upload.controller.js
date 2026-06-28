@@ -44,11 +44,14 @@ export function createUploadController(s3Service = defaultS3Service) {
       },
 
     // Redirect to a presigned GET URL so frontend can download via a stable API URL
-    // query: ?key=objectKey
+    // query: ?key=objectKey&name=optionalRealFilename
+    // `name` lets the client force the real (e.g. Arabic) download filename via the S3
+    // Content-Disposition header, since the S3 key itself is ASCII-sanitized. The file is
+    // never proxied through this server — we only sign a URL and redirect to S3.
       url: async (req, res) => {
-        const { key } = req.query;
+        const { key, name } = req.query;
         if (!key) return res.status(400).send('key required');
-        const url = await s3Service.getPresignedGetUrl(key);
+        const url = await s3Service.getPresignedGetUrl(key, 900, name || null);
         // redirect browser to S3 presigned URL
         return res.redirect(url);
       },
