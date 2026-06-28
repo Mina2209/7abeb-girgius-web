@@ -44,7 +44,8 @@ import {
   deleteHymn,
   updateHymn,
 } from "../services/contentWriteService";
-import { downloadFile } from "../utils/download";
+import { downloadFile, downloadViaUrl } from "../utils/download";
+import { getApiBaseUrl } from "../config/api";
 
 type SortOption =
   | "alpha-asc"
@@ -124,12 +125,26 @@ const downloadHymnFile = (file: HymnFile, hymnTitle: string) => {
   if (file?.url) downloadFile(file.url, getDownloadName(file, hymnTitle));
 };
 
-// Download every file of a hymn under its real name.
-const downloadAllHymnFiles = (
-  files: HymnFile[] | undefined,
-  hymnTitle: string,
-) => {
-  files?.forEach((file) => downloadHymnFile(file, hymnTitle));
+// Trigger a server-built zip of one or more hymns. The server streams the files straight
+// from S3 (constant memory) and bundles them into a single download, which sidesteps the
+// browser's "multiple downloads" prompt entirely.
+const downloadHymnsZip = (hymnIds: ContentId[]) => {
+  const ids = hymnIds.map((id) => String(id)).filter(Boolean);
+  if (ids.length === 0) return;
+  const query = ids.map((id) => encodeURIComponent(id)).join(",");
+  downloadViaUrl(`${getApiBaseUrl()}/api/hymns/zip?ids=${query}`);
+};
+
+// "Download all" for one hymn: a single file downloads directly (no point zipping one
+// file); multiple files come down as one zip.
+const downloadAllHymnFiles = (hymn: Hymn) => {
+  const files = hymn.files ?? [];
+  if (files.length === 0) return;
+  if (files.length === 1) {
+    downloadHymnFile(files[0], hymn.title);
+    return;
+  }
+  downloadHymnsZip([hymn.id]);
 };
 
 type HymnFacet = "tags" | "fileTypes";
@@ -577,16 +592,12 @@ export function HymnsSection({
   };
 
   const handleBatchDownload = () => {
-    // Download all file types for all selected hymns, each under its real name.
-    const selectedHymns = hymns.filter((hymn) =>
-      selectedHymnIds.some((id) => String(id) === String(hymn.id)),
-    );
-    selectedHymns.forEach((hymn) =>
-      downloadAllHymnFiles(hymn.files, hymn.title),
-    );
+    // Bundle every selected hymn's files into one server-built zip (one folder per hymn).
+    if (selectedHymnIds.length === 0) return;
+    downloadHymnsZip(selectedHymnIds);
 
     // Show success message
-    setShareMessage(`تم تحميل ${selectedHymnIds.length} ترنيمة`);
+    setShareMessage(`جارٍ تحضير ${selectedHymnIds.length} ترنيمة للتحميل`);
     setTimeout(() => setShareMessage(null), 3000);
 
     // Exit selection mode after download
@@ -1375,7 +1386,7 @@ export function HymnsSection({
                             className="flex items-center justify-center p-2.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all"
                             onClick={(e) => {
                               e.stopPropagation();
-                              downloadAllHymnFiles(hymn.files, hymn.title);
+                              downloadAllHymnFiles(hymn);
                             }}
                           >
                             <Download className="w-4 h-4" />
@@ -1528,7 +1539,7 @@ export function HymnsSection({
                               onClick={(e) => {
                                 e.stopPropagation();
                                 // تحميل كل الملفات المتاحة للترنيمة بأسمائها الحقيقية
-                                downloadAllHymnFiles(hymn.files, hymn.title);
+                                downloadAllHymnFiles(hymn);
                               }}
                             >
                               <Download className="w-5 h-5" />
@@ -1829,7 +1840,7 @@ export function HymnsSection({
                             className="w-full flex items-center justify-center gap-3 p-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all"
                             onClick={() => {
                               // تحميل كل الملفات المتاحة للترنيمة بأسمائها الحقيقية
-                              downloadAllHymnFiles(hymn.files, hymn.title);
+                              downloadAllHymnFiles(hymn);
                             }}
                           >
                             <Download className="w-5 h-5" />

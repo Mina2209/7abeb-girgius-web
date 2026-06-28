@@ -96,6 +96,13 @@ export function createS3Service({ region, bucket, prefix = 'Uploads/' } = {}) {
       return Buffer.from(await res.Body.transformToByteArray());
     },
 
+    // Open an object as a Node Readable stream (used to stream files into a zip without
+    // buffering them in memory). The caller is responsible for consuming/destroying it.
+    async getObjectStream(key) {
+      const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+      return res.Body; // Node.js Readable in a server runtime
+    },
+
     // Write bytes to a key (used to cache generated thumbnails).
     async putObjectBuffer(key, body, contentType) {
       await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType }));

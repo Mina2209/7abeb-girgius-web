@@ -1,8 +1,167 @@
+import archiver from 'archiver';
 import { HymnService } from '../services/hymn.service.js';
 import { normalizeArabic } from '../services/normalize.js';
 import { logService } from '../services/log.service.js';
+import s3Service from '../services/s3.service.js';
+import { downloadGuard } from '../services/downloadGuard.js';
+
+// Fallback extension per file type when a file has no stored original name.
+const FILE_TYPE_EXT = {
+  MUSIC_AUDIO: 'mp3',
+  POWERPOINT: 'pptx',
+  VIDEO_POWERPOINT: 'mp4',
+  VIDEO_MONTAGE: 'mp4',
+};
+
+// Our file URLs look like `.../api/uploads/url?key=<S3 key>`. Pull the key back out so we
+// can stream the object straight from S3.
+function keyFromFileUrl(fileUrl) {
+  if (!fileUrl) return null;
+  const idx = fileUrl.indexOf('key=');
+  if (idx === -1) return null;
+  return decodeURIComponent(fileUrl.slice(idx + 4).split('&')[0]) || null;
+}
+
+// Strip characters that are unsafe inside a zip path segment, keep Unicode (Arabic) names.
+function sanitizeSegment(name) {
+  return String(name || '')
+    .replace(/[\/\\:*?"<>|]/g, '_')
+    .replace(/^[\s.]+|[\s.]+$/g, '')
+    .slice(0, 150) || 'ملف';
+}
+
+// Ensure each entry name inside the zip is unique (append " (2)", " (3)", … on collision).
+function uniqueName(used, name) {
+  if (!used.has(name)) {
+    used.add(name);
+    return name;
+  }
+  const dot = name.lastIndexOf('.');
+  const base = dot > 0 ? name.slice(0, dot) : name;
+  const ext = dot > 0 ? name.slice(dot) : '';
+  let i = 2;
+  let candidate = `${base} (${i})${ext}`;
+  while (used.has(candidate)) {
+    i += 1;
+    candidate = `${base} (${i})${ext}`;
+  }
+  used.add(candidate);
+  return candidate;
+}
+
+// Build the entry filename for a file: prefer its real original name, else title + ext.
+function entryFileName(file, hymnTitle) {
+  const original = (file.originalName || '').trim();
+  if (original && !/^https?:\/\//i.test(original) && !original.includes('/')) {
+    return sanitizeSegment(original);
+  }
+  const ext = FILE_TYPE_EXT[file.type] || 'bin';
+  return `${sanitizeSegment(hymnTitle || 'ترنيمة')}.${ext}`;
+}
+
+// Set a Content-Disposition that carries the real (possibly Arabic) zip name across the
+// wire: ASCII fallback + RFC 5987 UTF-8 form.
+function setZipHeaders(res, zipName) {
+  res.set('Content-Type', 'application/zip');
+  const ascii = zipName.replace(/[^\x20-\x7E]/g, '_');
+  const utf8 = encodeURIComponent(zipName).replace(/'/g, '%27');
+  res.set('Content-Disposition', `attachment; filename="${ascii}"; filename*=UTF-8''${utf8}`);
+  // Long-running stream: don't let an idle proxy buffer or cut it short.
+  res.set('Cache-Control', 'no-store');
+}
 
 export const HymnController = {
+  // Stream a zip of one or more hymns' files, straight from S3 (constant memory).
+  // GET /api/hymns/zip?ids=id1,id2,...   (one id → flat zip; many → one folder per hymn)
+  downloadZip: async (req, res) => {
+    const ids = String(req.query.ids || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (ids.length === 0) return res.status(400).json({ error: 'no hymn ids provided' });
+
+    // Admission control: only proceed if the server has spare capacity, otherwise ask the
+    // client to retry. This keeps downloads from starving the app / co-located database.
+    const slot = downloadGuard.tryAcquire();
+    if (!slot.ok) {
+      res.set('Retry-After', '10');
+      return res
+        .status(503)
+        .json({ error: 'الخادم مشغول حالياً، حاول بعد قليل', reason: slot.reason });
+    }
+
+    let released = false;
+    const release = () => {
+      if (!released) {
+        released = true;
+        downloadGuard.release();
+      }
+    };
+
+    try {
+      const hymns = [];
+      for (const id of ids) {
+        const h = await HymnService.getById(id);
+        if (h) hymns.push(h);
+      }
+      if (hymns.length === 0) {
+        release();
+        return res.status(404).json({ error: 'no matching hymns' });
+      }
+
+      const multi = hymns.length > 1;
+      const zipName = multi ? 'ترانيم.zip' : `${sanitizeSegment(hymns[0].title)}.zip`;
+      setZipHeaders(res, zipName);
+
+      // store=true: no compression. Hymn media (mp3/mp4/pptx) is already compressed, so this
+      // saves CPU and just bundles the files into one container.
+      const archive = archiver('zip', { store: true });
+
+      archive.on('warning', (err) => console.warn('[zip] warning:', err?.message || err));
+      archive.on('error', (err) => {
+        console.error('[zip] archive error:', err);
+        release();
+        if (!res.headersSent) res.status(500).json({ error: 'zip failed' });
+        else res.destroy();
+      });
+
+      // Free the slot (and stop pulling from S3) whenever the response ends — normal finish
+      // or the client disconnecting mid-download.
+      res.on('close', () => {
+        release();
+        archive.destroy();
+      });
+
+      archive.pipe(res);
+
+      const used = new Set();
+      for (const hymn of hymns) {
+        if (res.destroyed) break; // client disconnected — stop pulling from S3
+        const folder = multi ? `${sanitizeSegment(hymn.title)}/` : '';
+        for (const file of hymn.files || []) {
+          if (res.destroyed) break;
+          const key = keyFromFileUrl(file.fileUrl);
+          if (!key) continue;
+          const name = folder + uniqueName(used, entryFileName(file, hymn.title));
+          try {
+            const stream = await s3Service.getObjectStream(key);
+            archive.append(stream, { name });
+          } catch (e) {
+            // Skip a missing/unreadable object rather than failing the whole bundle.
+            console.error('[zip] skipping file (S3 error):', key, e?.message || e);
+          }
+        }
+      }
+
+      await archive.finalize();
+    } catch (err) {
+      console.error('[zip] downloadZip error:', err);
+      release();
+      if (!res.headersSent) res.status(500).json({ error: 'download failed' });
+      else res.destroy();
+    }
+  },
+
   getAll: async (req, res) => {
     const searchRaw = req.query.search || req.query.q || '';
     if (!searchRaw) {
