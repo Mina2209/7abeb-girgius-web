@@ -374,7 +374,7 @@ export function ChurchSidebar({
               const canSeeHidden = userRole === 'editor' || userRole === 'admin';
 
               const buttonClasses = [
-                'w-full flex items-center gap-2.5 p-2.5 rounded-lg transition-colors',
+                'w-full flex items-center justify-center gap-2.5 p-2.5 rounded-lg transition-colors',
                 activeSection === item.id
                   ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                   : 'hover:bg-sidebar-hover text-sidebar-foreground/80 hover:text-sidebar-foreground',
@@ -414,7 +414,7 @@ export function ChurchSidebar({
             <div className="px-3 py-2 border-t border-sidebar-border">
               <button
                 onClick={() => onSectionChange('about')}
-                className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                className={`w-full flex justify-center items-center gap-3 p-3 rounded-lg transition-colors ${
                   activeSection === 'about'
                     ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                     : 'hover:bg-sidebar-hover text-sidebar-foreground/80 hover:text-sidebar-foreground'
@@ -447,7 +447,7 @@ export function ChurchSidebar({
           />
 
           {isCollapsed && (
-            <div className="border-t border-sidebar-border flex flex-col items-center py-2">
+            <div className="border-t border-sidebar-border justify-center flex flex-col items-center py-2">
               <CompactThemeToggle />
             </div>
           )}

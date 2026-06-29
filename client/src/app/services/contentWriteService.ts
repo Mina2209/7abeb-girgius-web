@@ -1,9 +1,12 @@
 import type { GalleryImage, Hymn, HymnFileType, Saying } from '../types/content';
+import type { Artist } from '../data/artists';
 import { apiGetJson, apiRequest } from './apiClient';
 import {
+  mapServerAuthorToClient,
   mapServerHymnToClient,
   mapServerImageToClient,
   mapServerSayingToClient,
+  type ServerAuthorRow,
   type ServerHymn,
   type ServerImageRow,
   type ServerSayingRow,
@@ -200,4 +203,13 @@ export async function deleteImage(id: string, token?: string | null): Promise<vo
     headers: withAuth(token),
   });
   await ensureOk(res, 'Failed to delete image');
+}
+
+export async function updateArtist(id: string, data: Partial<Artist>, token?: string | null): Promise<Artist> {
+  const row = await apiGetJson<ServerAuthorRow>(`/api/images/meta/authors/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...withAuth(token) },
+    body: JSON.stringify(data),
+  });
+  return mapServerAuthorToClient(row);
 }

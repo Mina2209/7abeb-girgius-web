@@ -7,11 +7,12 @@ import type { Saying } from '../types/content';
 interface AdminEditSayingModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (saying: Saying) => void;
+  onSave: (saying: Saying | Saying[]) => Promise<void> | void;
   saying?: Saying | null;
   allAuthors: string[];
   allSources: string[];
 }
+
 
 export function AdminEditSayingModal({
   isOpen,
@@ -55,12 +56,21 @@ export function AdminEditSayingModal({
     }
   }, [isOpen, saying]);
 
-  const validateForm = (): boolean => {
+  const parseQuotesFromTextarea = (raw: string) => {
+    // Split by new lines; each non-empty line is considered a separate quote.
+    // Also support pipes in case user pastes "a | b".
+    const lines = raw
+      .split('\n')
+      .flatMap((l) => l.split('|'))
+      .map((s) => s.trim())
+      .filter(Boolean);
+    // Preserve order but avoid exact duplicates
+    return Array.from(new Set(lines));
+  };
+
+  const validateForm = (): { ok: boolean; parsedQuotes?: string[] } => {
     const newErrors: { [key: string]: string } = {};
 
-    if (!formData.quote.trim()) {
-      newErrors.quote = 'القول مطلوب';
-    }
     if (!formData.author.trim()) {
       newErrors.author = 'اسم القائل مطلوب';
     }
@@ -71,17 +81,38 @@ export function AdminEditSayingModal({
       newErrors.tags = 'يجب اختيار تصنيف واحد على الأقل';
     }
 
+    const parsedQuotes = parseQuotesFromTextarea(formData.quote);
+    if (!parsedQuotes || parsedQuotes.length === 0) {
+      newErrors.quote = 'القول مطلوب (أدخل سطر واحد على الأقل)';
+    }
+
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return { ok: Object.keys(newErrors).length === 0, parsedQuotes };
   };
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
-      onSave(formData);
-      onClose();
+    const { ok, parsedQuotes } = validateForm();
+    if (!ok || !parsedQuotes || parsedQuotes.length === 0) return;
+
+    // Same author/source/tags for all parsed quotes
+    const base = { ...formData };
+    const payload: Saying[] = parsedQuotes.map((q) => ({
+      ...base,
+      // Backend expects `content` in payload mapping as quote
+      quote: q,
+    }));
+
+    // If only one quote -> keep old behavior (single Saying)
+    if (payload.length === 1) {
+      onSave(payload[0]);
+    } else {
+      onSave(payload);
     }
+    onClose();
   };
+
 
   const handleAddTag = () => {
     if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
@@ -130,12 +161,18 @@ export function AdminEditSayingModal({
             <label className="block text-sm font-medium mb-2">
               القول <span className="text-red-500">*</span>
             </label>
-            <textarea
+              <textarea
               value={formData.quote}
               onChange={(e) => setFormData({ ...formData, quote: e.target.value })}
               className="w-full px-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[120px] resize-y"
-              placeholder="أدخل نص القول..."
+              placeholder="أدخل نص القول...\n(يمكنك إدخال عدة أقوال: كل سطر قول)"
             />
+            <p className="text-xs text-muted-foreground mt-2">
+              {parseQuotesFromTextarea(formData.quote).length > 1
+                ? `سيتم إضافة ${parseQuotesFromTextarea(formData.quote).length} أقوال دفعة واحدة.`
+                : 'كل سطر داخل هذا الحقل يُعتبر قولاً مستقلًا.'}
+            </p>
+
             {errors.quote && <p className="text-red-500 text-sm mt-1">{errors.quote}</p>}
           </div>
 

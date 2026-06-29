@@ -29,9 +29,10 @@ import Masonry, { ResponsiveMasonry } from 'react-responsive-masonry';
 import { useAuth } from '../contexts/AuthContext';
 import { LoginRequiredModal } from './LoginRequiredModal';
 import { ArtistProfileModal } from './ArtistProfileModal';
-import { getArtistByName } from '../data/artists';
+import { getArtistByName, type Artist } from '../data/artists';
 import { useIsEditor } from '../utils/adminUtils';
 import { AdminEditImageModal } from './AdminEditImageModal';
+import { AdminEditArtistModal } from './AdminEditArtistModal';
 import { AdminBulkEditImagesModal, BulkImageUpdates } from './AdminBulkEditImagesModal';
 import { VideoModal } from './VideoModal';
 import { useGalleryImagesPaged } from '../hooks/useGalleryImagesPaged';
@@ -43,7 +44,7 @@ import {
 } from '../services/contentLoaders';
 import { fetchAllTags } from '../services/tagsService';
 import type { ContentId, GalleryImage } from '../types/content';
-import { createImage, deleteImage, updateImage } from '../services/contentWriteService';
+import { createImage, deleteImage, updateImage, updateArtist } from '../services/contentWriteService';
 import { getApiBaseUrl } from '../config/api';
 import { normalizeArabic } from '../utils/arabicUtils';
 import { downloadFile } from '../utils/download';
@@ -215,6 +216,9 @@ export function ImageLibrarySection({
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingImage, setEditingImage] = useState<GalleryImage | null>(null);
+
+  const [isEditArtistModalOpen, setIsEditArtistModalOpen] = useState(false);
+  const [editingArtistName, setEditingArtistName] = useState<string | null>(null);
 
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [bulkEditMode, setBulkEditMode] = useState(false);
@@ -1507,7 +1511,57 @@ export function ImageLibrarySection({
         favoritedImages={favoritedImages as any}
         onToggleFavorite={toggleFavorite as any}
         onDownloadImage={downloadImage as any}
+        isEditor={isEditor}
+        onEditArtist={() => {
+          setEditingArtistName(selectedArtistName);
+          setIsEditArtistModalOpen(true);
+        }}
       />
+
+      {isEditor && editingArtistName && (
+        <AdminEditArtistModal
+          isOpen={isEditArtistModalOpen}
+          onClose={() => {
+            setIsEditArtistModalOpen(false);
+            setEditingArtistName(null);
+          }}
+          onSave={async (artistData) => {
+            try {
+              const artist = getArtistByName(editingArtistName);
+              if (artist && typeof artist.id === 'string') {
+                await updateArtist(artist.id, artistData, accessToken);
+              }
+              setShareMessage('تم تحديث بيانات الفنان بنجاح');
+            } catch {
+              setShareMessage('فشل تحديث بيانات الفنان');
+            }
+            setTimeout(() => setShareMessage(''), 2000);
+          }}
+          artist={
+            editingArtistName
+              ? (getArtistByName(editingArtistName) ?? {
+                  id: editingArtistName,
+                  name: editingArtistName,
+                  bio: '',
+                  role: '',
+                  profileImage: '',
+                  socialMedia: {},
+                  joinDate: new Date().toISOString().split('T')[0],
+                  specialty: [],
+                })
+              : {
+                  id: '',
+                  name: '',
+                  bio: '',
+                  role: '',
+                  profileImage: '',
+                  socialMedia: {},
+                  joinDate: new Date().toISOString().split('T')[0],
+                  specialty: [],
+                }
+          }
+        />
+      )}
 
       {isEditor && (
         <AdminEditImageModal

@@ -27,18 +27,25 @@ export function CompactThemeToggle() {
     }
   };
 
-  return (
-    <button
-      onClick={toggleTheme}
-      className="p-2 rounded-md hover:bg-sidebar-accent transition-colors group"
-      aria-label={isDark ? 'تبديل إلى الوضع النهاري' : 'تبديل إلى الوضع الليلي'}
-      title={isDark ? 'تبديل إلى الوضع النهاري' : 'تبديل إلى الوضع الليلي'}
-    >
-      {isDark ? (
-        <FlatIcon iconClass="fi-sr-moon-stars" className="w-4 h-4 text-sidebar-foreground/80 group-hover:text-sidebar-foreground" />
-      ) : (
-        <FlatIcon iconClass="fi-sr-sun" className="w-4 h-4 text-sidebar-foreground/80 group-hover:text-sidebar-foreground" />
-      )}
-    </button>
-  );
+return (
+  <button
+    onClick={toggleTheme}
+    className="p-2 rounded-md hover:bg-sidebar-accent transition-colors group"
+    aria-label={isDark ? 'تبديل إلى الوضع النهاري' : 'تبديل إلى الوضع الليلي'}
+    title={isDark ? 'تبديل إلى الوضع النهاري' : 'تبديل إلى الوضع الليلي'}
+  >
+    {isDark ? (
+      <FlatIcon 
+        iconClass="fi-sr-moon-stars" 
+        className="w-4 h-4 text-sidebar-foreground/80 group-hover:text-sidebar-foreground" 
+      />
+    ) : (
+      <FlatIcon 
+        iconClass="fi-sr-sun" 
+        // التعديل هنا: غيرنا group-hover لـ text-white للشمس فقط
+        className="w-4 h-4 text-sidebar-foreground/80 group-hover:text-white transition-colors" 
+      />
+    )}
+  </button>
+);
 }

@@ -1,4 +1,4 @@
-import { X, Facebook, Instagram, Globe, Mail, Calendar, Tag, Download, Heart, Check } from 'lucide-react';
+import { X, Edit2, Facebook, Instagram, Globe, Mail, Calendar, Tag, Download, Heart, Check, User } from 'lucide-react';
 import { Artist } from '../data/artists';
 import { useState, useMemo } from 'react';
 import Masonry, { ResponsiveMasonry } from 'react-responsive-masonry';
@@ -24,6 +24,8 @@ interface ArtistProfileModalProps {
   favoritedImages: number[];
   onToggleFavorite: (imageId: number) => void;
   onDownloadImage: (image: GalleryImage) => void;
+  isEditor?: boolean;
+  onEditArtist?: () => void;
 }
 
 export function ArtistProfileModal({
@@ -35,6 +37,8 @@ export function ArtistProfileModal({
   favoritedImages,
   onToggleFavorite,
   onDownloadImage,
+  isEditor,
+  onEditArtist,
 }: ArtistProfileModalProps) {
   const { user, profile } = useAuth();
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -85,6 +89,18 @@ export function ArtistProfileModal({
         <X className="w-5 h-5" />
       </button>
 
+      {/* Edit button for admins */}
+      {isEditor && onEditArtist && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onEditArtist(); }}
+          className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white rounded-full p-3 transition-colors z-10"
+          aria-label="تعديل الفنان"
+          title="تعديل بيانات الفنان"
+        >
+          <Edit2 className="w-5 h-5" />
+        </button>
+      )}
+
       {/* Main content - scrollable */}
       <div className="w-full max-w-7xl h-full overflow-y-auto bg-background rounded-2xl shadow-2xl">
         {/* Header Section with Artist Info */}
@@ -101,9 +117,6 @@ export function ArtistProfileModal({
               {/* Artist Info */}
               <div className="flex-1">
                 <h1 className="text-3xl font-bold mb-1">{artist.name}</h1>
-                {artist.nameEnglish && (
-                  <p className="text-lg text-muted-foreground mb-2">{artist.nameEnglish}</p>
-                )}
                 <p className="text-primary font-medium mb-3">{artist.role}</p>
 
                 {/* Stats */}

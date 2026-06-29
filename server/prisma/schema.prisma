@@ -89,9 +89,18 @@ model Image {
 }
 
 model ImageAuthor {
-  id     String  @id @default(uuid())
-  name   String  @unique
-  images Image[]
+  id           String   @id @default(uuid())
+  name         String   @unique
+  bio          String?
+  role         String?
+  profileImage String?
+  facebook     String?
+  instagram    String?
+  website      String?
+  email        String?
+  joinDate     DateTime @default(now())
+  specialty    String[]
+  images       Image[]
 }
 
 model ImageType {

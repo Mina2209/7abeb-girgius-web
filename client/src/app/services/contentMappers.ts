@@ -1,4 +1,5 @@
 import type { GalleryImage, Hymn, HymnFile, HymnFileType, Saying } from '../types/content';
+import type { Artist } from '../data/artists';
 
 type ServerTag = { name: string };
 
@@ -30,6 +31,21 @@ export type ServerImageRow = {
   ai?: boolean;
   published?: boolean;
   createdAt: string;
+};
+
+export type ServerAuthorRow = {
+  id: string;
+  name: string;
+  bio?: string | null;
+  role?: string | null;
+  profileImage?: string | null;
+  facebook?: string | null;
+  instagram?: string | null;
+  website?: string | null;
+  email?: string | null;
+  joinDate: string;
+  specialty: string[];
+  _count?: { images: number };
 };
 
 export type ServerSayingRow = {
@@ -110,5 +126,23 @@ export function mapServerSayingToClient(row: ServerSayingRow): Saying {
     tags: (row.tags ?? []).map((t) => t.name),
     source: row.source ?? '',
     dateAdded: row.createdAt ? row.createdAt.slice(0, 10) : '',
+  };
+}
+
+export function mapServerAuthorToClient(row: ServerAuthorRow): Artist {
+  return {
+    id: row.id,
+    name: row.name,
+    bio: row.bio ?? '',
+    role: row.role ?? '',
+    profileImage: row.profileImage ?? '',
+    socialMedia: {
+      facebook: row.facebook ?? undefined,
+      instagram: row.instagram ?? undefined,
+      website: row.website ?? undefined,
+      email: row.email ?? undefined,
+    },
+    joinDate: row.joinDate ? row.joinDate.slice(0, 10) : new Date().toISOString().slice(0, 10),
+    specialty: row.specialty ?? [],
   };
 }

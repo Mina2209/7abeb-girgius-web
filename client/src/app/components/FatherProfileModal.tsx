@@ -66,9 +66,7 @@ export function FatherProfileModal({
               {/* Father Name */}
               <div>
                 <h1 className="text-3xl font-bold mb-1">{father.name}</h1>
-                {father.nameEnglish && (
-                  <p className="text-lg text-muted-foreground">{father.nameEnglish}</p>
-                )}
+
               </div>
             </div>
 

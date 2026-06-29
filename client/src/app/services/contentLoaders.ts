@@ -2,13 +2,16 @@ import { isApiConfigured } from '../config/api';
 import type { GalleryImage, Hymn, Saying } from '../types/content';
 import { apiGetJson } from './apiClient';
 import {
+  mapServerAuthorToClient,
   mapServerHymnToClient,
   mapServerImageToClient,
   mapServerSayingToClient,
+  type ServerAuthorRow,
   type ServerHymn,
   type ServerImageRow,
   type ServerSayingRow,
 } from './contentMappers';
+import type { Artist } from '../data/artists';
 
 async function fetchHymnsRemote(): Promise<Hymn[]> {
   const rows = await apiGetJson<ServerHymn[]>('/api/hymns');
@@ -168,6 +171,15 @@ export async function fetchGalleryByIds(
     out.push(...(res.data ?? []).map(mapServerImageToClient));
   }
   return out;
+}
+
+export async function fetchArtistById(id: string): Promise<Artist | null> {
+  try {
+    const row = await apiGetJson<ServerAuthorRow>(`/api/images/meta/authors/${id}`);
+    return row ? mapServerAuthorToClient(row) : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchImageArtists(): Promise<string[]> {

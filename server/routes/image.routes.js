@@ -7,6 +7,8 @@ const router = Router();
 // Meta endpoints (must be before /:id to avoid conflict)
 router.get('/meta/authors', ImageController.getAuthors);
 router.post('/meta/authors', authenticate, requireEditor, ImageController.createAuthor);
+router.get('/meta/authors/:id', ImageController.getAuthorById);
+router.put('/meta/authors/:id', authenticate, requireEditor, ImageController.updateAuthor);
 router.delete('/meta/authors/:id', authenticate, requireEditor, ImageController.deleteAuthor);
 router.get('/meta/types', ImageController.getTypes);
 router.post('/meta/types', authenticate, requireEditor, ImageController.createType);

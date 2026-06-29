@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 
 //  التعديل هنا: الـ artistId لازم يكون number عشان يطابق الـ Interface بتاعك
 interface ArtistsSectionProps {
-  onArtistClick: (artistId: number) => void;
+  onArtistClick: (artistId: string | number) => void;
 }
 
 export function ArtistsSection({ onArtistClick }: ArtistsSectionProps) {
@@ -88,9 +88,6 @@ export function ArtistsSection({ onArtistClick }: ArtistsSectionProps) {
                     {/* Name and Role */}
                     <div className="text-center space-y-1">
                       <h3 className="text-xl font-bold">{artist.name}</h3>
-                      {artist.nameEnglish && (
-                        <p className="text-sm text-muted-foreground">{artist.nameEnglish}</p>
-                      )}
                       <p className="text-primary font-medium text-sm">{artist.role}</p>
                     </div>
 

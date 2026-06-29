@@ -181,11 +181,33 @@ export const ImageService = {
     });
   },
 
+  getAuthorById: async (id) => {
+    return prisma.imageAuthor.findUnique({
+      where: { id },
+      include: { _count: { select: { images: true } } },
+    });
+  },
+
   createAuthor: async (name) => {
     return prisma.imageAuthor.upsert({
       where: { name },
       update: {},
       create: { name },
+    });
+  },
+
+  updateAuthor: async (id, data) => {
+    const updateData = {};
+    const allowedFields = ['name', 'bio', 'role', 'profileImage', 'facebook', 'instagram', 'website', 'email', 'specialty'];
+    for (const field of allowedFields) {
+      if (data[field] !== undefined) {
+        updateData[field] = data[field];
+      }
+    }
+    return prisma.imageAuthor.update({
+      where: { id },
+      data: updateData,
+      include: { _count: { select: { images: true } } },
     });
   },
 

@@ -1483,7 +1483,7 @@ export function HymnsSection({
                         <>
                           {/* File Types as Download/Preview Buttons */}
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            {hymn.fileTypes.map((fileType) => {
+{hymn.fileTypes.map((fileType) => {
                               const Icon = getFileTypeIcon(fileType);
                               const label = getFileTypeLabel(fileType);
 
@@ -1500,30 +1500,23 @@ export function HymnsSection({
                                 >
                                   <a
                                     href={fileUrl}
-                                    className="flex items-center justify-center p-3 bg-background/50 border border-border rounded-lg text-muted-foreground hover:bg-primary/10 hover:border-primary hover:text-primary transition-all w-11 h-11"
+                                    className="flex items-center justify-center p-3 bg-background/50 border border-border rounded-lg text-muted-foreground hover:bg-primary/10 hover:border-primary hover:text-primary transition-all w-11 h-11 cursor-pointer"
                                     onClick={(e) => {
-                                      // لو الملف فيديو أو بوربوينت يفتح المعاينة، الموسيقى تنزل علطول
                                       e.preventDefault();
                                       e.stopPropagation();
-                                      if (fileType !== "Music") {
-                                        handleOpenPreview(
-                                          fileUrl,
-                                          fileType,
-                                          hymn.title,
-                                          fileObj,
-                                        );
-                                      } else if (fileObj) {
-                                        downloadHymnFile(fileObj, hymn.title);
-                                      }
+                                      handleOpenPreview(
+                                        fileUrl,
+                                        fileType,
+                                        hymn.title,
+                                        fileObj,
+                                      );
                                     }}
                                   >
                                     <Icon className="w-5 h-5" />
                                   </a>
                                   {/* Tooltip */}
                                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-popover text-popover-foreground text-sm rounded-lg shadow-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-10">
-                                    {fileType === "Music"
-                                      ? "تحميل"
-                                      : "معاينة وتحميل"}{" "}
+                                    {"معاينة وتحميل "}
                                     {label}
                                     <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-popover"></div>
                                   </div>
@@ -2069,8 +2062,11 @@ export function HymnsSection({
       />
       {/* مودال معاينة الملفات لايف على الموقع قبل التحميل */}
       {isPreviewOpen && (
-        <div className="fixed inset-0 bg-black/80 z-[250] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-card border border-border rounded-xl w-full max-w-3xl overflow-hidden shadow-2xl relative">
+          <div
+            className="fixed inset-0 bg-black/80 z-[250] flex items-center justify-center p-4 animate-in fade-in duration-200"
+            onClick={() => setIsPreviewOpen(false)}
+          >
+          <div className="bg-card border border-border rounded-xl w-full max-w-3xl overflow-hidden shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
             {/* الهيدر */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/20">
               <h3 className="font-bold text-lg text-right flex-1">
@@ -2122,17 +2118,41 @@ export function HymnsSection({
                 </div>
               )}
 
-              {/* 3. لو نوع الملف بوربوينت عادي (PPTX) - المعاينة السحرية */}
-              {previewType === "PowerPoint file" && (
-                <div className="w-full h-[450px] rounded-lg overflow-hidden border border-border bg-black">
-                  <iframe
-                    src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`}
-                    className="w-full h-full border-0"
-                    allowFullScreen
-                    title="PowerPoint Preview"
-                  />
-                </div>
-              )}
+              {/* 3. لو نوع الملف بوربوينت عادي (PPTX) - المعاينة التفاعلية */}
+{previewType === "PowerPoint file" && (
+  <div className="w-full flex flex-col gap-4">
+    {/* حاوية الـ iframe مع مقاس مناسب وتجاوبي */}
+    <div className="w-full h-[500px] rounded-lg overflow-hidden border border-border bg-muted relative">
+      <iframe
+        src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`}
+        width="100%"
+        height="100%"
+        frameBorder="0"
+        title={previewTitle || "PowerPoint Preview"}
+        allowFullScreen
+      />
+    </div>
+
+    {/* خيارات إضافية أسفل العرض (التحميل المباشر) */}
+    <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-card/50 backdrop-blur-sm">
+      <div className="flex flex-col gap-1">
+        <p className="text-sm font-medium">هل تواجه مشكلة في العرض؟</p>
+        <p className="text-xs text-muted-foreground">
+          يمكنك تحميل الملف وتشغيله مباشرة على جهازك عبر برنامج Microsoft PowerPoint.
+        </p>
+      </div>
+      
+      <a
+        href={previewUrl}
+        download={`${previewTitle || "بوربوينت"}.pptx`}
+        className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all font-medium text-sm shadow-sm"
+      >
+        <Download className="w-4 h-4" />
+        <span>تحميل الملف</span>
+      </a>
+    </div>
+  </div>
+)}
             </div>
 
             {/* الفوتر - زرار التحميل المباشر بعد المعاينة */}
@@ -2154,8 +2174,9 @@ export function HymnsSection({
                 <span>تحميل الملف الآن</span>
               </a>
               <button
+                type="button"
                 onClick={() => setIsPreviewOpen(false)}
-                className="px-4 py-2.5 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-all text-sm"
+                className="px-4 py-2.5 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 hover:text-foreground transition-all text-sm"
               >
                 إغلاق المعاينة
               </button>

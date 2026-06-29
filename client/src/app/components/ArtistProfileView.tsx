@@ -57,9 +57,6 @@ export function ArtistProfileView({
               <div className="flex-1 text-center md:text-right space-y-4">
                 <div>
                   <h1 className="text-3xl md:text-4xl font-bold mb-2">{artist.name}</h1>
-                  {artist.nameEnglish && (
-                    <p className="text-muted-foreground">{artist.nameEnglish}</p>
-                  )}
                 </div>
 
                 <p className="text-primary font-bold text-lg">{artist.role}</p>

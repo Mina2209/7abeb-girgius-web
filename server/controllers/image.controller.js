@@ -161,6 +161,39 @@ export const ImageController = {
     }
   },
 
+  getAuthorById: async (req, res) => {
+    try {
+      const author = await ImageService.getAuthorById(req.params.id);
+      if (!author) return res.status(404).json({ error: 'Author not found' });
+      res.json(author);
+    } catch (err) {
+      console.error('Error fetching author:', err);
+      res.status(500).json({ error: 'Failed to fetch author' });
+    }
+  },
+
+  updateAuthor: async (req, res) => {
+    try {
+      const author = await ImageService.updateAuthor(req.params.id, req.body);
+
+      if (req.user) {
+        const { logService } = await import('../services/log.service.js');
+        await logService.createLog(
+          req.user.id,
+          'UPDATE',
+          'AUTHOR',
+          author.id,
+          `Updated author: ${author.name}`
+        );
+      }
+
+      res.json(author);
+    } catch (err) {
+      console.error('Error updating author:', err);
+      res.status(500).json({ error: 'Failed to update author' });
+    }
+  },
+
   getTypes: async (req, res) => {
     try {
       const types = await ImageService.getTypes();

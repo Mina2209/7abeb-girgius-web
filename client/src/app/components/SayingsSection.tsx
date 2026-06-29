@@ -275,16 +275,24 @@ useEffect(() => {
       }
     };
 
-    const handleSaveSaying = async (saying: Saying) => {
+    const handleSaveSaying = async (input: Saying | Saying[]) => {
+      const sayingsToSave = Array.isArray(input) ? input : [input];
+
       try {
-        if (editingSaying && typeof editingSaying.id === 'string') {
-          const updated = await updateSaying(editingSaying.id, saying, accessToken);
+        if (editingSaying && typeof editingSaying.id === 'string' && sayingsToSave.length === 1) {
+          const updated = await updateSaying(editingSaying.id, sayingsToSave[0], accessToken);
           setSayings(prev => prev.map(s => s.id === updated.id ? updated : s));
           setShareMessage('تم التحديث بنجاح');
         } else {
-          const created = await createSaying(saying, accessToken);
-          setSayings(prev => [...prev, created]);
-          setShareMessage('تمت الإضافة بنجاح');
+          // When adding multiple sayings, do sequential create for now.
+          // (Bulk API can be added later; this keeps behavior working immediately.)
+          const created = [] as Saying[];
+          for (const s of sayingsToSave) {
+            const row = await createSaying(s, accessToken);
+            created.push(row);
+          }
+          setSayings(prev => [...prev, ...created]);
+          setShareMessage(`تمت الإضافة بنجاح (${created.length} قول${created.length === 1 ? '' : ''})`);
         }
       } catch {
         setShareMessage('فشل الحفظ على الخادم');
