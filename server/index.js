@@ -12,6 +12,7 @@ import authRoutes from './routes/auth.routes.js';
 import lyricRoutes from './routes/lyric.routes.js';
 import backupRoutes from './routes/backup.routes.js';
 import imageRoutes from './routes/image.routes.js';
+import fatherRoutes from './routes/father.routes.js';
 import { BackupScheduler } from './services/backup.scheduler.js';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
 
@@ -78,6 +79,7 @@ app.use('/api/uploads', uploadRoutes);
 app.use('/api/lyrics', lyricRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/images', imageRoutes);
+app.use('/api/fathers', fatherRoutes);
 
 // note: uploads are served from S3 via presigned URLs; no local static serving
 
