@@ -1,12 +1,15 @@
 import type { GalleryImage, Hymn, HymnFileType, Saying } from '../types/content';
 import type { Artist } from '../data/artists';
+import type { Father } from '../data/fathers';
 import { apiGetJson, apiRequest } from './apiClient';
 import {
   mapServerAuthorToClient,
+  mapServerFatherToClient,
   mapServerHymnToClient,
   mapServerImageToClient,
   mapServerSayingToClient,
   type ServerAuthorRow,
+  type ServerFatherRow,
   type ServerHymn,
   type ServerImageRow,
   type ServerSayingRow,
@@ -205,6 +208,20 @@ export async function deleteImage(id: string, token?: string | null): Promise<vo
   await ensureOk(res, 'Failed to delete image');
 }
 
+export async function createArtist(data: Partial<Artist>, token?: string | null): Promise<Artist> {
+  const created = await apiGetJson<ServerAuthorRow>('/api/images/meta/authors', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...withAuth(token) },
+    body: JSON.stringify({ name: data.name }),
+  });
+  const row = await apiGetJson<ServerAuthorRow>(`/api/images/meta/authors/${created.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...withAuth(token) },
+    body: JSON.stringify(data),
+  });
+  return mapServerAuthorToClient(row);
+}
+
 export async function updateArtist(id: string, data: Partial<Artist>, token?: string | null): Promise<Artist> {
   const row = await apiGetJson<ServerAuthorRow>(`/api/images/meta/authors/${id}`, {
     method: 'PUT',
@@ -212,4 +229,51 @@ export async function updateArtist(id: string, data: Partial<Artist>, token?: st
     body: JSON.stringify(data),
   });
   return mapServerAuthorToClient(row);
+}
+
+export async function fetchFathers(token?: string | null): Promise<Father[]> {
+  const rows = await apiGetJson<ServerFatherRow[]>('/api/fathers', {
+    headers: withAuth(token),
+  });
+  return rows.map(mapServerFatherToClient);
+}
+
+export async function fetchFatherByName(name: string, token?: string | null): Promise<Father | null> {
+  try {
+    const row = await apiGetJson<ServerFatherRow>(`/api/fathers/by-name/${encodeURIComponent(name)}`, {
+      headers: withAuth(token),
+    });
+    return row ? mapServerFatherToClient(row) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchFatherById(id: string, token?: string | null): Promise<Father | null> {
+  try {
+    const row = await apiGetJson<ServerFatherRow>(`/api/fathers/${id}`, {
+      headers: withAuth(token),
+    });
+    return row ? mapServerFatherToClient(row) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function createFather(data: Partial<Father>, token?: string | null): Promise<Father> {
+  const row = await apiGetJson<ServerFatherRow>('/api/fathers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...withAuth(token) },
+    body: JSON.stringify(data),
+  });
+  return mapServerFatherToClient(row);
+}
+
+export async function updateFather(id: string, data: Partial<Father>, token?: string | null): Promise<Father> {
+  const row = await apiGetJson<ServerFatherRow>(`/api/fathers/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...withAuth(token) },
+    body: JSON.stringify(data),
+  });
+  return mapServerFatherToClient(row);
 }

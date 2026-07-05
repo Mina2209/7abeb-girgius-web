@@ -1,5 +1,6 @@
 import type { GalleryImage, Hymn, HymnFile, HymnFileType, Saying } from '../types/content';
 import type { Artist } from '../data/artists';
+import type { Father } from '../data/fathers';
 
 type ServerTag = { name: string };
 
@@ -55,6 +56,15 @@ export type ServerSayingRow = {
   source?: string | null;
   content: string;
   tags?: ServerTag[];
+  createdAt: string;
+};
+
+export type ServerFatherRow = {
+  id: string;
+  name: string;
+  title?: string | null;
+  bio?: string | null;
+  profileImage?: string | null;
   createdAt: string;
 };
 
@@ -126,6 +136,16 @@ export function mapServerSayingToClient(row: ServerSayingRow): Saying {
     tags: (row.tags ?? []).map((t) => t.name),
     source: row.source ?? '',
     dateAdded: row.createdAt ? row.createdAt.slice(0, 10) : '',
+  };
+}
+
+export function mapServerFatherToClient(row: ServerFatherRow): Father {
+  return {
+    id: row.id,
+    name: row.name,
+    title: row.title ?? '',
+    bio: row.bio ?? '',
+    profileImage: row.profileImage ?? '',
   };
 }
 

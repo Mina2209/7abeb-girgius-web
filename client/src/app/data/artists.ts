@@ -1,3 +1,5 @@
+import { normalizeArabic } from '../utils/arabicUtils';
+
 export interface Artist {
   id: string | number;
   name: string;
@@ -60,9 +62,10 @@ export const artists: Artist[] = [
   },
 ];
 
-// Helper function to get artist by name
+// Helper function to get artist by name (normalizes Arabic characters)
 export const getArtistByName = (name: string): Artist | undefined => {
-  return artists.find(artist => artist.name === name );
+  const normalized = normalizeArabic(name).toLowerCase();
+  return artists.find(artist => normalizeArabic(artist.name).toLowerCase() === normalized);
 };
 
 // Helper function to get artist by ID
