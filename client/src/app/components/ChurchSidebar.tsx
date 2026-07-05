@@ -34,6 +34,9 @@ const PresentationFolderIcon = (props: any) => (
 const PictureIcon = (props: any) => (
   <FlatIcon iconClass="fi-sr-picture" {...props} />
 );
+const UserIcon = (props: any) => (
+  <FlatIcon iconClass="fi-sr-user" {...props} />
+);
 const BookOpenIcon = (props: any) => (
   <FlatIcon iconClass="fi-sr-book-alt" {...props} />
 );
@@ -48,6 +51,7 @@ const menuItems = [
   { id: 'hymns', label: 'مكتبة الترانيم', icon: MusicIcon },
   { id: 'various', label: 'بوربوينت متنوعة', icon: PresentationFolderIcon },
   { id: 'images', label: 'مكتبة الصور', icon: PictureIcon },
+  { id: 'artists', label: 'الفنانون', icon: UserIcon },
   { id: 'books', label: 'مكتبة الكتب', icon: BookOpenIcon },
   { id: 'sayings', label: 'أقوال أباء', icon: QuoteIcon },
   { id: 'coptic', label: 'لغة قبطية', icon: CopticIcon },
@@ -115,6 +119,7 @@ export function ChurchSidebar({
         hymns: true,
         various: true,
         images: true,
+        artists: true,
         books: true,
         sayings: true,
         coptic: true,

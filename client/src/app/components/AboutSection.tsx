@@ -27,7 +27,7 @@ export function AboutSection() {
   return (
     <div className="space-y-16 pb-8">
       {/* Hero Section */}
-      <div className="relative bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-2xl p-6 md:p-8 border border-primary/20">
+      <div className="relative bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-2xl p-6 md:p-8 border border-primary/20 overflow-hidden">
         <div className="relative z-10">
           <h1 className="mb-2 font-bold text-2xl md:text-3xl">
             عن خدمة الأرشيدياكون حبيب جرجس للداتا شو

@@ -222,9 +222,21 @@
   }
 
   /* Masonry quotes responsive columns */
-  @media (max-width: 768px) {
+  @media (max-width: 350px) {
     .masonry-quotes > div {
       column-count: 1 !important;
+    }
+  }
+
+  @media (min-width: 351px) and (max-width: 750px) {
+    .masonry-quotes > div {
+      column-count: 2 !important;
+    }
+  }
+
+  @media (min-width: 751px) {
+    .masonry-quotes > div {
+      column-count: 3 !important;
     }
   }
 

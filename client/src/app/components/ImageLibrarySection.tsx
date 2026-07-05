@@ -743,7 +743,7 @@ export function ImageLibrarySection({
           }`}
         >
           <div>
-            <h1 className="mb-2 font-bold text-[36px]">مكتبة الصور</h1>
+            <h1 className="mb-2 font-bold text-2xl sm:text-[36px]">مكتبة الصور</h1>
             <p className="text-muted-foreground leading-relaxed">
               مجموعة شاملة من الصور والأيقونات الكنسية والمناظر الطبيعية. استخدم
               البحث والفلاتر للعثور على الصور حسب النوع أو الفنان أو الموضوع،

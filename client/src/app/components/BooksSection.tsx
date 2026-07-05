@@ -490,7 +490,7 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
           }`}
         >
           <div>
-            <h1 className="mb-2 font-bold text-[36px]">مكتبة الكتب</h1>
+            <h1 className="mb-2 font-bold text-2xl sm:text-[36px]">مكتبة الكتب</h1>
             <p className="text-muted-foreground leading-relaxed">
               مجموعة شاملة من الكتب الروحية والطقسية والتاريخية مع إمكانية البحث والفلترة والتحميل
             </p>

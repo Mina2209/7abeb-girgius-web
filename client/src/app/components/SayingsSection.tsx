@@ -1,5 +1,6 @@
   import { Heart, Share2, ArrowUpDown, Search, ChevronDown, Tags, User, BookOpen, Calendar, Plus, Edit2, Trash2, Download, Upload, CheckSquare, Square, CheckCheck, Video, MessageSquareQuote } from 'lucide-react';
   import { useState, useMemo, useRef, useEffect } from 'react';
+  import { useNavigate } from 'react-router-dom';
   import { TagFilter } from './TagFilter';
   import { MultiSelectFilter } from './MultiSelectFilter';
   import Masonry, { ResponsiveMasonry } from 'react-responsive-masonry';
@@ -12,7 +13,7 @@
   import { useSayingsData } from '../hooks/useSayingsData';
   import type { ContentId, Saying } from '../types/content';
   import { useAuth } from '../contexts/AuthContext';
-  import { createSaying, deleteSaying, updateSaying } from '../services/contentWriteService';
+  import { createSaying, deleteSaying, updateSaying, fetchFatherByName } from '../services/contentWriteService';
 
 
 
@@ -141,6 +142,7 @@ useEffect(() => {
   window.addEventListener('scroll', checkScroll);
   return () => window.removeEventListener('scroll', checkScroll);
 }, []);
+    const navigate = useNavigate();
     const isEditor = useIsEditor();
     const { accessToken } = useAuth();
     const { sayings, setSayings, loading: sayingsLoading } = useSayingsData();
@@ -423,12 +425,25 @@ useEffect(() => {
       }
     };
 
-    const handleAuthorClick = (authorName: string, e: React.MouseEvent) => {
+    const handleAuthorClick = async (authorName: string, e: React.MouseEvent) => {
       e.stopPropagation();
-      const father = getFatherByName(authorName);
-      if (father) {
-        setSelectedFather(authorName);
-        setIsFatherModalOpen(true);
+      try {
+        const father = await fetchFatherByName(authorName, accessToken);
+        if (father) {
+          navigate(`/sayings/authors/${father.id}`);
+        } else {
+          const staticFather = getFatherByName(authorName);
+          if (staticFather) {
+            setSelectedFather(authorName);
+            setIsFatherModalOpen(true);
+          }
+        }
+      } catch {
+        const staticFather = getFatherByName(authorName);
+        if (staticFather) {
+          setSelectedFather(authorName);
+          setIsFatherModalOpen(true);
+        }
       }
     };
 

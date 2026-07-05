@@ -1,56 +1,117 @@
-import { Image as ImageIcon, Facebook, Instagram, Globe, Mail, ExternalLink } from 'lucide-react';
-//  التعديل هنا: عملنا import للاسم الصح (artists) وعملنا له alias باسم artistsData عشان مفيش حاجة تضرب تحت
-import { artists as artistsData, Artist } from '../data/artists'; 
-import { galleryImages } from '../data/galleryImages';
+import { Image as ImageIcon, Facebook, Instagram, Globe, Mail, ExternalLink, Edit2, Trash2, Plus, X } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useIsEditor } from '../utils/adminUtils';
+import { AdminEditArtistModal } from './AdminEditArtistModal';
+import { apiGetJson, apiRequest } from '../services/apiClient';
+import { createArtist, updateArtist } from '../services/contentWriteService';
+import { mapServerAuthorToClient, type ServerAuthorRow } from '../services/contentMappers';
+import type { Artist } from '../data/artists';
 
-//  التعديل هنا: الـ artistId لازم يكون number عشان يطابق الـ Interface بتاعك
-interface ArtistsSectionProps {
-  onArtistClick: (artistId: string | number) => void;
-}
-
-export function ArtistsSection({ onArtistClick }: ArtistsSectionProps) {
-  // إعدادات السكرول والـ Ref الموحدة لـ "7abeb-girgius"
+export function ArtistsSection() {
+  const navigate = useNavigate();
+  const { accessToken } = useAuth();
+  const isEditor = useIsEditor();
+  const [artists, setArtists] = useState<Artist[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const [editArtist, setEditArtist] = useState<Artist | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const loadArtists = async () => {
+    try {
+      setLoading(true);
+      const rows = await apiGetJson<ServerAuthorRow[]>('/api/images/meta/authors');
+      setArtists((rows ?? []).map(mapServerAuthorToClient));
+    } catch {
+      setMessage('فشل تحميل الفنانين');
+      setTimeout(() => setMessage(''), 2000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadArtists();
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
       if (scrollContainerRef.current) {
-        const scrollTop = scrollContainerRef.current.scrollTop;
-        setIsScrolled(scrollTop > 20);
+        setIsScrolled(scrollContainerRef.current.scrollTop > 20);
       }
     };
-
-    const scrollContainer = scrollContainerRef.current;
-    if (scrollContainer) {
-      scrollContainer.addEventListener("scroll", handleScroll);
-      handleScroll(); // الفحص الفوري والمباشر
+    const el = scrollContainerRef.current;
+    if (el) {
+      el.addEventListener('scroll', handleScroll);
+      handleScroll();
     }
-
     return () => {
-      if (scrollContainer) {
-        scrollContainer.removeEventListener("scroll", handleScroll);
-      }
+      if (el) el.removeEventListener('scroll', handleScroll);
     };
-  }, [scrollContainerRef.current, artistsData]);
+  }, [loading]);
 
-  // حساب عدد الصور لكل فنان
-  const getArtistImageCount = (artistName: string) => {
-    return galleryImages.filter(img => img.artist === artistName).length;
+  const handleEdit = (artist: Artist) => {
+    setEditArtist(artist);
+    setIsEditModalOpen(true);
   };
 
+  const handleSave = async (artistData: Artist) => {
+    try {
+      if (editArtist && typeof editArtist.id === 'string') {
+        const updated = await updateArtist(editArtist.id, artistData, accessToken);
+        setArtists(prev => prev.map(a => (a.id === updated.id ? updated : a)));
+        setMessage('تم تحديث بيانات الفنان بنجاح');
+      } else {
+        const created = await createArtist(artistData, accessToken);
+        setArtists(prev => [...prev, created]);
+        setMessage('تم إضافة الفنان بنجاح');
+      }
+    } catch {
+      setMessage(editArtist ? 'فشل تحديث بيانات الفنان' : 'فشل إضافة الفنان');
+    }
+    setTimeout(() => setMessage(''), 2000);
+  };
+
+  const handleDelete = async (artist: Artist) => {
+    if (typeof artist.id !== 'string') return;
+    if (!confirm(`هل أنت متأكد من حذف الفنان "${artist.name}"؟`)) return;
+    try {
+      const res = await apiRequest(`/api/images/meta/authors/${artist.id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'فشل الحذف');
+      }
+      setArtists(prev => prev.filter(a => a.id !== artist.id));
+      setMessage('تم حذف الفنان بنجاح');
+    } catch (e: any) {
+      setMessage(e.message || 'فشل حذف الفنان');
+    }
+    setTimeout(() => setMessage(''), 2000);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-2 text-muted-foreground">
+        <p>جاري تحميل الفنانين...</p>
+      </div>
+    );
+  }
+
   return (
-    // الحاوية الرئيسية ذات السكرول الموحد
     <div ref={scrollContainerRef} className="h-screen overflow-y-auto flex flex-col">
       <div className="p-6 flex flex-col flex-1">
-        
-        {/* هيدر الصفحة الحركي المستقر */}
         <div
           className={`transition-all duration-500 ease-in-out overflow-hidden ${
             isScrolled
-              ? "max-h-0 opacity-0 mb-0 pointer-events-none transform -translate-y-2"
-              : "max-h-[200px] opacity-100 mb-6 transform translate-y-0"
+              ? 'max-h-0 opacity-0 mb-0 pointer-events-none transform -translate-y-2'
+              : 'max-h-[200px] opacity-100 mb-6 transform translate-y-0'
           }`}
         >
           <div>
@@ -61,48 +122,89 @@ export function ArtistsSection({ onArtistClick }: ArtistsSectionProps) {
           </div>
         </div>
 
-        {/* Artists Grid */}
+        {isEditor && (
+          <div className="mb-6 px-3 py-2 bg-primary/5 border border-primary/20 rounded-lg">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Edit2 className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-primary">أدوات التحرير:</span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditArtist(null);
+                    setIsEditModalOpen(true);
+                  }}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>إضافة فنان جديد</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex-1">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
-            {/* استخدمنا الـ Artist المجلوب من ملف الداتا مباشرة لمنع أي تعارض */}
-            {artistsData.map((artist: Artist) => {
-              const imageCount = getArtistImageCount(artist.name);
-              
-              return (
+          {artists.length === 0 ? (
+            <div className="text-center py-12 bg-card rounded-xl border border-border">
+              <p className="text-muted-foreground">لا يوجد فنانين بعد</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
+              {artists.map((artist) => (
                 <div
                   key={artist.id}
                   className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-all group cursor-pointer"
-                  onClick={() => onArtistClick(artist.id)}
+                  onClick={() => navigate(`/artists/${artist.id}`)}
                 >
-                  {/* Artist Image */}
                   <div className="relative h-48 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center overflow-hidden">
-                    <img
-                      src={artist.profileImage}
-                      alt={artist.name}
-                      className="w-32 h-32 rounded-full object-cover border-4 border-background shadow-xl group-hover:scale-110 transition-transform duration-300"
-                    />
+                    {artist.profileImage ? (
+                      <img
+                        src={artist.profileImage}
+                        alt={artist.name}
+                        className="w-32 h-32 rounded-full object-cover border-4 border-background shadow-xl group-hover:scale-110 transition-transform duration-300"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '';
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-32 h-32 rounded-full border-4 border-background shadow-xl bg-muted flex items-center justify-center">
+                        <ImageIcon className="w-12 h-12 text-muted-foreground" />
+                      </div>
+                    )}
+
+                    {isEditor && (
+                      <div className="absolute top-3 left-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleEdit(artist); }}
+                          className="p-2 bg-white/90 hover:bg-white text-black rounded-lg transition-colors shadow-lg"
+                          title="تعديل"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDelete(artist); }}
+                          className="p-2 bg-red-500/90 hover:bg-red-500 text-white rounded-lg transition-colors shadow-lg"
+                          title="حذف"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Content */}
                   <div className="p-6 space-y-4">
-                    {/* Name and Role */}
                     <div className="text-center space-y-1">
                       <h3 className="text-xl font-bold">{artist.name}</h3>
-                      <p className="text-primary font-medium text-sm">{artist.role}</p>
+                      {artist.role && <p className="text-primary font-medium text-sm">{artist.role}</p>}
                     </div>
 
-                    {/* Stats */}
-                    <div className="flex items-center justify-center gap-2 text-sm">
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-muted rounded-lg">
-                        <ImageIcon className="w-4 h-4 text-primary" />
-                        <span className="font-medium">{imageCount} صورة</span>
-                      </div>
-                    </div>
-
-                    {/* Specialty Tags */}
                     {artist.specialty && artist.specialty.length > 0 && (
                       <div className="flex flex-wrap gap-2 justify-center">
-                        {artist.specialty.slice(0, 2).map((spec: string, index: number) => (
+                        {artist.specialty.slice(0, 2).map((spec, index) => (
                           <span
                             key={index}
                             className="px-2.5 py-1 bg-primary/10 text-primary rounded-lg text-xs font-medium"
@@ -118,7 +220,6 @@ export function ArtistsSection({ onArtistClick }: ArtistsSectionProps) {
                       </div>
                     )}
 
-                    {/* Social Media Icons */}
                     {(artist.socialMedia.facebook || artist.socialMedia.instagram || artist.socialMedia.website || artist.socialMedia.email) && (
                       <div className="flex items-center justify-center gap-2 pt-2">
                         {artist.socialMedia.facebook && (
@@ -169,25 +270,40 @@ export function ArtistsSection({ onArtistClick }: ArtistsSectionProps) {
                         )}
                       </div>
                     )}
-
-                    {/* View Profile Button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onArtistClick(artist.id);
-                      }}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground rounded-xl transition-colors font-medium"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      <span>عرض الملف الشخصي</span>
-                    </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+      <AdminEditArtistModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditArtist(null);
+        }}
+        onSave={handleSave}
+        artist={
+          editArtist ?? {
+            id: '',
+            name: '',
+            bio: '',
+            role: '',
+            profileImage: '',
+            socialMedia: {},
+            joinDate: new Date().toISOString().split('T')[0],
+            specialty: [],
+          }
+        }
+      />
+
+      {message && (
+        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-primary text-primary-foreground px-6 py-3 rounded-xl shadow-lg z-50 animate-fade-in">
+          {message}
+        </div>
+      )}
     </div>
   );
 }

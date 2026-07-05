@@ -830,7 +830,7 @@ export function HymnsSection({
           }`}
         >
           <div>
-            <h1 className="mb-2 font-bold text-[36px]">مكتبة الترانيم</h1>
+            <h1 className="mb-2 font-bold text-2xl sm:text-[36px]">مكتبة الترانيم</h1>
             <p className="text-muted-foreground leading-relaxed">
               مكتبة شاملة تضم مئات الترانيم والألحان القبطية مع فيديوهات وعروض
               PowerPoint وملفات صوتية ونصوص. استخدم البحث والفلاتر للعثور على
@@ -1363,12 +1363,12 @@ export function HymnsSection({
                         style={{ minHeight: "44px" }}
                       >
                         <h3
-                          className="leading-tight font-bold"
+                          className="leading-tight font-bold text-sm"
                           style={{
                             fontSize:
                               expandedHymnId === hymn.id
-                                ? "1.5rem"
-                                : "1.125rem",
+                                ? "1.375rem"
+                                : "1rem",
                             transition:
                               "font-size 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                             transformOrigin: "top right",
@@ -1461,7 +1461,7 @@ export function HymnsSection({
                         style={{ minHeight: "44px" }}
                       >
                         <h3
-                          className="leading-tight font-bold"
+                          className="leading-tight font-bold text-lg"
                           style={{
                             fontSize:
                               expandedHymnId === hymn.id
