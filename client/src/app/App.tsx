@@ -6,6 +6,9 @@ import { LiturgySection } from './components/LiturgySection';
 import { HymnsSection } from './components/HymnsSection';
 import { VariousSection } from './components/VariousSection';
 import { ImageLibrarySection } from './components/ImageLibrarySection';
+import { ArtistsSection } from './components/ArtistsSection';
+import { ArtistDetailPage } from './components/ArtistDetailPage';
+import { FatherDetailPage } from './components/FatherDetailPage';
 import { BooksSection } from './components/BooksSection';
 import { SayingsSection } from './components/SayingsSection';
 import { CopticLanguageSection } from './components/CopticLanguageSection';
@@ -25,6 +28,7 @@ const sectionToPath: Record<string, string> = {
   hymns: '/hymns',
   various: '/various',
   images: '/images',
+  artists: '/artists',
   books: '/books',
   sayings: '/sayings',
   coptic: '/coptic',
@@ -44,6 +48,8 @@ const pathToSection = (pathname: string): string => {
       return 'various';
     case '/images':
       return 'images';
+    case '/artists':
+      return 'artists';
     case '/books':
       return 'books';
     case '/sayings':
@@ -73,6 +79,7 @@ export default function App() {
       '/hymns': 'مكتبة الترانيم',
       '/various': 'بوربوينت متنوعة',
       '/images': 'مكتبة الصور',
+      '/artists': 'الفنانون',
       '/books': 'مكتبة الكتب',
       '/sayings': 'أقوال أباء',
       '/coptic': 'لغة قبطية',
@@ -110,7 +117,7 @@ export default function App() {
           onNavigateToTopicsManagement={() => navigate('/admin/topics')}
           onNavigateToSiteSettings={() => navigate('/admin/settings')}
         />
-        <main className={`flex-1 p-8 h-screen overflow-y-auto pt-20 lg:pt-8 transition-all duration-300 ${
+        <main className={`flex-1 p-4 lg:p-8 h-screen overflow-y-auto pt-20 lg:pt-8 transition-all duration-300 ${
           isSidebarCollapsed ? 'lg:mr-20' : 'lg:mr-64'
         }`}>
           <Routes>
@@ -125,8 +132,11 @@ export default function App() {
               path="/images"
               element={<ImageLibrarySection isSidebarCollapsed={isSidebarCollapsed} />}
             />
+            <Route path="/artists" element={<ArtistsSection />} />
+            <Route path="/artists/:id" element={<ArtistDetailPage />} />
             <Route path="/books" element={<BooksSection />} />
             <Route path="/sayings" element={<SayingsSection />} />
+            <Route path="/sayings/authors/:id" element={<FatherDetailPage />} />
             <Route path="/coptic" element={<CopticLanguageSection />} />
             <Route path="/about" element={<AboutSection />} />
             <Route
