@@ -1,5 +1,4 @@
 import {
-  Play,
   Download,
   ArrowUpDown,
   Search,
@@ -7,7 +6,6 @@ import {
   FileVideo,
   Presentation,
   FileAudio,
-  FileText,
   Video,
   X,
   Tags,
@@ -20,7 +18,6 @@ import {
   Trash2,
   Upload,
   CheckSquare,
-  Square,
   CheckCheck,
   Music,
 } from "lucide-react";
@@ -33,6 +30,7 @@ import { normalizeArabic } from "../utils/arabicUtils";
 import { AdminEditHymnModal } from "./AdminEditHymnModal";
 import { VideoModal } from "./VideoModal";
 import { useHymnsData } from "../hooks/useHymnsData";
+import { useFavorites } from "../hooks/useFavorites";
 import type {
   ContentId,
   Hymn,
@@ -46,6 +44,7 @@ import {
 } from "../services/contentWriteService";
 import { downloadFile, downloadViaUrl } from "../utils/download";
 import { getApiBaseUrl } from "../config/api";
+import { toast } from 'sonner';
 
 type SortOption =
   | "alpha-asc"
@@ -243,7 +242,8 @@ export function HymnsSection({
   const [sortBy, setSortBy] = useState<SortOption>("alpha-asc");
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
   const [isFileTypeDropdownOpen, setIsFileTypeDropdownOpen] = useState(false);
-  const [favoritedHymns, setFavoritedHymns] = useState<ContentId[]>([]);
+  const { favoriteIds: favoritedHymnIds, toggleFavorite: apiToggleFavorite, count: favoritedCount } = useFavorites('HYMN');
+  const favoritedHymns = Array.from(favoritedHymnIds);
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [expandedHymnId, setExpandedHymnId] = useState<ContentId | null>(null);
   const [expandedLyricsIds, setExpandedLyricsIds] = useState<ContentId[]>([]);
@@ -394,13 +394,7 @@ export function HymnsSection({
       return;
     }
 
-    setFavoritedHymns((prev) => {
-      const isIn = prev.some((id) => String(id) === String(hymnId));
-      const next = isIn
-        ? prev.filter((id) => String(id) !== String(hymnId))
-        : [...prev, hymnId];
-      return next;
-    });
+    apiToggleFavorite(hymnId);
   };
 
   // Toggle lyrics expansion
@@ -483,6 +477,7 @@ export function HymnsSection({
       }
     } catch {
       setShareMessage("فشل الحفظ على الخادم");
+      toast.error("فشل الحفظ على الخادم");
     } finally {
       setTimeout(() => setShareMessage(null), 2000);
     }
@@ -531,10 +526,10 @@ export function HymnsSection({
           }
           setTimeout(() => setShareMessage(null), 2000);
         } else {
-          alert("ملف غير صالح. يجب أن يحتوي على مصفوفة JSON.");
+          toast.error("ملف غير صالح. يجب أن يحتوي على مصفوفة JSON.");
         }
       } catch (error) {
-        alert("خطأ في قراءة الملف");
+        toast.error("خطأ في قراءة الملف");
       }
     };
     reader.readAsText(file);
@@ -612,14 +607,10 @@ export function HymnsSection({
     }
 
     // Add all selected hymns to favorites
-    setFavoritedHymns((prev) => {
-      const newFavorites = [...prev];
-      selectedHymnIds.forEach((id) => {
-        if (!newFavorites.some((x) => String(x) === String(id))) {
-          newFavorites.push(id);
-        }
-      });
-      return newFavorites;
+    selectedHymnIds.forEach((id) => {
+      if (!favoritedHymnIds.has(String(id))) {
+        apiToggleFavorite(id);
+      }
     });
 
     // Show success message

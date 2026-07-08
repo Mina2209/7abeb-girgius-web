@@ -1,10 +1,27 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Menu, X, EyeOff } from 'lucide-react';
+import {
+  ChevronRight,
+  Menu,
+  X,
+  EyeOff,
+  Home,
+  HandHeart,
+  Music,
+  Folder,
+  Image,
+  User,
+  BookOpen,
+  Quote,
+  Info,
+} from 'lucide-react';
+
 import logoImg from '../../assets/7f2d73f44c853179b057f8217ffad677e12f814c.png';
 import { CopticIcon } from './icons/CopticIcon';
-import { FlatIcon } from './icons/FlatIcon';
+
 import { CompactThemeToggle } from './CompactThemeToggle';
 import { UserSection } from './UserSection';
+import { apiGetJson } from '../services/apiClient';
+
 
 interface SidebarProps {
   activeSection: string;
@@ -18,32 +35,17 @@ interface SidebarProps {
   onNavigateToSiteSettings: () => void;
 }
 
-// Icon wrapper components for Flaticon
-const HomeIcon = (props: any) => (
-  <FlatIcon iconClass="fi-sr-house-chimney" {...props} />
-);
-const PrayingHandsIcon = (props: any) => (
-  <FlatIcon iconClass="fi-sr-praying-hands" {...props} />
-);
-const MusicIcon = (props: any) => (
-  <FlatIcon iconClass="fi-ss-music-alt" {...props} />
-);
-const PresentationFolderIcon = (props: any) => (
-  <FlatIcon iconClass="fi-sr-folder" {...props} />
-);
-const PictureIcon = (props: any) => (
-  <FlatIcon iconClass="fi-sr-picture" {...props} />
-);
-const UserIcon = (props: any) => (
-  <FlatIcon iconClass="fi-sr-user" {...props} />
-);
-const BookOpenIcon = (props: any) => (
-  <FlatIcon iconClass="fi-sr-book-alt" {...props} />
-);
-const QuoteIcon = (props: any) => (
-  <FlatIcon iconClass="fi-sr-comment-quote" {...props} />
-);
-const InfoIcon = (props: any) => <FlatIcon iconClass="fi-sr-info" {...props} />;
+// Icon wrapper components (lucide-react) replacing removed Flaticon icons.
+const HomeIcon = (props: any) => <Home {...props} />;
+const PrayingHandsIcon = (props: any) => <HandHeart {...props} />;
+const MusicIcon = (props: any) => <Music {...props} />;
+const PresentationFolderIcon = (props: any) => <Folder {...props} />;
+const PictureIcon = (props: any) => <Image {...props} />;
+const UserIcon = (props: any) => <User {...props} />;
+const BookOpenIcon = (props: any) => <BookOpen {...props} />;
+const QuoteIcon = (props: any) => <Quote {...props} />;
+const InfoIcon = (props: any) => <Info {...props} />;
+
 
 const menuItems = [
   { id: 'home', label: 'الصفحة الرئيسية', icon: HomeIcon },
@@ -51,7 +53,6 @@ const menuItems = [
   { id: 'hymns', label: 'مكتبة الترانيم', icon: MusicIcon },
   { id: 'various', label: 'بوربوينت متنوعة', icon: PresentationFolderIcon },
   { id: 'images', label: 'مكتبة الصور', icon: PictureIcon },
-  { id: 'artists', label: 'الفنانون', icon: UserIcon },
   { id: 'books', label: 'مكتبة الكتب', icon: BookOpenIcon },
   { id: 'sayings', label: 'أقوال أباء', icon: QuoteIcon },
   { id: 'coptic', label: 'لغة قبطية', icon: CopticIcon },
@@ -108,31 +109,41 @@ export function ChurchSidebar({
   }, []);
 
   const loadVisibilitySettings = () => {
-    const saved = localStorage.getItem('site_sections_visibility');
-    if (saved) {
-      setSectionsVisibility(JSON.parse(saved));
-    } else {
-      // Default: all visible
-      const defaultVis: Record<string, boolean> = {
-        home: true,
-        liturgy: true,
-        hymns: true,
-        various: true,
-        images: true,
-        artists: true,
-        books: true,
-        sayings: true,
-        coptic: true,
-        about: true,
-      };
-      setSectionsVisibility(defaultVis);
-    }
+    // Default until server loads
+    const defaultVis: Record<string, boolean> = {
+      home: true,
+      liturgy: true,
+      hymns: true,
+      various: true,
+      images: true,
+      books: true,
+      sayings: true,
+      coptic: true,
+      about: true,
+    };
+    setSectionsVisibility(defaultVis);
+
+    // Load from server
+    (async () => {
+      try {
+        const data = await apiGetJson<{ settings?: any }>(
+          '/api/auth/settings/site',
+          { method: 'GET' },
+        );
+
+        if (data?.settings?.site_sections_visibility) {
+          setSectionsVisibility(data.settings.site_sections_visibility);
+        }
+      } catch {
+        // Non-blocking: keep defaults.
+      }
+    })();
   };
 
   const loadUserRole = () => {
-    const currentUser = localStorage.getItem('mockProfile');
-    if (currentUser) {
-      const user = JSON.parse(currentUser);
+    const currentProfile = localStorage.getItem('profile');
+    if (currentProfile) {
+      const user = JSON.parse(currentProfile);
       setUserRole(user.role || 'viewer');
     } else {
       setUserRole('viewer');

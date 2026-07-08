@@ -212,8 +212,14 @@
   /* Firefox scrollbar */
   * {
     scrollbar-width: thin;
-    scrollbar-color: var(--muted) var(--background);
+    /* fixed colors to avoid any dynamic scrollbar paint/reflow */
+    scrollbar-color: #717182 #ffffff;
   }
+
+  .dark * {
+    scrollbar-color: #a1a1a1 #0f0f0f;
+  }
+
 
   /* RTL scrollbar positioning */
   [dir="rtl"] ::-webkit-scrollbar {

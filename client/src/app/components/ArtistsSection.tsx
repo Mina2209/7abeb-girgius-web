@@ -25,7 +25,7 @@ export function ArtistsSection() {
   const loadArtists = async () => {
     try {
       setLoading(true);
-      const rows = await apiGetJson<ServerAuthorRow[]>('/api/images/meta/authors');
+      const rows = await apiGetJson<ServerAuthorRow[]>('/api/images/meta/authors?hasImages=true');
       setArtists((rows ?? []).map(mapServerAuthorToClient));
     } catch {
       setMessage('فشل تحميل الفنانين');
@@ -115,7 +115,16 @@ export function ArtistsSection() {
           }`}
         >
           <div>
-            <h1 className="mb-2 font-bold text-[36px]">الفنانون</h1>
+            <div className="flex items-start justify-between gap-4 mb-2">
+              <h1 className="font-bold text-[36px]">الفنانون</h1>
+              <button
+                onClick={() => navigate('/images')}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium shrink-0"
+              >
+                <ImageIcon className="w-4 h-4" />
+                <span>العودة إلى مكتبة الصور</span>
+              </button>
+            </div>
             <p className="text-muted-foreground leading-relaxed">
               تعرف على الفنانين المشاركين في مكتبة الصور
             </p>

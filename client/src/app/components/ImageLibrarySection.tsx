@@ -22,9 +22,11 @@ import {
   Video,
 } from 'lucide-react';
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { TagFilter } from './TagFilter';
 import { MultiSelectFilter } from './MultiSelectFilter';
 import { AIGeneratedFilter } from './AIGeneratedFilter';
+import { useFavorites } from '../hooks/useFavorites';
 import Masonry, { ResponsiveMasonry } from 'react-responsive-masonry';
 import { useAuth } from '../contexts/AuthContext';
 import { LoginRequiredModal } from './LoginRequiredModal';
@@ -166,6 +168,7 @@ export function ImageLibrarySection({
 }: {
   isSidebarCollapsed: boolean;
 }) {
+  const navigate = useNavigate();
   const { user, profile, accessToken } = useAuth();
   const isEditor = useIsEditor();
   const {
@@ -202,7 +205,7 @@ export function ImageLibrarySection({
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [favoritedImages, setFavoritedImages] = useState<ContentId[]>([]);
+  const { favoriteIds: favoritedImageIds, isFavorited, toggleFavorite: apiToggleFavorite, count: favoritedCount } = useFavorites('IMAGE');
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [shareMessage, setShareMessage] = useState('');
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -231,11 +234,6 @@ export function ImageLibrarySection({
   const filtersContainerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const favoritedImageIds = useMemo(
-    () => new Set(favoritedImages.map((id) => String(id))),
-    [favoritedImages],
-  );
 
   useEffect(() => {
     const handleScroll = () => {
@@ -351,14 +349,7 @@ export function ImageLibrarySection({
       setShowLoginModal(true);
       return;
     }
-
-    setFavoritedImages((prev) => {
-      const isIn = prev.some((id) => String(id) === String(imageId));
-      const newFavorites = isIn
-        ? prev.filter((id) => String(id) !== String(imageId))
-        : [...prev, imageId];
-      return newFavorites;
-    });
+    apiToggleFavorite(imageId);
   };
 
   const downloadImage = (image: GalleryImage) => {
@@ -617,14 +608,10 @@ export function ImageLibrarySection({
       return;
     }
 
-    setFavoritedImages((prev) => {
-      const newFavorites = [...prev];
-      selectedImages.forEach((id) => {
-        if (!newFavorites.some((x) => String(x) === String(id))) {
-          newFavorites.push(id);
-        }
-      });
-      return newFavorites;
+    selectedImages.forEach((id) => {
+      if (!favoritedImageIds.has(String(id))) {
+        apiToggleFavorite(id);
+      }
     });
 
     setShareMessage(`تم إضافة ${selectedImages.length} صورة إلى المفضلة`);
@@ -655,7 +642,7 @@ export function ImageLibrarySection({
       artists: selectedArtists,
       types: selectedTypes,
       ai: aiFilter,
-      ids: showFavoritesOnly ? favoritedImages.map(String) : undefined,
+      ids: showFavoritesOnly ? Array.from(favoritedImageIds) : undefined,
       token: accessToken,
     }),
     [
@@ -665,7 +652,7 @@ export function ImageLibrarySection({
       selectedTypes,
       aiFilter,
       showFavoritesOnly,
-      favoritedImages,
+      favoritedImageIds,
       accessToken,
     ],
   );
@@ -743,7 +730,16 @@ export function ImageLibrarySection({
           }`}
         >
           <div>
-            <h1 className="mb-2 font-bold text-2xl sm:text-[36px]">مكتبة الصور</h1>
+            <div className="flex items-start justify-between gap-4 mb-2">
+              <h1 className="font-bold text-2xl sm:text-[36px]">مكتبة الصور</h1>
+              <button
+                onClick={() => navigate('/artists')}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium shrink-0"
+              >
+                <User className="w-4 h-4" />
+                <span>الفنانون</span>
+              </button>
+            </div>
             <p className="text-muted-foreground leading-relaxed">
               مجموعة شاملة من الصور والأيقونات الكنسية والمناظر الطبيعية. استخدم
               البحث والفلاتر للعثور على الصور حسب النوع أو الفنان أو الموضوع،
@@ -1001,9 +997,9 @@ export function ImageLibrarySection({
                     }`}
                   />
                   <span className="text-sm hidden lg:inline">المفضلة فقط</span>
-                  {showFavoritesOnly && favoritedImages.length > 0 && (
+                  {showFavoritesOnly && favoritedCount > 0 && (
                     <span className="bg-primary text-primary-foreground text-xs font-bold rounded-full px-2 py-0.5">
-                      {favoritedImages.length}
+                      {favoritedCount}
                     </span>
                   )}
                 </button>
@@ -1189,7 +1185,7 @@ export function ImageLibrarySection({
 
                       <div
                         className={`absolute top-3 left-3 z-10 transition-opacity duration-300 ${
-                          favoritedImages.includes(image.id)
+                          isFavorited(image.id)
                             ? 'opacity-100'
                             : 'opacity-0 group-hover:opacity-100'
                         }`}
@@ -1200,14 +1196,14 @@ export function ImageLibrarySection({
                             toggleFavorite(image.id);
                           }}
                           className={`p-2 rounded-lg transition-all shadow-lg ${
-                            favoritedImages.includes(image.id)
+                            isFavorited(image.id)
                               ? 'bg-red-500 text-white'
                               : 'bg-white/90 hover:bg-white text-black'
                           }`}
                         >
                           <Heart
                             className={`w-4 h-4 ${
-                              favoritedImages.includes(image.id) ? 'fill-current' : ''
+                              isFavorited(image.id) ? 'fill-current' : ''
                             }`}
                           />
                         </button>
@@ -1303,20 +1299,20 @@ export function ImageLibrarySection({
                 toggleFavorite(sortedImages[currentImageIndex].id);
               }}
               className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-colors backdrop-blur-sm ${
-                favoritedImages.some((f) => String(f) === String(sortedImages[currentImageIndex].id))
+                isFavorited(sortedImages[currentImageIndex].id)
                   ? 'bg-red-500 hover:bg-red-600 text-white'
                   : 'bg-white/20 hover:bg-white/30 text-white'
               }`}
             >
               <Heart
                 className={`w-5 h-5 ${
-                  favoritedImages.some((f) => String(f) === String(sortedImages[currentImageIndex].id))
+                  isFavorited(sortedImages[currentImageIndex].id)
                     ? 'fill-current'
                     : ''
                 }`}
               />
               <span>
-                {favoritedImages.some((f) => String(f) === String(sortedImages[currentImageIndex].id))
+                {isFavorited(sortedImages[currentImageIndex].id)
                   ? 'مفضلة'
                   : 'إضافة للمفضلة'}
               </span>
@@ -1508,7 +1504,7 @@ export function ImageLibrarySection({
         }
         images={images as any}
         onImageClick={openLightbox}
-        favoritedImages={favoritedImages as any}
+        favoritedImages={Array.from(favoritedImageIds) as any}
         onToggleFavorite={toggleFavorite as any}
         onDownloadImage={downloadImage as any}
         isEditor={isEditor}

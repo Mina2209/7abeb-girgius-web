@@ -1,19 +1,24 @@
-  import { Heart, Share2, ArrowUpDown, Search, ChevronDown, Tags, User, BookOpen, Calendar, Plus, Edit2, Trash2, Download, Upload, CheckSquare, Square, CheckCheck, Video, MessageSquareQuote } from 'lucide-react';
+  import { Heart, Share2, ArrowUpDown, Search, ChevronDown, Tags, User, BookOpen, Calendar, Plus, Edit2, Trash2, Download, Upload, CheckSquare, Square, CheckCheck, Video, MessageSquareQuote, Users, X, Image as ImageIcon } from 'lucide-react';
   import { useState, useMemo, useRef, useEffect } from 'react';
   import { useNavigate } from 'react-router-dom';
   import { TagFilter } from './TagFilter';
   import { MultiSelectFilter } from './MultiSelectFilter';
   import Masonry, { ResponsiveMasonry } from 'react-responsive-masonry';
   import { FatherProfileModal } from './FatherProfileModal';
-  import { getFatherByName } from '../data/fathers';
+  import { getFatherByName, fathers as staticFathersData } from '../data/fathers';
   import { useIsEditor } from '../utils/adminUtils';
   import { normalizeArabic } from '../utils/arabicUtils';
   import { AdminEditSayingModal } from './AdminEditSayingModal';
   import { VideoModal } from './VideoModal';
   import { useSayingsData } from '../hooks/useSayingsData';
+  import { useFavorites } from '../hooks/useFavorites';
   import type { ContentId, Saying } from '../types/content';
   import { useAuth } from '../contexts/AuthContext';
-  import { createSaying, deleteSaying, updateSaying, fetchFatherByName } from '../services/contentWriteService';
+  import { createSaying, deleteSaying, updateSaying, fetchFatherByName, fetchFathers, updateFather } from '../services/contentWriteService';
+  import { AdminEditFatherModal } from './AdminEditFatherModal';
+import { apiRequest } from '../services/apiClient';
+import { toast } from 'sonner';
+  import type { Father } from '../data/fathers';
 
 
 
@@ -156,11 +161,17 @@ useEffect(() => {
     const [isScrolled, setIsScrolled] = useState(false);
     const [scrollProgress, setScrollProgress] = useState(0);
     const [expandedQuoteId, setExpandedQuoteId] = useState<ContentId | null>(null);
-    const [favoritedQuotes, setFavoritedQuotes] = useState<ContentId[]>([]);
+    const { favoriteIds: favoritedQuoteIds, toggleFavorite: apiToggleFavorite, count: favoritedCount } = useFavorites('SAYING');
+    const favoritedQuotes = Array.from(favoritedQuoteIds);
     const [shareMessage, setShareMessage] = useState<string | null>(null);
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
     const [selectedFather, setSelectedFather] = useState<string | null>(null);
     const [isFatherModalOpen, setIsFatherModalOpen] = useState(false);
+    const [showFathersList, setShowFathersList] = useState(false);
+    const [allFathers, setAllFathers] = useState<Father[]>([]);
+    const [fathersLoading, setFathersLoading] = useState(false);
+    const [editFather, setEditFather] = useState<Father | null>(null);
+    const [isEditFatherModalOpen, setIsEditFatherModalOpen] = useState(false);
 
     // Admin state
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -220,6 +231,36 @@ useEffect(() => {
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }, [isSortDropdownOpen]);
+
+    // Load all fathers when modal opens
+    useEffect(() => {
+      if (!showFathersList) return;
+      setFathersLoading(true);
+      const seen = new Set<string>();
+      const combined: Father[] = [];
+
+      for (const f of staticFathersData) {
+        combined.push(f);
+        seen.add(f.name);
+      }
+
+      fetchFathers(accessToken).then(serverFathers => {
+        for (const f of serverFathers) {
+          if (!seen.has(f.name)) {
+            combined.push(f);
+          } else {
+            const idx = combined.findIndex(c => c.name === f.name);
+            if (idx !== -1 && !f.id.startsWith('static-')) combined[idx] = f;
+          }
+          seen.add(f.name);
+        }
+        setAllFathers(combined);
+        setFathersLoading(false);
+      }).catch(() => {
+        setAllFathers(combined);
+        setFathersLoading(false);
+      });
+    }, [showFathersList]);
 
     // Admin Functions
     const handleAddNew = () => {
@@ -298,6 +339,7 @@ useEffect(() => {
         }
       } catch {
         setShareMessage('فشل الحفظ على الخادم');
+        toast.error('فشل الحفظ على الخادم');
       } finally {
         setTimeout(() => setShareMessage(null), 2000);
       }
@@ -338,10 +380,10 @@ useEffect(() => {
             }
             setTimeout(() => setShareMessage(null), 2000);
           } else {
-            alert('ملف غير صالح. يجب أن يحتوي على مصفوفة JSON.');
+            toast.error('ملف غير صالح. يجب أن يحتوي على مصفوفة JSON.');
           }
         } catch (error) {
-          alert('خطأ في قراءة الملف');
+          toast.error('خطأ في قراءة الملف');
         }
       };
       reader.readAsText(file);
@@ -367,10 +409,7 @@ useEffect(() => {
     };
 
     const toggleFavorite = (quoteId: ContentId) => {
-      setFavoritedQuotes((prev) => {
-        const isIn = prev.some((id) => String(id) === String(quoteId));
-        return isIn ? prev.filter((id) => String(id) !== String(quoteId)) : [...prev, quoteId];
-      });
+      apiToggleFavorite(quoteId);
     };
 
     const handleShare = (quote: Saying) => {
@@ -596,7 +635,16 @@ useEffect(() => {
           }`}
         >
           <div>
-          <h1 className="mb-2 font-bold text-[36px]">أقوال الآباء</h1>
+          <div className="flex items-start justify-between gap-4 mb-2">
+            <h1 className="font-bold text-[36px]">أقوال الآباء</h1>
+            <button
+              onClick={() => setShowFathersList(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium shrink-0"
+            >
+              <Users className="w-4 h-4" />
+              <span>الآباء</span>
+            </button>
+          </div>
           <p className="text-muted-foreground leading-relaxed">
             مكتبة شاملة لحكم وأقوال آباء الكنيسة القديسين والمعلمين. استخدم البحث والفلاتر للعثور على الأقوال حسب القائل أو المصدر أو الموضوع، واضغط على اسم القديس لعرض سيرته، وأضف المفضلات لديك، وشارك الحكمة مع الآخرين.
           </p>
@@ -1083,6 +1131,155 @@ useEffect(() => {
           videoUrl="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
           title="شرح استخدام مكتبة أقوال الآباء"
         />
+
+        {/* Fathers List Modal */}
+        {showFathersList && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+            <div className="bg-background rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card flex-shrink-0">
+                <h2 className="text-2xl font-bold">الآباء</h2>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowFathersList(false)}
+                    className="p-2 hover:bg-muted rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6">
+                {fathersLoading ? (
+                  <div className="flex flex-col items-center justify-center min-h-[30vh] gap-2 text-muted-foreground">
+                    <p>جاري تحميل الآباء...</p>
+                  </div>
+                ) : allFathers.length === 0 ? (
+                  <div className="text-center py-12 bg-card rounded-xl border border-border">
+                    <p className="text-muted-foreground">لا يوجد آباء بعد</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {allFathers.map((father) => {
+                      const sayingCount = sayings.filter(s => s.author === father.name).length;
+
+                      return (
+                        <div
+                          key={father.id}
+                          className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-all group cursor-pointer"
+                          onClick={() => {
+                            setShowFathersList(false);
+                            if (father.id.startsWith('static-')) {
+                              setSelectedFather(father.name);
+                              setIsFatherModalOpen(true);
+                            } else {
+                              navigate(`/sayings/authors/${father.id}`);
+                            }
+                          }}
+                        >
+                          <div className="relative h-48 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center overflow-hidden">
+                            {father.profileImage ? (
+                              <img
+                                src={father.profileImage}
+                                alt={father.name}
+                                className="w-32 h-32 rounded-full object-cover border-4 border-background shadow-xl group-hover:scale-110 transition-transform duration-300"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = '';
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <div className="w-32 h-32 rounded-full border-4 border-background shadow-xl bg-muted flex items-center justify-center">
+                                <ImageIcon className="w-12 h-12 text-muted-foreground" />
+                              </div>
+                            )}
+
+                            {isEditor && father && !father.id.startsWith('static-') && (
+                              <div className="absolute top-3 left-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setEditFather(father); setIsEditFatherModalOpen(true); }}
+                                  className="p-2 bg-white/90 hover:bg-white text-black rounded-lg transition-colors shadow-lg"
+                                  title="تعديل"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (!confirm(`هل أنت متأكد من حذف "${father.name}"؟`)) return;
+                                    try {
+                                      const res = await apiRequest(`/api/fathers/${father.id}`, { method: 'DELETE' });
+                                      if (!res.ok) {
+                                        const err = await res.json().catch(() => ({}));
+                                        throw new Error(err.error || 'فشل الحذف');
+                                      }
+                                      setShareMessage('تم حذف الآب بنجاح');
+                                      setAllFathers(prev => prev.filter(f => f.id !== father.id));
+                                    } catch (e: any) {
+                                      setShareMessage(e.message || 'فشل حذف الآب');
+                                    }
+                                    setTimeout(() => setShareMessage(null), 2000);
+                                  }}
+                                  className="p-2 bg-red-500/90 hover:bg-red-500 text-white rounded-lg transition-colors shadow-lg"
+                                  title="حذف"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="p-6 space-y-4">
+                            <div className="text-center space-y-1">
+                              <h3 className="text-xl font-bold">{father.name}</h3>
+                              {father.title && <p className="text-primary font-medium text-sm">{father.title}</p>}
+                            </div>
+
+                            {father.bio && (
+                              <p className="text-muted-foreground text-sm leading-relaxed line-clamp-3 text-center">
+                                {father.bio}
+                              </p>
+                            )}
+
+                            <div className="flex items-center justify-center">
+                              <span className="px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-sm font-medium">
+                                {sayingCount} قول
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Admin Edit Father Modal */}
+        {isEditor && (
+          <AdminEditFatherModal
+            isOpen={isEditFatherModalOpen}
+            onClose={() => {
+              setIsEditFatherModalOpen(false);
+              setEditFather(null);
+            }}
+            onSave={async (fatherData) => {
+              try {
+                if (!editFather || !editFather.id || editFather.id.startsWith('static-')) return;
+                await updateFather(editFather.id, fatherData, accessToken);
+                setShareMessage('تم تحديث بيانات الآب بنجاح');
+              } catch (e: any) {
+                const isDuplicate = e.message?.includes('409') || e.message?.includes('هذا الاسم');
+                setShareMessage(isDuplicate ? 'هذا الاسم موجود مسبقاً' : 'فشل تحديث بيانات الآب');
+              }
+              setTimeout(() => setShareMessage(null), 2000);
+              setIsEditFatherModalOpen(false);
+              setEditFather(null);
+            }}
+            father={editFather!}
+          />
+        )}
       </div>
     );
   }

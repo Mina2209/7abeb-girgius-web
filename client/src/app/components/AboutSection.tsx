@@ -22,6 +22,7 @@ import {
   Ban,
   Share2
 } from 'lucide-react';
+import { cn } from '../utils/cn';
 
 export function AboutSection() {
   return (
@@ -197,7 +198,7 @@ export function AboutSection() {
         {/* 3 Principle Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Principle 1 - Spiritual Focus */}
-          <div className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 rounded-2xl p-6 md:p-8 border border-purple-500/20 shadow-sm hover:shadow-lg transition-all hover:scale-105">
+<div className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 rounded-2xl p-6 md:p-8 border border-purple-500/20 shadow-sm hover:shadow-lg transition-all hover:scale-105">
             <div className="flex flex-col items-center text-center mb-6">
               <div className="w-16 h-16 bg-purple-500/20 rounded-2xl flex items-center justify-center mb-4 shadow-inner">
                 <Target className="w-8 h-8 text-purple-600 dark:text-purple-400" />
@@ -214,7 +215,7 @@ export function AboutSection() {
           </div>
 
           {/* Principle 2 - Quality */}
-          <div className="bg-gradient-to-br from-yellow-500/10 to-yellow-500/5 rounded-2xl p-6 md:p-8 border border-yellow-500/20 shadow-sm hover:shadow-lg transition-all hover:scale-105">
+<div className="bg-gradient-to-br from-yellow-500/10 to-yellow-500/5 rounded-2xl p-6 md:p-8 border border-yellow-500/20 shadow-sm hover:shadow-lg transition-all hover:scale-105">
             <div className="flex flex-col items-center text-center mb-6">
               <div className="w-16 h-16 bg-yellow-500/20 rounded-2xl flex items-center justify-center mb-4 shadow-inner">
                 <Star className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
@@ -231,7 +232,7 @@ export function AboutSection() {
           </div>
 
           {/* Principle 3 - Organization */}
-          <div className="bg-gradient-to-br from-green-500/10 to-green-500/5 rounded-2xl p-6 md:p-8 border border-green-500/20 shadow-sm hover:shadow-lg transition-all hover:scale-105">
+<div className="bg-gradient-to-br from-green-500/10 to-green-500/5 rounded-2xl p-6 md:p-8 border border-green-500/20 shadow-sm hover:shadow-lg transition-all hover:scale-105">
             <div className="flex flex-col items-center text-center mb-6">
               <div className="w-16 h-16 bg-green-500/20 rounded-2xl flex items-center justify-center mb-4 shadow-inner">
                 <FolderOpen className="w-8 h-8 text-green-600 dark:text-green-400" />
