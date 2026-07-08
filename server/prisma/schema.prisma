@@ -120,13 +120,20 @@ model ImageType {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  username  String   @unique
-  password  String
-  role      Role     @default(EDITOR)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  logs      Log[]
+  id         String   @id @default(uuid())
+  username   String   @unique
+  email      String?  @unique
+  password   String
+  role       Role     @default(EDITOR)
+  full_name  String?
+  church_name String?
+  church_role String?
+  services   String[]
+  avatar_url String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  logs       Log[]
+  favorites  Favorite[]
 }
 
 model Log {
@@ -143,7 +150,37 @@ model Log {
   @@index([createdAt])
 }
 
+model Favorite {
+  id          String         @id @default(uuid())
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  contentType FavoriteContentType
+  contentId   String
+  createdAt   DateTime       @default(now())
+
+  @@unique([userId, contentType, contentId])
+  @@index([userId])
+  @@index([contentType, contentId])
+}
+
+enum FavoriteContentType {
+  HYMN
+  IMAGE
+  BOOK
+  SAYING
+}
+
 enum Role {
   ADMIN
   EDITOR
+}
+
+model SiteSettings {
+  /// Singleton row. We fix id=1 in service logic.
+  id                      Int      @id @default(1)
+  default_book_cover     String
+  site_sections_visibility Json?
+  powerpoint_data         Json?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 }
