@@ -16,7 +16,8 @@ const loginLimiter = rateLimit({
   message: { error: 'Too many login attempts. Please try again in a few minutes.' },
 });
 
-// Public route - no authentication required (but rate limited)
+// Public routes - no authentication required
+router.post('/register', authController.register);
 router.post('/login', loginLimiter, authController.login);
 
 // Protected routes - require authentication and admin role

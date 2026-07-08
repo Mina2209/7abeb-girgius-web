@@ -139,7 +139,7 @@ export const ImageController = {
 
   getAuthors: async (req, res) => {
     try {
-      const authors = await ImageService.getAuthors();
+      const authors = await ImageService.getAuthors({ hasImages: req.query.hasImages });
       res.json(authors);
     } catch (err) {
       console.error('Error fetching authors:', err);

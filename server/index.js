@@ -9,10 +9,14 @@ import tagRoutes from './routes/tag.routes.js';
 import sayingRoutes from './routes/saying.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
 import authRoutes from './routes/auth.routes.js';
+import profileRoutes from './routes/profile.routes.js';
+import settingsRoutes from './routes/settings.routes.js';
+
 import lyricRoutes from './routes/lyric.routes.js';
 import backupRoutes from './routes/backup.routes.js';
 import imageRoutes from './routes/image.routes.js';
 import fatherRoutes from './routes/father.routes.js';
+import favoriteRoutes from './routes/favorite.routes.js';
 import { BackupScheduler } from './services/backup.scheduler.js';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
 
@@ -71,7 +75,13 @@ console.log('[CORS] Allowed origins:', allowedOrigins.length ? allowedOrigins.jo
 const jsonLimit = process.env.JSON_BODY_LIMIT || '32mb';
 app.use(express.json({ limit: jsonLimit }));
 
+import passwordRoutes from './routes/password.routes.js';
+
 app.use('/api/auth', authRoutes);
+app.use('/api/auth', passwordRoutes);
+app.use('/api/auth/profile', profileRoutes);
+app.use('/api/auth/settings', settingsRoutes);
+
 app.use('/api/hymns', hymnRoutes);
 app.use('/api/tags', tagRoutes);
 app.use('/api/sayings', sayingRoutes);
@@ -80,7 +90,7 @@ app.use('/api/lyrics', lyricRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/images', imageRoutes);
 app.use('/api/fathers', fatherRoutes);
-
+app.use('/api/favorites', favoriteRoutes);
 // note: uploads are served from S3 via presigned URLs; no local static serving
 
 // Lightweight health endpoint for Elastic Beanstalk / load balancer
@@ -107,9 +117,9 @@ async function main() {
       
       // Start automatic backup scheduler (every 24 hours, keep 7 backups)
       // Only start in production or if ENABLE_BACKUP_SCHEDULER is set
-      if (process.env.NODE_ENV === 'production' || process.env.ENABLE_BACKUP_SCHEDULER === 'true') {
-        BackupScheduler.start(24, 7);
-      }
+      // if (process.env.NODE_ENV === 'production' || process.env.ENABLE_BACKUP_SCHEDULER === 'true') {
+      //   BackupScheduler.start(24, 7);
+      // }
     });
   } catch (err) {
     console.error('Failed to start server due to database connection error:', err);

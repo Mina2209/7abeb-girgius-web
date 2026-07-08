@@ -163,21 +163,116 @@ export const HymnController = {
   },
 
   getAll: async (req, res) => {
-    const searchRaw = req.query.search || req.query.q || '';
-    if (!searchRaw) {
-      const hymns = await HymnService.getAll();
-      return res.json(hymns);
-    }
-
-    const search = normalizeArabic(searchRaw);
     const hymns = await HymnService.getAll();
-    const filtered = hymns.filter(h => {
+
+    // --- Query params ---
+    // search / q: free-text over title + tag names (Arabic-normalized)
+    const searchRaw = req.query.search || req.query.q || '';
+    const search = searchRaw ? normalizeArabic(String(searchRaw)) : '';
+
+    // tags=tag1,tag2 (matches exact tag name)
+    const tagsRaw = req.query.tags;
+    const tags = typeof tagsRaw === 'string'
+      ? tagsRaw.split(',').map(s => s.trim()).filter(Boolean)
+      : Array.isArray(tagsRaw)
+        ? tagsRaw.map(String)
+        : [];
+
+    // fileTypes=Video PowerPoint,Music (matches HymnFile.type, i.e. backend enums mapped in client)
+    const fileTypesRaw = req.query.fileTypes;
+    const fileTypes = typeof fileTypesRaw === 'string'
+      ? fileTypesRaw.split(',').map(s => s.trim()).filter(Boolean)
+      : Array.isArray(fileTypesRaw)
+        ? fileTypesRaw.map(String)
+        : [];
+
+    // favorites=true (client currently keeps favorites in-memory; server implementation added for completion)
+    // For now: only enable filtering if backend supports favorites; otherwise no-op.
+    const favoritesOnly = String(req.query.favorites || '').toLowerCase() === 'true';
+
+    // sort=alpha-asc|alpha-desc|length-asc|length-desc|date-asc|date-desc
+    const sort = String(req.query.sort || 'alpha-asc');
+
+    const normalizeTag = (t) => normalizeArabic(t || '');
+
+    const matchSearch = (h) => {
+      if (!search) return true;
       const title = normalizeArabic(h.title || '');
       if (title.includes(search)) return true;
-      const tagMatch = Array.isArray(h.tags) && h.tags.some(t => normalizeArabic(t.name || '').includes(search));
+      const tagMatch = Array.isArray(h.tags) && h.tags.some(t => normalizeTag(t?.name).includes(search));
       return tagMatch;
+    };
+
+    const matchTags = (h) => {
+      if (!tags.length) return true;
+      const hymnTagNames = (h.tags || []).map(t => t.name);
+      // Exact match against provided tag strings.
+      return tags.some(t => hymnTagNames.includes(t));
+    };
+
+    const matchFileTypes = (h) => {
+      if (!fileTypes.length) return true;
+      const hymnTypes = new Set((h.files || []).map(f => String(f.type)));
+      // Client passes the mapped fileType labels (e.g. "Music", "PowerPoint file").
+      // DB enum values are like VIDEO_MONTAGE / MUSIC_AUDIO, so we map them back.
+      const FILE_TYPE_MAP = {
+        VIDEO_MONTAGE: 'Video montage',
+        VIDEO_POWERPOINT: 'Video PowerPoint',
+        POWERPOINT: 'PowerPoint file',
+        MUSIC_AUDIO: 'Music',
+      };
+      return fileTypes.some((clientType) => {
+        for (const dbType of hymnTypes) {
+          const mapped = FILE_TYPE_MAP[dbType];
+          if (mapped === clientType) return true;
+        }
+        return false;
+      });
+    };
+
+    const filtered = hymns.filter(h => {
+      if (!matchSearch(h)) return false;
+      if (!matchTags(h)) return false;
+      if (!matchFileTypes(h)) return false;
+
+      // Favorites filtering placeholder (no favorites model in provided server routes).
+      if (favoritesOnly) {
+        // No server-side favorites implemented yet -> keep all.
+        // If you add a Favorite model later, filter here using req.user.
+      }
+
+      return true;
     });
-    res.json(filtered);
+
+    const durationToSeconds = (h) => {
+      // Client expects duration based on max duration among files.
+      const durations = (h.files || [])
+        .map(f => f.duration)
+        .filter(d => typeof d === 'number' && Number.isFinite(d));
+      const max = durations.length ? Math.max(...durations) : 0;
+      // durations stored in DB appear to be seconds.
+      return max;
+    };
+
+    const sorted = filtered.sort((a, b) => {
+      switch (sort) {
+        case 'alpha-desc':
+          return String(b.title || '').localeCompare(String(a.title || ''), 'ar');
+        case 'length-asc':
+          return durationToSeconds(a) - durationToSeconds(b);
+        case 'length-desc':
+          return durationToSeconds(b) - durationToSeconds(a);
+        case 'date-asc':
+          return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+        case 'date-desc':
+          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        case 'alpha-asc':
+        default:
+          return String(a.title || '').localeCompare(String(b.title || ''), 'ar');
+      }
+    });
+
+    res.json(sorted);
   },
 
   getById: async (req, res) => {

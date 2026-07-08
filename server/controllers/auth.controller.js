@@ -2,6 +2,36 @@ import { authService } from '../services/auth.service.js';
 import { logService } from '../services/log.service.js';
 
 export const authController = {
+
+  async register(req, res) {
+    try {
+      const { username, email, password, full_name, church_name, church_role, services } = req.body;
+
+      if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password are required' });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      }
+
+      const result = await authService.register(username, email, password, full_name, church_name, church_role, services);
+
+      await logService.createLog(
+        result.user.id,
+        'REGISTER',
+        'USER',
+        result.user.id,
+        `User ${username} registered`
+      );
+
+      res.status(201).json(result);
+    } catch (error) {
+      console.error('Register error:', error);
+      res.status(400).json({ error: error.message });
+    }
+  },
+
   async login(req, res) {
     try {
       const { username, password } = req.body;
@@ -150,5 +180,97 @@ export const authController = {
       console.error('Get user logs error:', error);
       res.status(500).json({ error: error.message });
     }
+  },
+
+  async getProfile(req, res) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+      const profile = await authService.getProfile(userId);
+      if (!profile) return res.status(404).json({ error: 'User not found' });
+
+      return res.json(profile);
+    } catch (error) {
+      console.error('Get profile error:', error);
+      return res.status(400).json({ error: error.message || 'Failed to get profile' });
+    }
+  },
+
+  async updateProfile(req, res) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+      const { full_name, church_name, church_role, services, avatar_url } = req.body;
+
+      const updateData = {
+        ...(full_name !== undefined ? { full_name } : {}),
+        ...(church_name !== undefined ? { church_name } : {}),
+        ...(church_role !== undefined ? { church_role } : {}),
+        ...(avatar_url !== undefined ? { avatar_url } : {}),
+        ...(services !== undefined ? { services } : {}),
+      };
+
+      const updated = await authService.updateProfile(userId, updateData);
+
+      await logService.createLog(
+        userId,
+        'UPDATE',
+        'USER',
+        userId,
+        'User updated own profile'
+      );
+
+      return res.json(updated);
+    } catch (error) {
+      console.error('Update profile error:', error);
+      return res.status(400).json({ error: error.message || 'Failed to update profile' });
+    }
+  },
+
+  async changePassword(req, res) {
+
+    try {
+      const userId = req.user?.id;
+      const { currentPassword, newPassword } = req.body;
+
+
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: 'currentPassword and newPassword are required' });
+      }
+      if (String(newPassword).length < 6) {
+        return res.status(400).json({ error: 'New password must be at least 6 characters' });
+      }
+
+      // Read hashed password from DB and verify
+      const user = await authService.getUserById(userId);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      const isValidPassword = await authService.verifyPassword(userId, currentPassword);
+
+      if (!isValidPassword) {
+        return res.status(400).json({ error: 'Current password is incorrect' });
+      }
+
+      // Update password (authService.updateUser already hashes)
+      await authService.updateUser(userId, { password: newPassword });
+
+      // Log action
+      await logService.createLog(
+        userId,
+        'UPDATE',
+        'USER',
+        userId,
+        'User changed own password'
+      );
+
+      return res.json({ ok: true });
+    } catch (error) {
+      console.error('Change password error:', error);
+      return res.status(400).json({ error: error.message || 'Failed to change password' });
+    }
   }
 };
+

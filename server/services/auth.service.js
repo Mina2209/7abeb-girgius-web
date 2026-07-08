@@ -9,16 +9,16 @@ export const authService = {
   async login(username, password) {
     const user = await prisma.user.findUnique({ 
       where: { username },
-      select: { id: true, username: true, password: true, role: true }
+      select: { id: true, username: true, email: true, password: true, role: true, full_name: true, church_name: true, church_role: true, services: true, avatar_url: true, createdAt: true }
     });
 
     if (!user) {
-      throw new Error('Invalid credentials');
+      throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
     }
 
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
-      throw new Error('Invalid credentials');
+      throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
     }
 
     const token = jwt.sign(
@@ -32,7 +32,14 @@ export const authService = {
       user: {
         id: user.id,
         username: user.username,
-        role: user.role
+        email: user.email,
+        role: user.role,
+        full_name: user.full_name,
+        church_name: user.church_name,
+        church_role: user.church_role,
+        services: user.services,
+        avatar_url: user.avatar_url,
+        created_at: user.createdAt,
       }
     };
   },
@@ -43,6 +50,54 @@ export const authService = {
     } catch (error) {
       throw new Error('Invalid token');
     }
+  },
+
+  async register(username, email, password, full_name, church_name, church_role, services) {
+    const existingUser = await prisma.user.findUnique({ where: { username } });
+    if (existingUser) {
+      throw new Error('البريد الإلكتروني مستخدم بالفعل');
+    }
+
+    if (email) {
+      const existingEmail = await prisma.user.findUnique({ where: { email } });
+      if (existingEmail) {
+        throw new Error('البريد الإلكتروني مستخدم بالفعل');
+      }
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await prisma.user.create({
+      data: {
+        username,
+        email,
+        password: hashedPassword,
+        role: 'EDITOR',
+        full_name,
+        church_name,
+        church_role,
+        services: services || [],
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        role: true,
+        full_name: true,
+        church_name: true,
+        church_role: true,
+        services: true,
+        avatar_url: true,
+        createdAt: true,
+      }
+    });
+
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRY }
+    );
+
+    return { token, user };
   },
 
   async createUser(username, password, role = 'EDITOR') {
@@ -90,6 +145,16 @@ export const authService = {
     });
   },
 
+  async verifyPassword(userId, password) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { password: true },
+    });
+
+    if (!user) return false;
+    return bcrypt.compare(password, user.password);
+  },
+
   async updateUser(id, data) {
     const updateData = { ...data };
     
@@ -103,6 +168,56 @@ export const authService = {
       select: { id: true, username: true, role: true, updatedAt: true }
     });
   },
+
+  async getProfile(id) {
+    return await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        full_name: true,
+        church_name: true,
+        church_role: true,
+        services: true,
+        avatar_url: true,
+        createdAt: true,
+        updatedAt: true,
+        role: true,
+      },
+    });
+  },
+
+  async updateProfile(id, data) {
+    // profile fields are stored as full_name/church_name/church_role/services/avatar_url in DB
+    // If fields are not present in schema, Prisma will throw during runtime.
+    const updateData = {
+      ...(data.full_name !== undefined ? { full_name: data.full_name } : {}),
+      ...(data.church_name !== undefined ? { church_name: data.church_name } : {}),
+      ...(data.church_role !== undefined ? { church_role: data.church_role } : {}),
+      ...(data.services !== undefined ? { services: data.services } : {}),
+      ...(data.avatar_url !== undefined ? { avatar_url: data.avatar_url } : {}),
+    };
+
+    return await prisma.user.update({
+      where: { id },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        full_name: true,
+        church_name: true,
+        church_role: true,
+        services: true,
+        avatar_url: true,
+        createdAt: true,
+        updatedAt: true,
+        role: true,
+      },
+    });
+  },
+
 
   async deleteUser(id) {
     await prisma.user.delete({ where: { id } });

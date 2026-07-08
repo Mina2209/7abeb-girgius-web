@@ -19,36 +19,51 @@ export const FatherController = {
     res.json(father);
   },
 
-  create: async (req, res) => {
-    const father = await FatherService.create(req.body);
+  create: async (req, res, next) => {
+    try {
+      const father = await FatherService.create(req.body);
 
-    if (req.user) {
-      await logService.createLog(
-        req.user.id,
-        'CREATE',
-        'FATHER',
-        father.id,
-        `Created father: ${father.name}`
-      );
+      if (req.user) {
+        await logService.createLog(
+          req.user.id,
+          'CREATE',
+          'FATHER',
+          father.id,
+          `Created father: ${father.name}`
+        ).catch(err => console.error('[FatherController.create] log error:', err));
+      }
+
+      res.status(201).json(father);
+    } catch (err) {
+      console.error('[FatherController.create] error:', err);
+      if (err?.code === 'P2002') {
+        return res.status(409).json({ error: 'هذا الاسم موجود مسبقاً' });
+      }
+      next(err);
     }
-
-    res.status(201).json(father);
   },
 
-  update: async (req, res) => {
-    const father = await FatherService.update(req.params.id, req.body);
+  update: async (req, res, next) => {
+    try {
+      const father = await FatherService.update(req.params.id, req.body);
 
-    if (req.user) {
-      await logService.createLog(
-        req.user.id,
-        'UPDATE',
-        'FATHER',
-        father.id,
-        `Updated father: ${father.name}`
-      );
+      if (req.user) {
+        await logService.createLog(
+          req.user.id,
+          'UPDATE',
+          'FATHER',
+          father.id,
+          `Updated father: ${father.name}`
+        ).catch(() => {});
+      }
+
+      res.json(father);
+    } catch (err) {
+      if (err?.code === 'P2002') {
+        return res.status(409).json({ error: 'هذا الاسم موجود مسبقاً' });
+      }
+      next(err);
     }
-
-    res.json(father);
   },
 
   delete: async (req, res) => {

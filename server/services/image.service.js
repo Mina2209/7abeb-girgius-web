@@ -174,8 +174,13 @@ export const ImageService = {
   },
 
   // --- Author management ---
-  getAuthors: async () => {
+  getAuthors: async ({ hasImages } = {}) => {
+    const where = {};
+    if (hasImages === 'true' || hasImages === true) {
+      where.images = { some: {} };
+    }
     return prisma.imageAuthor.findMany({
+      where,
       orderBy: { name: 'asc' },
       include: { _count: { select: { images: true } } },
     });
