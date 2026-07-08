@@ -5,6 +5,7 @@ import { FlatIcon } from './icons/FlatIcon';
 import { useHymnsData } from '../hooks/useHymnsData';
 import { useGalleryImagesData } from '../hooks/useGalleryImagesData';
 import { useSayingsData } from '../hooks/useSayingsData';
+import { useFavorites } from '../hooks/useFavorites';
 
 // Icon wrapper components for Flaticon (matching navigation icons)
 const MusicIcon = (props: any) => <FlatIcon iconClass="fi-ss-music-alt" {...props} />;
@@ -14,16 +15,15 @@ const QuoteIcon = (props: any) => <FlatIcon iconClass="fi-sr-comment-quote" {...
 
 type FavoriteTab = 'hymns' | 'images' | 'books' | 'sayings';
 
-function idListed(id: unknown, list: readonly unknown[]) {
-  return list.some((x) => String(x) === String(id));
-}
-
 export function FavoritesPage() {
   const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState<FavoriteTab>('hymns');
   const { hymns, loading: hymnsLoading } = useHymnsData();
   const { images, loading: imagesLoading } = useGalleryImagesData();
   const { sayings, loading: sayingsLoading } = useSayingsData();
+  const { favoriteIds: hymnIds, removeFavorite: removeHymn } = useFavorites('HYMN');
+  const { favoriteIds: imageIds, removeFavorite: removeImage } = useFavorites('IMAGE');
+  const { favoriteIds: sayingIds, removeFavorite: removeSaying } = useFavorites('SAYING');
 
   if (!profile) {
     return (
@@ -34,11 +34,6 @@ export function FavoritesPage() {
       </div>
     );
   }
-
-  const favoriteHymnIds: unknown[] = [];
-  const favoriteImageIds: unknown[] = [];
-  const favoriteBookIds: unknown[] = [];
-  const favoriteSayingIds: unknown[] = [];
 
   const catalogLoading =
     (hymnsLoading && hymns.length === 0) ||
@@ -54,7 +49,7 @@ export function FavoritesPage() {
   }
 
   const favoriteHymns = hymns
-    .filter((h) => idListed(h.id, favoriteHymnIds))
+    .filter((h) => hymnIds.has(String(h.id)))
     .map((h) => ({
       id: h.id,
       title: h.title,
@@ -62,7 +57,7 @@ export function FavoritesPage() {
     }));
 
   const favoriteImages = images
-    .filter((img) => idListed(img.id, favoriteImageIds))
+    .filter((img) => imageIds.has(String(img.id)))
     .map((img) => ({
       id: img.id,
       url: img.src,
@@ -70,22 +65,17 @@ export function FavoritesPage() {
     }));
 
   const favoriteSayingsResolved = sayings
-    .filter((s) => idListed(s.id, favoriteSayingIds))
+    .filter((s) => sayingIds.has(String(s.id)))
     .map((s) => ({
       id: s.id,
       text: s.quote,
       author: s.author,
     }));
 
-  const mockBooks = [
-    { id: '1', title: 'حياة الصلاة الأرثوذكسية', author: 'متى المسكين', coverImage: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400' },
-    { id: '2', title: 'تاريخ الكنيسة القبطية', author: 'إيريس حبيب المصري', coverImage: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400' },
-  ];
-
   const favorites = {
     hymns: favoriteHymns,
     images: favoriteImages,
-    books: mockBooks.filter((b) => favoriteBookIds.includes(b.id)),
+    books: [],
     sayings: favoriteSayingsResolved,
   };
 
@@ -181,7 +171,11 @@ export function FavoritesPage() {
                 />
               ) : (
                 favorites.hymns.map((hymn: any) => (
-                  <FavoriteHymnCard key={hymn.id} hymn={hymn} />
+                  <FavoriteHymnCard
+                    key={hymn.id}
+                    hymn={hymn}
+                    onRemove={() => removeHymn(hymn.id)}
+                  />
                 ))
               )}
             </div>
@@ -198,7 +192,11 @@ export function FavoritesPage() {
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {favorites.images.map((image: any) => (
-                    <FavoriteImageCard key={image.id} image={image} />
+                    <FavoriteImageCard
+                      key={image.id}
+                      image={image}
+                      onRemove={() => removeImage(image.id)}
+                    />
                   ))}
                 </div>
               )}
@@ -211,7 +209,7 @@ export function FavoritesPage() {
                 <EmptyState
                   icon={BookOpenIcon}
                   title="لا توجد كتب مفضلة"
-                  description="ابدأ بإضافة الكتب المفضلة لديك من مكتبة الكتب الروحية"
+                  description="كتب المفضلة قيد التطوير"
                 />
               ) : (
                 favorites.books.map((book: any) => (
@@ -231,7 +229,11 @@ export function FavoritesPage() {
                 />
               ) : (
                 favorites.sayings.map((saying: any) => (
-                  <FavoriteSayingCard key={saying.id} saying={saying} />
+                  <FavoriteSayingCard
+                    key={saying.id}
+                    saying={saying}
+                    onRemove={() => removeSaying(saying.id)}
+                  />
                 ))
               )}
             </div>
@@ -254,7 +256,7 @@ function EmptyState({ icon: Icon, title, description }: { icon: any; title: stri
   );
 }
 
-function FavoriteHymnCard({ hymn }: { hymn: any }) {
+function FavoriteHymnCard({ hymn, onRemove }: { hymn: any; onRemove: () => void }) {
   return (
     <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
       <div className="w-12 h-12 rounded bg-primary/10 flex items-center justify-center">
@@ -264,20 +266,26 @@ function FavoriteHymnCard({ hymn }: { hymn: any }) {
         <h3 className="font-medium">{hymn.title}</h3>
         <p className="text-sm text-muted-foreground">{hymn.occasion}</p>
       </div>
-      <button className="text-destructive hover:bg-destructive/10 p-2 rounded-lg transition-colors">
+      <button
+        onClick={onRemove}
+        className="text-destructive hover:bg-destructive/10 p-2 rounded-lg transition-colors"
+      >
         <Trash2 className="w-5 h-5" />
       </button>
     </div>
   );
 }
 
-function FavoriteImageCard({ image }: { image: any }) {
+function FavoriteImageCard({ image, onRemove }: { image: any; onRemove: () => void }) {
   return (
     <div className="relative group">
       <div className="aspect-square rounded-lg overflow-hidden bg-muted">
         <img src={image.url} alt={image.title} className="w-full h-full object-cover" />
       </div>
-      <button className="absolute top-2 right-2 bg-destructive text-destructive-foreground p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+      <button
+        onClick={onRemove}
+        className="absolute top-2 right-2 bg-destructive text-destructive-foreground p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+      >
         <Trash2 className="w-4 h-4" />
       </button>
     </div>
@@ -301,7 +309,7 @@ function FavoriteBookCard({ book }: { book: any }) {
   );
 }
 
-function FavoriteSayingCard({ saying }: { saying: any }) {
+function FavoriteSayingCard({ saying, onRemove }: { saying: any; onRemove: () => void }) {
   return (
     <div className="flex items-start gap-4 p-4 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
       <div className="w-12 h-12 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -311,7 +319,10 @@ function FavoriteSayingCard({ saying }: { saying: any }) {
         <p className="text-sm mb-2">{saying.text}</p>
         <p className="text-xs text-muted-foreground">- {saying.author}</p>
       </div>
-      <button className="text-destructive hover:bg-destructive/10 p-2 rounded-lg transition-colors flex-shrink-0">
+      <button
+        onClick={onRemove}
+        className="text-destructive hover:bg-destructive/10 p-2 rounded-lg transition-colors flex-shrink-0"
+      >
         <Trash2 className="w-5 h-5" />
       </button>
     </div>

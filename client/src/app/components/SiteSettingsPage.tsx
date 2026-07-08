@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Settings, Image as ImageIcon, BookOpen, Save, RotateCcw, Eye, EyeOff, Globe, Shield, AlertTriangle, Database, Download, Upload, Clock, HardDrive, CheckCircle2, Info } from 'lucide-react';
 import { Button } from './ui/button';
 import { getDefaultBookCover } from './BooksSection';
+import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { apiRequest } from '../services/apiClient';
 
@@ -51,8 +52,8 @@ export function SiteSettingsPage() {
   const [isCreatingBackup, setIsCreatingBackup] = useState(false);
 
   useEffect(() => {
-    loadSettings();
-    loadVisibilitySettings();
+    void loadSettings();
+    void loadVisibilitySettings();
   }, []);
 
   // Backups are admin-only; (re)load them once the auth token is available.
@@ -62,10 +63,23 @@ export function SiteSettingsPage() {
   }, [accessToken]);
 
   // Book cover functions
-  const loadSettings = () => {
-    const savedCover = localStorage.getItem('default_book_cover') || FALLBACK_BOOK_COVER;
-    setDefaultBookCover(savedCover);
-    setPreviewCover(savedCover);
+  const loadSettings = async () => {
+    try {
+      const res = await apiRequest('/api/auth/settings/site', {
+        headers: authHeader(),
+      });
+      if (!res.ok) throw new Error('failed');
+      const data = await res.json();
+      const savedCover =
+        data?.settings?.default_book_cover || FALLBACK_BOOK_COVER;
+      setDefaultBookCover(savedCover);
+      setPreviewCover(savedCover);
+    } catch {
+      const savedCover =
+        localStorage.getItem('default_book_cover') || FALLBACK_BOOK_COVER;
+      setDefaultBookCover(savedCover);
+      setPreviewCover(savedCover);
+    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -80,15 +94,30 @@ export function SiteSettingsPage() {
     }
   };
 
-  const handleCoverSave = () => {
-    localStorage.setItem('default_book_cover', previewCover);
-    setDefaultBookCover(previewCover);
-    setCoverHasChanges(false);
-    
-    // Trigger a custom event to notify other components
-    window.dispatchEvent(new Event('defaultBookCoverChanged'));
-    
-    alert('تم حفظ صورة الغلاف الافتراضية بنجاح!');
+  const handleCoverSave = async () => {
+    try {
+      const res = await apiRequest('/api/auth/settings/site', {
+        method: 'PUT',
+        headers: {
+          ...authHeader(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          settings: {
+            default_book_cover: previewCover,
+          },
+        }),
+      });
+      if (!res.ok) throw new Error('failed');
+
+      setDefaultBookCover(previewCover);
+      setCoverHasChanges(false);
+
+      window.dispatchEvent(new Event('defaultBookCoverChanged'));
+      toast.success('تم حفظ صورة الغلاف الافتراضية بنجاح!');
+    } catch {
+      toast.error('فشل حفظ صورة الغلاف. حاول مرة أخرى.');
+    }
   };
 
   const handleCoverReset = () => {
@@ -104,17 +133,36 @@ export function SiteSettingsPage() {
   };
 
   // Sections visibility functions
-  const loadVisibilitySettings = () => {
-    const saved = localStorage.getItem('site_sections_visibility');
-    if (saved) {
-      setVisibility(JSON.parse(saved));
-    } else {
-      // Default: all sections visible
-      const defaultVisibility: Record<string, boolean> = {};
-      MAIN_SECTIONS.forEach(section => {
-        defaultVisibility[section.id] = true;
+  const loadVisibilitySettings = async () => {
+    try {
+      const res = await apiRequest('/api/auth/settings/site', {
+        headers: authHeader(),
       });
-      setVisibility(defaultVisibility);
+      if (!res.ok) throw new Error('failed');
+      const data = await res.json();
+      const serverVisibility =
+        data?.settings?.site_sections_visibility || null;
+
+      if (serverVisibility) {
+        setVisibility(serverVisibility);
+      } else {
+        const defaultVisibility: Record<string, boolean> = {};
+        MAIN_SECTIONS.forEach((section) => {
+          defaultVisibility[section.id] = true;
+        });
+        setVisibility(defaultVisibility);
+      }
+    } catch {
+      const saved = localStorage.getItem('site_sections_visibility');
+      if (saved) {
+        setVisibility(JSON.parse(saved));
+      } else {
+        const defaultVisibility: Record<string, boolean> = {};
+        MAIN_SECTIONS.forEach((section) => {
+          defaultVisibility[section.id] = true;
+        });
+        setVisibility(defaultVisibility);
+      }
     }
     setVisibilityHasChanges(false);
   };
@@ -127,14 +175,28 @@ export function SiteSettingsPage() {
     setVisibilityHasChanges(true);
   };
 
-  const handleVisibilitySave = () => {
-    localStorage.setItem('site_sections_visibility', JSON.stringify(visibility));
-    setVisibilityHasChanges(false);
-    
-    // Dispatch event to notify sidebar to update
-    window.dispatchEvent(new Event('sectionsVisibilityChanged'));
-    
-    alert('تم حفظ إعدادات الأقسام بنجاح!');
+  const handleVisibilitySave = async () => {
+    try {
+      const res = await apiRequest('/api/auth/settings/site', {
+        method: 'PUT',
+        headers: {
+          ...authHeader(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          settings: {
+            site_sections_visibility: visibility,
+          },
+        }),
+      });
+      if (!res.ok) throw new Error('failed');
+
+      setVisibilityHasChanges(false);
+      window.dispatchEvent(new Event('sectionsVisibilityChanged'));
+      toast.success('تم حفظ إعدادات الأقسام بنجاح!');
+    } catch {
+      toast.error('فشل حفظ إعدادات الأقسام. حاول مرة أخرى.');
+    }
   };
 
   const handleVisibilityReset = () => {
@@ -183,9 +245,9 @@ export function SiteSettingsPage() {
       const res = await apiRequest('/api/backup', { method: 'POST', headers: authHeader() });
       if (!res.ok) throw new Error('create failed');
       await loadBackups();
-      alert('تم إنشاء نسخة احتياطية جديدة بنجاح!');
+      toast.success('تم إنشاء نسخة احتياطية جديدة بنجاح!');
     } catch {
-      alert('فشل إنشاء النسخة الاحتياطية');
+      toast.error('فشل إنشاء النسخة الاحتياطية');
     } finally {
       setIsCreatingBackup(false);
     }
@@ -201,10 +263,10 @@ export function SiteSettingsPage() {
       if (data?.url) {
         window.open(data.url, '_blank');
       } else {
-        alert('فشل تنزيل النسخة الاحتياطية');
+        toast.error('فشل تنزيل النسخة الاحتياطية');
       }
     } catch {
-      alert('فشل تنزيل النسخة الاحتياطية');
+      toast.error('فشل تنزيل النسخة الاحتياطية');
     }
   };
 

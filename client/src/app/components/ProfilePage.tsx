@@ -47,37 +47,53 @@ export function ProfilePage({ onNavigateToFavorites }: ProfilePageProps) {
 
     // Convert image to base64
     const reader = new FileReader();
-    reader.onloadend = () => {
+    reader.onloadend = async () => {
       const base64String = reader.result as string;
       
-      // Update localStorage
-      const savedProfile = localStorage.getItem('mockProfile');
-      if (savedProfile) {
-        const profile = JSON.parse(savedProfile);
-        profile.avatar_url = base64String;
-        localStorage.setItem('mockProfile', JSON.stringify(profile));
-      }
-      
+      // Upload avatar to server (base64)
+      if (!profile?.id) return;
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
+        },
+        body: JSON.stringify({ avatar_url: base64String }),
+      });
+
       // Refresh profile to show new image
       refreshProfile();
+
     };
     reader.readAsDataURL(file);
   };
 
   const handleSave = async () => {
-    // Mock save - update localStorage
-    const savedProfile = localStorage.getItem('mockProfile');
-    if (savedProfile) {
-      const profile = JSON.parse(savedProfile);
-      profile.full_name = editedProfile.fullName;
-      profile.church_name = editedProfile.churchName;
-      profile.church_role = editedProfile.churchRole;
-      profile.services = editedProfile.services;
-      localStorage.setItem('mockProfile', JSON.stringify(profile));
+    try {
+      if (!profile?.id) return;
+
+      await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
+        },
+        body: JSON.stringify({
+          full_name: editedProfile.fullName,
+          church_name: editedProfile.churchName,
+          church_role: editedProfile.churchRole,
+          services: editedProfile.services,
+        }),
+      });
+
+      setIsEditing(false);
+      await refreshProfile();
+    } catch {
+      // Keep UI stable; refreshProfile will re-sync from server when possible
+      setIsEditing(false);
     }
-    setIsEditing(false);
-    await refreshProfile();
   };
+
 
   // Get join date
   const joinDate = new Date(profile.created_at).toLocaleDateString('ar-EG', {
