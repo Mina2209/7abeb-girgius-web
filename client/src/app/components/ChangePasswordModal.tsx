@@ -47,23 +47,36 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
       return;
     }
 
-    // Verify current password
-    const credentials = JSON.parse(localStorage.getItem('mockCredentials') || '{}');
-    const storedPassword = credentials[profile?.email || ''];
-
-    if (!storedPassword || storedPassword !== currentPassword) {
-      setError('كلمة المرور الحالية غير صحيحة');
+    // Verify current password on server
+    // (السيرفر هيقوم بمطابقة كلمة المرور الحالية قبل تحديثها)
+    if (!profile?.id) {
+      setError('غير مصرح لك');
       return;
     }
+
 
     setLoading(true);
 
     try {
-      // Update password in mockCredentials
-      credentials[profile?.email || ''] = newPassword;
-      localStorage.setItem('mockCredentials', JSON.stringify(credentials));
+      // Update password on server
+      const res = await (await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/password`, {
+
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
+
+        },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      })).json();
+
+      if (!res?.ok) {
+        throw new Error(res?.error || 'فشل تغيير كلمة المرور');
+      }
 
       setSuccess('تم تغيير كلمة المرور بنجاح');
+      
+
       
       // Reset form after 2 seconds
       setTimeout(() => {
@@ -78,6 +91,7 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
     } finally {
       setLoading(false);
     }
+
   };
 
   const handleClose = () => {

@@ -48,14 +48,9 @@ export function AddUserModal({ isOpen, onClose, onAddUser }: AddUserModalProps) 
       return;
     }
 
-    // Check if email already exists
-    const existingUsers = JSON.parse(localStorage.getItem('all_users') || '[]');
-    if (existingUsers.some((u: any) => u.email.toLowerCase() === email.toLowerCase())) {
-      setError('البريد الإلكتروني مستخدم بالفعل');
-      return;
-    }
-
+    // التحقق من وجود الإيميل يتم على السيرفر (authService.createUser)
     setLoading(true);
+
 
     try {
       onAddUser({

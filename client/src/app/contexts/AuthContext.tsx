@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { logLogin, logLogout } from '../utils/activityLogger';
 import { isApiConfigured } from '../config/api';
 import { apiGetJson } from '../services/apiClient';
+import type { ClientUser, UserProfile } from '../types/auth';
 
 /**
  * AuthContext - Production Authentication System
@@ -9,30 +10,26 @@ import { apiGetJson } from '../services/apiClient';
  * والاعتماد على الصلاحيات القادمة من السيرفر مباشرة.
  */
 
-interface UserProfile {
-  id: string;
-  email: string;
-  full_name: string;
-  church_name: string;
-  church_role: string;
-  services: string[];
-  avatar_url: string | null;
-  created_at: string;
-  role: 'viewer' | 'editor' | 'admin';
-}
-
 interface AuthContextType {
-  user: any | null;
+  user: ClientUser | null;
   profile: UserProfile | null;
   accessToken: string | null;
   loading: boolean;
-  signUp: (email: string, password: string, fullName: string, churchName: string, churchRole: string, services: string[]) => Promise<void>;
+  signUp: (
+    email: string,
+    password: string,
+    fullName: string,
+    churchName: string,
+    churchRole: string,
+    services: string[],
+  ) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
+
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -71,7 +68,7 @@ function normalizeLoginIdentifier(identifier: string): string {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<any | null>(null);
+  const [user, setUser] = useState<ClientUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -79,25 +76,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // جلب بيانات الجلسة الحالية عند تشغيل التطبيق لأول مرة
   useEffect(() => {
     const loadSavedSession = async () => {
-      // قراءة المفاتيح الجديدة، أو القديمة كخيار احتياطي لعدم كسر الكود أثناء الانتقال
-      const savedUser = localStorage.getItem('user') || localStorage.getItem('mockUser');
-      const savedProfile = localStorage.getItem('profile') || localStorage.getItem('mockProfile');
-      const savedToken = localStorage.getItem('token') || localStorage.getItem('mockToken');
+      // قراءة الجلسة الإنتاجية فقط
+      const savedUser = localStorage.getItem('user');
+      const savedProfile = localStorage.getItem('profile');
+      const savedToken = localStorage.getItem('token');
 
       if (savedUser && savedProfile && savedToken) {
         try {
           setUser(JSON.parse(savedUser));
           const parsedProfile = JSON.parse(savedProfile);
-          
+
           // التأكد من أن الخدمات مصفوفة دائماً
-          if (typeof parsedProfile.services === 'string') {
-            parsedProfile.services = parsedProfile.services ? [parsedProfile.services] : [];
+          if (typeof (parsedProfile as any).services === 'string') {
+            (parsedProfile as any).services = (parsedProfile as any).services ? [(parsedProfile as any).services] : [];
           }
-          
-          setProfile(parsedProfile);
+
+          setProfile(parsedProfile as UserProfile);
           setAccessToken(savedToken);
         } catch (e) {
-          console.error("Error parsing saved session data", e);
+          console.error('Error parsing saved session data', e);
         }
       }
       setLoading(false);
@@ -105,6 +102,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     loadSavedSession();
   }, []);
+
+  // Session expiration handling (triggered from apiClient on 401/403)
+  useEffect(() => {
+    const handler = () => {
+      // Don't rely on token being present; just wipe client session.
+      logLogout();
+      setUser(null);
+      setProfile(null);
+      setAccessToken(null);
+      localStorage.removeItem('user');
+      localStorage.removeItem('profile');
+      localStorage.removeItem('token');
+      notifyUserChanged();
+    };
+
+    window.addEventListener('sessionExpired', handler);
+    return () => window.removeEventListener('sessionExpired', handler);
+  }, []);
+
 
   // دالة إنشاء حساب جديد وإرساله للسيرفر بالكامل
   const signUp = async (
@@ -213,10 +229,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('profile', JSON.stringify(serverProfile));
     localStorage.setItem('token', result.token);
     
-    // دعم الخلفية القديمة للمشروع
-    localStorage.setItem('mockUser', JSON.stringify(serverUser));
-    localStorage.setItem('mockProfile', JSON.stringify(serverProfile));
-    localStorage.setItem('mockToken', result.token);
+
 
     notifyUserChanged();
     logLogin();
@@ -239,13 +252,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
     setAccessToken(null);
 
-    // تنظيف كافة البيانات الإنتاجية والقديمة
+    // تنظيف كافة البيانات
     localStorage.removeItem('user');
     localStorage.removeItem('profile');
     localStorage.removeItem('token');
-    localStorage.removeItem('mockUser');
-    localStorage.removeItem('mockProfile');
-    localStorage.removeItem('mockToken');
+
     
     notifyUserChanged();
   };
@@ -261,7 +272,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (updatedProfile) {
         setProfile(updatedProfile);
         localStorage.setItem('profile', JSON.stringify(updatedProfile));
-        localStorage.setItem('mockProfile', JSON.stringify(updatedProfile));
         notifyUserChanged();
       }
     } catch (error) {
