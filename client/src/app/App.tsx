@@ -1,26 +1,60 @@
-import { useState, useEffect } from 'react';
+import { Suspense, useEffect, useMemo, useState, lazy } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { ChurchSidebar } from './components/ChurchSidebar';
-import { HomeSection } from './components/HomeSection';
-import { LiturgySection } from './components/LiturgySection';
-import { HymnsSection } from './components/HymnsSection';
-import { VariousSection } from './components/VariousSection';
-import { ImageLibrarySection } from './components/ImageLibrarySection';
-import { ArtistsSection } from './components/ArtistsSection';
-import { ArtistDetailPage } from './components/ArtistDetailPage';
-import { FatherDetailPage } from './components/FatherDetailPage';
-import { BooksSection } from './components/BooksSection';
-import { SayingsSection } from './components/SayingsSection';
-import { CopticLanguageSection } from './components/CopticLanguageSection';
-import { AboutSection } from './components/AboutSection';
 import { AuthProvider } from './contexts/AuthContext';
-import { LoginModal } from './components/LoginModal';
-import { SignupModal } from './components/SignupModal';
-import { ProfilePage } from './components/ProfilePage';
-import { FavoritesPage } from './components/FavoritesPage';
-import { UserManagementPage } from './components/UserManagementPage';
-import { TopicsManagementPage } from './components/TopicsManagementPage';
-import { SiteSettingsPage } from './components/SiteSettingsPage';
+import { Toaster } from './components/ui/sonner';
+
+const HomeSection = lazy(() => import('./components/HomeSection').then((m) => ({ default: m.HomeSection })));
+const LiturgySection = lazy(() => import('./components/LiturgySection').then((m) => ({ default: m.LiturgySection })));
+const HymnsSection = lazy(() =>
+  import('./components/HymnsSection').then((m) => ({ default: m.HymnsSection })),
+);
+const VariousSection = lazy(() =>
+  import('./components/VariousSection').then((m) => ({ default: m.VariousSection })),
+);
+const ImageLibrarySection = lazy(() =>
+  import('./components/ImageLibrarySection').then((m) => ({ default: m.ImageLibrarySection })),
+);
+const ArtistsSection = lazy(() =>
+  import('./components/ArtistsSection').then((m) => ({ default: m.ArtistsSection })),
+);
+const ArtistDetailPage = lazy(() =>
+  import('./components/ArtistDetailPage').then((m) => ({ default: m.ArtistDetailPage })),
+);
+const BooksSection = lazy(() =>
+  import('./components/BooksSection').then((m) => ({ default: m.BooksSection })),
+);
+const SayingsSection = lazy(() =>
+  import('./components/SayingsSection').then((m) => ({ default: m.SayingsSection })),
+);
+const FatherDetailPage = lazy(() =>
+  import('./components/FatherDetailPage').then((m) => ({ default: m.FatherDetailPage })),
+);
+const CopticLanguageSection = lazy(() =>
+  import('./components/CopticLanguageSection').then((m) => ({ default: m.CopticLanguageSection })),
+);
+const AboutSection = lazy(() =>
+  import('./components/AboutSection').then((m) => ({ default: m.AboutSection })),
+);
+const ProfilePage = lazy(() =>
+  import('./components/ProfilePage').then((m) => ({ default: m.ProfilePage })),
+);
+const FavoritesPage = lazy(() =>
+  import('./components/FavoritesPage').then((m) => ({ default: m.FavoritesPage })),
+);
+const UserManagementPage = lazy(() =>
+  import('./components/UserManagementPage').then((m) => ({ default: m.UserManagementPage })),
+);
+const TopicsManagementPage = lazy(() =>
+  import('./components/TopicsManagementPage').then((m) => ({ default: m.TopicsManagementPage })),
+);
+const SiteSettingsPage = lazy(() =>
+  import('./components/SiteSettingsPage').then((m) => ({ default: m.SiteSettingsPage })),
+);
+
+const LoginModal = lazy(() => import('./components/LoginModal').then((m) => ({ default: m.LoginModal })));
+const SignupModal = lazy(() => import('./components/SignupModal').then((m) => ({ default: m.SignupModal })));
+
 
 const sectionToPath: Record<string, string> = {
   home: '/',
@@ -34,7 +68,6 @@ const sectionToPath: Record<string, string> = {
   coptic: '/coptic',
   about: '/about',
 };
-
 
 const pathToSection = (pathname: string): string => {
   switch (pathname) {
@@ -67,11 +100,11 @@ export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const activeSection = pathToSection(location.pathname);
+
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isSignupModalOpen, setIsSignupModalOpen] = useState(false);
 
-  // تأثير جلب وتحديث عنوان الـ Tab بناءً على المسار الحالي بدقة
   useEffect(() => {
     const pageTitles: Record<string, string> = {
       '/': ' خدمة الأرشيدياكون حبيب جرجس',
@@ -91,23 +124,18 @@ export default function App() {
       '/admin/settings': 'إعدادات الموقع',
     };
 
-    // جلب الاسم المطابق للمسار الحالي، وفي حال عدم وجوده نضع اسماً افتراضياً
-    const currentTitle = pageTitles[location.pathname] || 'لوحة التحكم';
-    
-    // تحديث عنوان المتصفح فوراً
-    document.title = `${currentTitle}`;
-  }, [location.pathname]); // يشتغل تلقائياً مع كل حركة انتقال أو ضغطة زرار تغير الـ URL
+    document.title = pageTitles[location.pathname] || 'لوحة التحكم';
+  }, [location.pathname]);
 
   return (
     <AuthProvider>
+      <Toaster />
       <div className="flex h-screen bg-background" dir="rtl">
         <ChurchSidebar
           activeSection={activeSection}
           onSectionChange={(section) => {
             const path = sectionToPath[section];
-            if (path) {
-              navigate(path);
-            }
+            if (path) navigate(path);
           }}
           onCollapseChange={setIsSidebarCollapsed}
           onOpenLogin={() => setIsLoginModalOpen(true)}
@@ -117,52 +145,63 @@ export default function App() {
           onNavigateToTopicsManagement={() => navigate('/admin/topics')}
           onNavigateToSiteSettings={() => navigate('/admin/settings')}
         />
-        <main className={`flex-1 p-4 lg:p-8 h-screen overflow-y-auto pt-20 lg:pt-8 transition-all duration-300 ${
-          isSidebarCollapsed ? 'lg:mr-20' : 'lg:mr-64'
-        }`}>
-          <Routes>
-            <Route path="/" element={<HomeSection />} />
-            <Route path="/liturgy" element={<LiturgySection />} />
-            <Route
-              path="/hymns"
-              element={<HymnsSection isSidebarCollapsed={isSidebarCollapsed} />}
-            />
-            <Route path="/various" element={<VariousSection />} />
-            <Route
-              path="/images"
-              element={<ImageLibrarySection isSidebarCollapsed={isSidebarCollapsed} />}
-            />
-            <Route path="/artists" element={<ArtistsSection />} />
-            <Route path="/artists/:id" element={<ArtistDetailPage />} />
-            <Route path="/books" element={<BooksSection />} />
-            <Route path="/sayings" element={<SayingsSection />} />
-            <Route path="/sayings/authors/:id" element={<FatherDetailPage />} />
-            <Route path="/coptic" element={<CopticLanguageSection />} />
-            <Route path="/about" element={<AboutSection />} />
-            <Route
-              path="/profile"
-              element={<ProfilePage onNavigateToFavorites={() => navigate('/favorites')} />}
-            />
-            <Route path="/favorites" element={<FavoritesPage />} />
-            <Route path="/admin/users" element={<UserManagementPage />} />
-            <Route path="/admin/topics" element={<TopicsManagementPage />} />
-            <Route path="/admin/settings" element={<SiteSettingsPage />} />
-            <Route path="*" element={<HomeSection />} />
-          </Routes>
+
+        <main
+          className={`flex-1 p-4 lg:p-8 h-screen overflow-y-auto pt-20 lg:pt-8 transition-all duration-300 ${
+            isSidebarCollapsed ? 'lg:mr-20' : 'lg:mr-64'
+          }`}
+        >
+          <Suspense
+            fallback={
+              <div className="w-full flex items-center justify-center py-10 text-muted-foreground">
+                جاري التحميل...
+              </div>
+            }
+          >
+            <Routes>
+              <Route path="/" element={<HomeSection />} />
+              <Route path="/liturgy" element={<LiturgySection />} />
+              <Route
+                path="/hymns"
+                element={<HymnsSection isSidebarCollapsed={isSidebarCollapsed} />}
+              />
+              <Route path="/various" element={<VariousSection />} />
+              <Route
+                path="/images"
+                element={<ImageLibrarySection isSidebarCollapsed={isSidebarCollapsed} />}
+              />
+              <Route path="/artists" element={<ArtistsSection />} />
+              <Route path="/artists/:id" element={<ArtistDetailPage />} />
+              <Route path="/books" element={<BooksSection />} />
+              <Route path="/sayings" element={<SayingsSection />} />
+              <Route path="/sayings/authors/:id" element={<FatherDetailPage />} />
+              <Route path="/coptic" element={<CopticLanguageSection />} />
+              <Route path="/about" element={<AboutSection />} />
+              <Route
+                path="/profile"
+                element={<ProfilePage onNavigateToFavorites={() => navigate('/favorites')} />}
+              />
+              <Route path="/favorites" element={<FavoritesPage />} />
+              <Route path="/admin/users" element={<UserManagementPage />} />
+              <Route path="/admin/topics" element={<TopicsManagementPage />} />
+              <Route path="/admin/settings" element={<SiteSettingsPage />} />
+              <Route path="*" element={<HomeSection />} />
+            </Routes>
+          </Suspense>
         </main>
       </div>
-      
-      <LoginModal 
-        isOpen={isLoginModalOpen} 
+
+      <LoginModal
+        isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
         onSwitchToSignup={() => {
           setIsLoginModalOpen(false);
           setIsSignupModalOpen(true);
         }}
       />
-      
-      <SignupModal 
-        isOpen={isSignupModalOpen} 
+
+      <SignupModal
+        isOpen={isSignupModalOpen}
         onClose={() => setIsSignupModalOpen(false)}
         onSwitchToLogin={() => {
           setIsSignupModalOpen(false);
@@ -172,3 +211,4 @@ export default function App() {
     </AuthProvider>
   );
 }
+
