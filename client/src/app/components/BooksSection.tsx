@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+
 import {
   Search,
   Plus,
@@ -18,35 +19,39 @@ import {
   Upload,
   Tags,
 } from "lucide-react";
-import { Button } from "./ui/button";
+
+
 import { BookDetailsModal } from "./BookDetailsModal";
 import { BookEditModal } from "./BookEditModal";
 import {
   AdminBulkEditBooksModal,
   BulkBookUpdates,
 } from "./AdminBulkEditBooksModal";
-import { TagFilter } from "./TagFilter";
-import { MultiSelectFilter } from "./MultiSelectFilter";
 import { useIsEditor } from "../utils/adminUtils";
 import { useAuth } from "../contexts/AuthContext";
 import { useBooks } from "../hooks/useBooks";
+import { useFavorites } from "../hooks/useFavorites";
 import { normalizeArabic } from "../utils/arabicUtils";
 import { downloadFile } from "../utils/download";
 
-// استدعاء دوال الـ API Client الجديد لإدارة الاتصال بالسيرفر
-import {
-  apiGetJson,
-  apiPostJson,
-  apiPutJson,
-  apiDeleteJson,
-} from "../services/apiClient";
+import { useTags } from "../hooks/useTags";
+
+
+import { BooksFiltersToolbar } from "./books/BooksFiltersToolbar";
+import { BulkActionsBar } from "./books/BulkActionsBar";
+import { BookCardGrid } from "./books/BookCardGrid";
+import { BooksEmptyState } from "./books/BooksEmptyState";
+import { TagFilter } from "./TagFilter";
+import { MultiSelectFilter } from "./MultiSelectFilter";
+
+
 
 const FALLBACK_BOOK_COVER =
   "https://images.unsplash.com/photo-1569690484582-58b478f46805?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxib29rJTIwY292ZXIlMjBwbGFjZWhvbGRlcnxlbnwxfHx8fDE3Njg1NzEyMTd8MA&ixlib=rb-4.1.0&q=80&w=1080";
 
 export const getDefaultBookCover = () => {
-  const customCover = localStorage.getItem("default_book_cover");
-  return customCover || FALLBACK_BOOK_COVER;
+  // Source of truth is server-side settings; keep a hard fallback for first load / offline.
+  return FALLBACK_BOOK_COVER;
 };
 
 export interface Book {
@@ -232,7 +237,8 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
   const [editingBook, setEditingBook] = useState<Book | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [selectedBookIds, setSelectedBookIds] = useState<string[]>([]);
-  const [favoritedBooks, setFavoritedBooks] = useState<string[]>([]);
+  const { favoriteIds: favoritedBookIds, toggleFavorite: apiToggleFavorite, count: favoritedCount } = useFavorites('BOOK');
+  const favoritedBooks = Array.from(favoritedBookIds);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
   const [bulkEditMode, setBulkEditMode] = useState(false);
@@ -249,9 +255,6 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
   }, [fetchBooks]);
 
   useEffect(() => {
-    loadTopics();
-    loadFavoritedBooks();
-
     const handleDefaultCoverChange = () => {
       setDefaultCoverKey((prev) => prev + 1);
     };
@@ -283,34 +286,15 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
     };
   }, [scrollContainerRef.current, books]);
 
-  // جلب التصنيفات من السيرفر
-  const loadTopics = async () => {
-    try {
-      const data = await apiGetJson<any[]>("/tags");
-      setTopics(data);
-    } catch (error) {
-      console.error("فشل جلب التصنيفات من السيرفر:", error);
-    }
-  };
+  const { tags, isLoadingTags, tagsError } = useTags();
 
-  // جلب الكتب المفضلة
-  const loadFavoritedBooks = async () => {
-    try {
-      const data = await apiGetJson<{ books: string[] }>("/auth/favorites");
-      setFavoritedBooks(data.books || []);
-    } catch (error) {
-      console.error("فشل جلب الكتب المفضلة:", error);
-    }
-  };
+  useEffect(() => {
+    setTopics(tags);
+  }, [tags]);
 
   // تحديث حالة المفضلة
   const toggleFavorite = async (bookId: string) => {
-    try {
-      const data = await apiPostJson<{ books: string[] }>(`/books/${bookId}/favorite`, {});
-      setFavoritedBooks(data.books || []);
-    } catch (error) {
-      console.error("فشل تحديث حالة المفضلة:", error);
-    }
+    apiToggleFavorite(bookId);
   };
 
   // إضافة أو تعديل كتاب
@@ -479,464 +463,93 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Sticky Header Section */}
-      <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
-        
-        {/* العناوين والوصف */}
-        <div
-          className={`transition-all duration-500 ease-in-out overflow-hidden ${
-            isScrolled
-              ? "max-h-0 opacity-0 mb-0 pointer-events-none transform -translate-y-2"
-              : "max-h-[250px] opacity-100 mb-4 transform translate-y-0"
-          }`}
-        >
-          <div>
-            <h1 className="mb-2 font-bold text-2xl sm:text-[36px]">مكتبة الكتب</h1>
-            <p className="text-muted-foreground leading-relaxed">
-              مجموعة شاملة من الكتب الروحية والطقسية والتاريخية مع إمكانية البحث والفلترة والتحميل
-            </p>
-          </div>
-        </div>
+      <BooksFiltersToolbar
+        isEditor={isEditor}
+        isScrolled={isScrolled}
+        bulkEditMode={bulkEditMode}
+        onAddNew={handleAddNew}
+        onToggleBulkMode={() => {
+          setBulkEditMode(!bulkEditMode);
+          setSelectedBookIds([]);
+        }}
+        onExport={handleExport}
+        onImportClick={() => fileInputRef.current?.click()}
+        onMobileSortToggle={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
+        isSortDropdownOpen={isSortDropdownOpen}
+        onCloseMobileSort={() => setIsSortDropdownOpen(false)}
+        onSetSortBy={(v) => {
+          setSortBy(v);
+          setIsSortDropdownOpen(false);
+        }}
+        sortBy={sortBy}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        selectedTopics={selectedTopics}
+        setSelectedTopics={setSelectedTopics}
+        selectedAuthors={selectedAuthors}
+        setSelectedAuthors={setSelectedAuthors}
+        selectedPublishers={selectedPublishers}
+        setSelectedPublishers={setSelectedPublishers}
+        selectedSeries={selectedSeries}
+        setSelectedSeries={setSelectedSeries}
+        selectedBookTypes={selectedBookTypes}
+        setSelectedBookTypes={setSelectedBookTypes}
+        availableTopicNames={availableTopicNames}
+        availableAuthorNames={availableAuthorNames}
+        availablePublisherNames={availablePublisherNames}
+        availableSeriesNames={availableSeriesNames}
+        availableBookTypeNames={availableBookTypeNames}
+        allBooksCount={books.length}
+        filteredCount={filteredAndSortedBooks.length}
+        userHasProfile={!!(user && profile)}
+        showFavoritesOnly={showFavoritesOnly}
+        onToggleFavoritesOnly={() => setShowFavoritesOnly((v) => !v)}
+        favoritedBooks={favoritedBooks}
+        favoritedCount={favoritedBooks.length}
+        sortDropdownRef={sortDropdownRef}
+        filtersContainerRef={filtersContainerRef}
+      />
 
-        {/* Admin Toolbar */}
-        {isEditor && (
-          <div className="mt-4 mb-4 px-3 py-2 bg-primary/5 border border-primary/20 rounded-lg">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2">
-                <Edit2 className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium text-primary">أدوات التحرير:</span>
-              </div>
+      {/* Hidden file input (used by toolbar import button) */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        onChange={handleImport}
+        className="hidden"
+      />
 
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  onClick={handleAddNew}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm"
-                  title="إضافة كتاب جديد"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>جديد</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setBulkEditMode(!bulkEditMode);
-                    setSelectedBookIds([]);
-                  }}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
-                    bulkEditMode
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-card border border-border hover:bg-muted"
-                  }`}
-                  title="تحديد متعدد"
-                >
-                  <CheckSquare className="w-4 h-4" />
-                  <span>{bulkEditMode ? "إلغاء" : "تحديد"}</span>
-                </button>
-                <button
-                  onClick={handleExport}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded-lg hover:bg-muted transition-colors text-sm"
-                  title="تصدير JSON"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>تصدير</span>
-                </button>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded-lg hover:bg-muted transition-colors text-sm"
-                  title="استيراد JSON"
-                >
-                  <Upload className="w-4 h-4" />
-                  <span>استيراد</span>
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".json"
-                  onChange={handleImport}
-                  className="hidden"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Bulk Actions Bar */}
-        {isEditor && bulkEditMode && selectedBookIds.length > 0 && (
-          <div className="mt-4 p-3 bg-primary/10 border border-primary rounded-xl flex items-center justify-between flex-wrap gap-2">
-            <span className="text-sm font-medium">{selectedBookIds.length} عنصر محدد</span>
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={handleSelectAll}
-                className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg hover:bg-muted transition-colors text-sm"
-              >
-                <CheckCheck className="w-4 h-4" />
-                {selectedBookIds.length === filteredAndSortedBooks.length ? "إلغاء الكل" : "تحديد الكل"}
-              </button>
-              <button
-                onClick={() => setIsBulkEditModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
-              >
-                <Edit2 className="w-4 h-4" />
-                تعديل المحدد
-              </button>
-              <button
-                onClick={handleBulkDelete}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
-              >
-                <Trash2 className="w-4 h-4" />
-                حذف المحدد
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Search and Filters */}
-        <div className="space-y-4 sm:space-y-8">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
-              <input
-                type="text"
-                placeholder="ابحث في الكتب..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pr-11 pl-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-              />
-            </div>
-
-            <div className="relative flex-shrink-0 sm:hidden" ref={sortDropdownRef}>
-              <button
-                onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
-                className="flex items-center justify-center w-[50px] h-[50px] bg-card border border-border rounded-xl hover:bg-muted transition-colors"
-              >
-                <ArrowUpDown className="w-5 h-5 text-muted-foreground" />
-              </button>
-            </div>
-          </div>
-
-          {/* Mobile Sort Panel */}
-          {isSortDropdownOpen && (
-            <>
-              <div
-                className="sm:hidden fixed inset-0 bg-black/50 z-[200] animate-in fade-in duration-200"
-                onClick={() => setIsSortDropdownOpen(false)}
-              />
-              <div className="sm:hidden fixed bottom-0 left-0 right-0 z-[201] bg-card rounded-t-xl shadow-2xl animate-in slide-in-from-bottom duration-300 pb-safe">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-                  <h3 className="font-semibold text-lg">ترتيب حسب</h3>
-                  <button
-                    onClick={() => setIsSortDropdownOpen(false)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted transition-colors"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-                <div className="p-4 max-h-[60vh] overflow-y-auto">
-                  <div className="space-y-2">
-                    {sortOptions.map((option) => (
-                      <button
-                        key={option.value}
-                        onClick={() => {
-                          setSortBy(option.value);
-                          setIsSortDropdownOpen(false);
-                        }}
-                        className={`w-full text-right px-4 py-3.5 rounded-xl transition-colors ${
-                          sortBy === option.value
-                            ? "bg-primary text-primary-foreground font-medium"
-                            : "hover:bg-muted"
-                        }`}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Filters Row */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3 -mt-2 sm:-mt-3.5">
-            <div className="relative flex items-center gap-3 w-full sm:w-auto flex-wrap" ref={filtersContainerRef}>
-              
-              <div className="flex-1 sm:flex-initial min-w-[120px]">
-                <TagFilter
-                  selectedTags={selectedTopics}
-                  onTagsChange={setSelectedTopics}
-                  onSearchChange={setSearchQuery}
-                  searchQuery={searchQuery}
-                  showSearch={false}
-                  icon={Tags}
-                  containerRef={filtersContainerRef}
-                  availableTopics={availableTopicNames}
-                />
-              </div>
-
-              <div className="flex-1 sm:flex-initial">
-                <MultiSelectFilter
-                  label="المؤلف"
-                  options={allAuthors}
-                  selectedOptions={selectedAuthors}
-                  onOptionsChange={setSelectedAuthors}
-                  icon={User}
-                  availableOptions={availableAuthorNames}
-                />
-              </div>
-
-              <div className="flex-1 sm:flex-initial">
-                <MultiSelectFilter
-                  label="الناشر"
-                  options={allPublishers}
-                  selectedOptions={selectedPublishers}
-                  onOptionsChange={setSelectedPublishers}
-                  icon={Building2}
-                  availableOptions={availablePublisherNames}
-                />
-              </div>
-
-              <div className="flex-1 sm:flex-initial">
-                <MultiSelectFilter
-                  label="السلسلة"
-                  options={allSeries}
-                  selectedOptions={selectedSeries}
-                  onOptionsChange={setSelectedSeries}
-                  icon={Library}
-                  availableOptions={availableSeriesNames}
-                />
-              </div>
-
-              <div className="flex-1 sm:flex-initial">
-                <MultiSelectFilter
-                  label="نوع الكتاب"
-                  options={allBookTypes}
-                  selectedOptions={selectedBookTypes}
-                  onOptionsChange={setSelectedBookTypes}
-                  icon={Library}
-                  availableOptions={availableBookTypeNames}
-                />
-              </div>
-
-              {user && profile && (
-                <button
-                  onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-                  className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 h-[42px] border rounded-xl transition-all relative whitespace-nowrap ${
-                    showFavoritesOnly
-                      ? "bg-primary/10 border-primary text-primary"
-                      : "bg-card border-border hover:bg-muted"
-                  }`}
-                  title={showFavoritesOnly ? "إظهار كل الكتب" : "عرض المفضلة فقط"}
-                >
-                  <Heart className={`w-4 h-4 flex-shrink-0 transition-all ${showFavoritesOnly ? "fill-current" : ""}`} />
-                  <span className="text-sm hidden lg:inline">المفضلة فقط</span>
-                  {showFavoritesOnly && favoritedBooks.length > 0 && (
-                    <span className="bg-primary text-primary-foreground text-xs font-bold rounded-full px-2 py-0.5">
-                      {favoritedBooks.length}
-                    </span>
-                  )}
-                </button>
-              )}
-
-              <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 h-[42px] bg-muted/50 border border-border/50 rounded-xl pointer-events-none">
-                <BookOpen className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                <span className="text-sm text-muted-foreground font-medium whitespace-nowrap">
-                  {filteredAndSortedBooks.length} / {books.length}
-                </span>
-              </div>
-            </div>
-
-            {/* Desktop Sort */}
-            <div className="hidden sm:flex items-center gap-3">
-              <div className="relative" ref={sortDropdownRef}>
-                <button
-                  onClick={() => !bulkEditMode && setIsSortDropdownOpen(!isSortDropdownOpen)}
-                  className="flex items-center gap-2 px-4 py-2.5 h-[42px] bg-card border border-border rounded-xl hover:bg-muted transition-colors"
-                >
-                  <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm">
-                    {sortOptions.find((o) => o.value === sortBy)?.label}
-                  </span>
-                  <ChevronDown className={`w-4 h-4 transition-transform ${isSortDropdownOpen ? "rotate-180" : ""}`} />
-                </button>
-
-                {isSortDropdownOpen && (
-                  <div className="absolute top-full left-0 mt-2 w-56 bg-card border border-border rounded-xl shadow-xl z-50">
-                    <div className="p-2">
-                      {sortOptions.map((option) => (
-                        <button
-                          key={option.value}
-                          onClick={() => {
-                            setSortBy(option.value);
-                            setIsSortDropdownOpen(false);
-                          }}
-                          className={`w-full text-right px-3 py-2 rounded-lg transition-colors ${
-                            sortBy === option.value
-                              ? "bg-primary text-primary-foreground"
-                              : "hover:bg-muted"
-                          }`}
-                        >
-                          <span className="text-sm">{option.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Bulk Actions Bar */}
+      <BulkActionsBar
+        isEditor={isEditor}
+        bulkEditMode={bulkEditMode}
+        selectedCount={selectedBookIds.length}
+        filteredCount={filteredAndSortedBooks.length}
+        onSelectAll={handleSelectAll}
+        onOpenBulkEdit={() => setIsBulkEditModalOpen(true)}
+        onBulkDelete={handleBulkDelete}
+      />
 
       {/* Books Grid - Scrollable */}
       <div className="flex-1 overflow-y-auto p-6" ref={scrollContainerRef}>
         {filteredAndSortedBooks.length === 0 ? (
-          <div className="text-center py-12">
-            <BookOpen className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">لا توجد كتب</h3>
-            <p className="text-muted-foreground">
-              {searchQuery || activeFiltersCount > 0
-                ? "جرب تغيير معايير البحث أو الفلاتر"
-                : "لم يتم إضافة أي كتب بعد"}
-            </p>
-          </div>
+          <BooksEmptyState searchQuery={searchQuery} activeFiltersCount={activeFiltersCount} />
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 sm:gap-6">
-            {filteredAndSortedBooks.map((book) => (
-              <div
-                key={book.id}
-                onClick={() => !bulkEditMode && handleViewBook(book)}
-                className={`bg-card border border-border rounded-lg overflow-hidden transition-all group relative flex flex-col ${
-                  !bulkEditMode ? "cursor-pointer" : ""
-                }`}
-              >
-                {/* Bulk Selection Checkbox */}
-                {isEditor && bulkEditMode && (
-                  <div className="absolute top-2 right-2 z-10">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (selectedBookIds.includes(book.id)) {
-                          setSelectedBookIds(selectedBookIds.filter((id) => id !== book.id));
-                        } else {
-                          setSelectedBookIds([...selectedBookIds, book.id]);
-                        }
-                      }}
-                      className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${
-                        selectedBookIds.includes(book.id)
-                          ? "bg-primary border-primary text-primary-foreground"
-                          : "bg-white border-gray-300 hover:border-primary"
-                      }`}
-                    >
-                      {selectedBookIds.includes(book.id) && (
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path
-                            fillRule="evenodd"
-                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                )}
-
-                {/* Cover Image */}
-                <div className="relative aspect-[3/4] bg-muted overflow-hidden">
-                  <img
-                    src={book.coverImage || getDefaultBookCover()}
-                    alt={book.title}
-                    className="w-full h-full object-contain"
-                  />
-
-                  {/* Overlay */}
-                  {!bulkEditMode && (
-                    <>
-                      {/* الـ Overlay المعدل بنظام الـ Grid المكون من صفين لمنع تداخل الأزرار */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                        <div className="grid grid-cols-2 gap-1.5 w-full">
-                          {isEditor ? (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEditBook(book);
-                                }}
-                                className="flex items-center justify-center gap-1 px-2 py-1.5 bg-white/90 hover:bg-white text-black rounded-lg transition-colors text-xs shadow-lg"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                                <span>تعديل</span>
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteBook(book.id);
-                                }}
-                                className="flex items-center justify-center gap-1 px-2 py-1.5 bg-red-500/90 hover:bg-red-500 text-white rounded-lg transition-colors text-xs shadow-lg"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                <span>حذف</span>
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  downloadBook(book);
-                                }}
-                                className="col-span-2 flex items-center justify-center gap-1.5 px-3 py-2 bg-white/90 hover:bg-white text-black rounded-lg transition-colors text-xs font-medium shadow-lg"
-                              >
-                                <Download className="w-3.5 h-3.5" />
-                                <span>تحميل الكتاب</span>
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                downloadBook(book);
-                              }}
-                              className="col-span-2 flex items-center justify-center gap-1.5 px-3 py-2 bg-white/90 hover:bg-white text-black rounded-lg transition-colors text-xs shadow-lg"
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                              <span>تحميل</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Heart button */}
-                      <div
-                        className={`absolute top-3 left-3 z-10 transition-opacity duration-300 ${
-                          favoritedBooks.includes(book.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                        }`}
-                      >
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFavorite(book.id);
-                          }}
-                          className={`p-2 rounded-lg transition-all shadow-lg ${
-                            favoritedBooks.includes(book.id)
-                              ? "bg-red-500 text-white"
-                              : "bg-white/90 hover:bg-white text-black"
-                          }`}
-                        >
-                          <Heart className={`w-4 h-4 ${favoritedBooks.includes(book.id) ? "fill-current" : ""}`} />
-                        </button>
-                      </div>
-                    </>
-                  )}
-
-                  {bulkEditMode && selectedBookIds.includes(book.id) && (
-                    <div className="absolute inset-0 bg-primary/10 pointer-events-none" />
-                  )}
-                </div>
-
-                {/* Book Info */}
-                <div className="p-4 flex-1 group-hover:bg-muted transition-colors">
-                  <h3 className="font-bold text-base mb-1 line-clamp-2">{book.title}</h3>
-                  <p className="text-sm text-muted-foreground">{book.author}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <BookCardGrid
+            isEditor={isEditor}
+            bulkEditMode={bulkEditMode}
+            books={filteredAndSortedBooks}
+            favoritedBooks={favoritedBooks}
+            selectedBookIds={selectedBookIds}
+            onViewBook={handleViewBook}
+            onEditBook={handleEditBook}
+            onDeleteBook={handleDeleteBook}
+            onDownloadBook={downloadBook}
+            onToggleFavorite={toggleFavorite}
+          />
         )}
       </div>
+
 
       {/* Modals */}
       {showDetailsModal && selectedBook && (

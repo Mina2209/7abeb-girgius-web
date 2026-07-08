@@ -31,13 +31,15 @@ export function useBooks() {
       }));
       
       setBooks(normalizedBooks);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('فشل جلب مكتبة الكتب:', err);
-      setError(err.message || 'حدث خطأ أثناء جلب الكتب');
+      const message = err instanceof Error ? err.message : 'حدث خطأ أثناء جلب الكتب';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
   }, []);
+
 
   // 2. إضافة كتاب جديد
   // يقبل FormData في حال قررتم رفع الملفات مباشرة كـ Binary، أو Object عادي
@@ -54,11 +56,13 @@ export function useBooks() {
         ...prev,
       ]);
       return newBook;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('فشل إضافة الكتاب:', err);
-      setError(err.message || 'حدث خطأ أثناء حفظ الكتاب');
+      const message = err instanceof Error ? err.message : 'حدث خطأ أثناء حفظ الكتاب';
+      setError(message);
       throw err; // رمي الخطأ ليتم التقاطه في الـ UI لو لزم الأمر
     } finally {
+
       setIsLoading(false);
     }
   }, []);
@@ -76,14 +80,16 @@ export function useBooks() {
         } : b))
       );
       return updatedBook;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('فشل تعديل الكتاب:', err);
-      setError(err.message || 'حدث خطأ أثناء تعديل الكتاب');
+      const message = err instanceof Error ? err.message : 'حدث خطأ أثناء تعديل الكتاب';
+      setError(message);
       throw err;
     } finally {
       setIsLoading(false);
     }
   }, []);
+
 
   // 4. حذف كتاب واحد
   const deleteBook = useCallback(async (bookId: string) => {
@@ -92,11 +98,13 @@ export function useBooks() {
     try {
       await apiDeleteJson(`/books/${bookId}`);
       setBooks((prev) => prev.filter((book) => book.id !== bookId));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('فشل حذف الكتاب:', err);
-      setError(err.message || 'حدث خطأ أثناء الحذف');
+      const message = err instanceof Error ? err.message : 'حدث خطأ أثناء الحذف';
+      setError(message);
       throw err;
     } finally {
+
       setIsLoading(false);
     }
   }, []);
@@ -109,11 +117,13 @@ export function useBooks() {
       // إرسال طلبات الحذف بالتوازي (يمكن تعديلها لطلب واحد إذا دعم الباك إند ذلك `DELETE /books/bulk`)
       await Promise.all(bookIds.map((id) => apiDeleteJson(`/books/${id}`)));
       setBooks((prev) => prev.filter((book) => !bookIds.includes(book.id)));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('فشل الحذف الجماعي:', err);
-      setError(err.message || 'حدث خطأ أثناء الحذف الجماعي');
+      const message = err instanceof Error ? err.message : 'حدث خطأ أثناء الحذف الجماعي';
+      setError(message);
       throw err;
     } finally {
+
       setIsLoading(false);
     }
   }, []);
@@ -136,9 +146,10 @@ export function useBooks() {
             : book;
         })
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('فشل التحديث الجماعي:', err);
-      setError(err.message || 'حدث خطأ أثناء معالجة التحديث الجماعي');
+      const message = err instanceof Error ? err.message : 'حدث خطأ أثناء معالجة التحديث الجماعي';
+      setError(message);
       throw err;
     } finally {
       setIsLoading(false);
@@ -153,11 +164,13 @@ export function useBooks() {
       const result = await apiPostJson<Book[]>('/books/import', { books: importedBooks });
       setBooks(result); // تحديث القائمة بالكتب الجديدة أو استبدالها بالكامل بناءً على منطق السيرفر
       return result;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('فشل استيراد الكتب:', err);
-      setError(err.message || 'حدث خطأ أثناء رفع الملف');
+      const message = err instanceof Error ? err.message : 'حدث خطأ أثناء رفع الملف';
+      setError(message);
       throw err;
     } finally {
+
       setIsLoading(false);
     }
   }, []);
