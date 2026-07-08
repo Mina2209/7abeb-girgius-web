@@ -2,7 +2,9 @@ import { X, Download, Search, Filter, Clock, User, LogIn, LogOut, Heart, Share2,
 import { useState, useMemo, useRef, useEffect } from 'react';
 import type { ActivityLog, ActivityType, ContentType } from '../utils/activityLogger';
 import { normalizeArabic } from '../utils/arabicUtils';
-import { getUserLogs, getUserActivityStats, formatRelativeTime, formatAbsoluteTime, exportLogsToCSV, exportLogsToJSON } from '../utils/activityLogger';
+import { getUserActivityStats, formatRelativeTime, formatAbsoluteTime, exportLogsToCSV, exportLogsToJSON } from '../utils/activityLogger';
+import { apiGetJson } from '../services/apiClient';
+
 
 interface ActivityLogModalProps {
   isOpen: boolean;
@@ -63,12 +65,29 @@ export function ActivityLogModal({ isOpen, onClose, userId, username, userRole }
 
   // Load logs and stats
   useEffect(() => {
-    if (isOpen) {
-      const userLogs = getUserLogs(userId);
-      setLogs(userLogs);
-      setStats(getUserActivityStats(userId));
-    }
+    if (!isOpen) return;
+
+    const load = async () => {
+      try {
+        // Production: fetch logs from server
+        const userLogs = await apiGetJson<ActivityLog[]>(`/api/auth/logs/user/${userId}`);
+        setLogs(userLogs || []);
+      } catch (e) {
+        console.error('Failed to load user logs:', e);
+        setLogs([]);
+      }
+
+      // Stats currently comes from local utils; keep as-is for UI compatibility
+      try {
+        setStats(getUserActivityStats(userId));
+      } catch {
+        setStats(null);
+      }
+    };
+
+    load();
   }, [isOpen, userId]);
+
 
   // Close dropdowns when clicking outside
   useEffect(() => {

@@ -26,6 +26,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { useAuth } from "../contexts/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "./ui/dialog";
+import { toast } from 'sonner';
 import { downloadFile } from "../utils/download";
 
 // إضافة روابط تجريبية عامة للمعاينة لحين ربطها بسيرفرك الحقيقي لضمان عمل المعاينة فوراً
@@ -72,10 +73,8 @@ export function VariousSection() {
   const { profile } = useAuth();
   const isAuthorized = profile?.role === "admin" || profile?.role === "editor";
 
-  const [categories, setCategories] = useState(() => {
-    const saved = localStorage.getItem("powerpoint_data");
-    return saved ? JSON.parse(saved) : initialPowerpointCategories;
-  });
+  const [categories, setCategories] = useState(() => initialPowerpointCategories);
+
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isEditMode, setIsEditMode] = useState(false);
@@ -86,8 +85,33 @@ export function VariousSection() {
   const [previewFile, setPreviewFile] = useState<{ name: string; url: string } | null>(null);
 
   useEffect(() => {
-    localStorage.setItem("powerpoint_data", JSON.stringify(categories));
-  }, [categories]);
+    if (!profile) return;
+
+    // load once per mount/token availability
+    (async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(
+          `${window.location.origin}/api/auth/settings/powerpoint`,
+          {
+            method: 'GET',
+            headers: {
+              Accept: 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          },
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.settings?.powerpoint_data) {
+          setCategories(data.settings.powerpoint_data);
+        }
+      } catch {
+        toast.error('فشل تحميل بيانات بوربوينت متنوعة');
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile]);
 
   const addCategory = () => {
     const newCat = {
@@ -167,7 +191,9 @@ export function VariousSection() {
                 f.id === fileId
                   ? {
                       ...f,
-                      name: file.name.split(".").slice(0, -1).join(".") || file.name,
+                      name:
+                        file.name.split(".").slice(0, -1).join(".") ||
+                        file.name,
                       url: fileUrl,
                     }
                   : f,
@@ -291,7 +317,7 @@ export function VariousSection() {
           defaultValue={["cat1"]}
           className="w-full space-y-3"
         >
-          {filteredCategories.map((category: any, catIndex: number) => (
+      {filteredCategories.map((category: any, catIndex: number) => (
             <AccordionItem
               key={category.id}
               value={category.id}
