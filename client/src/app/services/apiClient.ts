@@ -1,23 +1,54 @@
 import { getApiBaseUrl } from '../config/api';
 
+export type ApiErrorCode = string | undefined;
+
+export class ApiError extends Error {
+  status: number;
+  code?: ApiErrorCode;
+  details?: unknown;
+
+  constructor(params: {
+    status: number;
+    message: string;
+    code?: ApiErrorCode;
+    details?: unknown;
+  }) {
+    super(params.message);
+    this.name = 'ApiError';
+    this.status = params.status;
+    this.code = params.code;
+    this.details = params.details;
+  }
+}
+
+function safeParseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
+
+function triggerSessionExpired() {
+  // Any component (AuthContext) can listen and signOut.
+  window.dispatchEvent(new Event('sessionExpired'));
+}
+
 export async function apiRequest(path: string, init?: RequestInit): Promise<Response> {
   const base = getApiBaseUrl();
   const url = `${base}${path.startsWith('/') ? path : `/${path}`}`;
-  
-  // 1. تجهيز الـ Headers الافتراضية
+
   const headers = new Headers(init?.headers);
-  
+
   if (!headers.has('Accept')) {
     headers.set('Accept', 'application/json');
   }
 
-  // إذا كان الطلب يحتوي على body ولم يتم تحديد Content-Type (وليس FormData الخاص برفع الصور)
   if (init?.body && !headers.has('Content-Type') && !(init.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
 
-  // 2. جلب الـ Token الحقيقي (أو الـ mockToken مؤقتاً) وحقنه تلقائياً في الـ Header
-  const token = localStorage.getItem('mockToken') || localStorage.getItem('mockAccessToken');
+  const token = localStorage.getItem('token');
   if (token && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${token}`);
   }
@@ -28,19 +59,45 @@ export async function apiRequest(path: string, init?: RequestInit): Promise<Resp
   });
 }
 
-// دالة الـ GET الحالية التي قمت بكتابتها
+async function toApiError(res: Response): Promise<ApiError> {
+  const text = await res.text().catch(() => '');
+  const parsed = safeParseJson(text);
+
+  const message =
+    (typeof parsed === 'object' && parsed && 'error' in parsed && typeof (parsed as any).error === 'string'
+      ? (parsed as any).error
+      : typeof parsed === 'object' && parsed && 'message' in parsed && typeof (parsed as any).message === 'string'
+      ? (parsed as any).message
+      : text) || res.statusText;
+
+  const code: ApiErrorCode =
+    typeof parsed === 'object' && parsed && 'code' in parsed && typeof (parsed as any).code === 'string'
+      ? (parsed as any).code
+      : undefined;
+
+  return new ApiError({
+    status: res.status,
+    message: message || `API ${res.status}`,
+    code,
+    details: parsed,
+  });
+}
+
 export async function apiGetJson<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await apiRequest(path, init);
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`API ${res.status}: ${text || res.statusText}`);
+    if (res.status === 401 || res.status === 403) {
+      triggerSessionExpired();
+    }
+
+    throw await toApiError(res);
   }
+
   if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
+  return (await res.json()) as Promise<T>;
 }
 
-// 3. إضافة دالة مساعدة لطلبات الـ POST
-export async function apiPostJson<T>(path: string, body: any, init?: RequestInit): Promise<T> {
+export async function apiPostJson<T>(path: string, body: unknown, init?: RequestInit): Promise<T> {
   return apiGetJson<T>(path, {
     ...init,
     method: 'POST',
@@ -48,8 +105,7 @@ export async function apiPostJson<T>(path: string, body: any, init?: RequestInit
   });
 }
 
-// 4. إضافة دالة مساعدة لطلبات الـ PUT (للتعديل)
-export async function apiPutJson<T>(path: string, body: any, init?: RequestInit): Promise<T> {
+export async function apiPutJson<T>(path: string, body: unknown, init?: RequestInit): Promise<T> {
   return apiGetJson<T>(path, {
     ...init,
     method: 'PUT',
@@ -57,10 +113,10 @@ export async function apiPutJson<T>(path: string, body: any, init?: RequestInit)
   });
 }
 
-// 5. إضافة دالة مساعدة لطلبات الـ DELETE (للحذف)
 export async function apiDeleteJson<T>(path: string, init?: RequestInit): Promise<T> {
   return apiGetJson<T>(path, {
     ...init,
     method: 'DELETE',
   });
 }
+
