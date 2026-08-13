@@ -703,6 +703,13 @@ export function VariousSection() {
                                         if (top + 320 > window.innerHeight) {
                                           top = rect.top - 4 - 320;
                                         }
+                                        // Ensure popover does not appear underneath the global header
+                                        try {
+                                          const headerHeightRaw = getComputedStyle(document.documentElement).getPropertyValue('--app-header-height') || '';
+                                          const headerHeight = parseFloat(headerHeightRaw.replace('px','')) || 0;
+                                          const minTop = headerHeight + 8; // small gap
+                                          if (top < minTop) top = minTop;
+                                        } catch {}
                                         setTagPopoverPos({ top, right });
                                       }
                                       setTagPopoverFileId(next);

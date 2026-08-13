@@ -177,6 +177,31 @@ export default function App() {
     document.title = pageTitles[location.pathname] || 'لوحة التحكم';
   }, [location.pathname]);
 
+  // Initialize runtime header height measurement so --app-header-height matches the
+  // actual header element in the DOM. This complements the static values in theme.css
+  // (which serve as reasonable defaults) by measuring the real element at runtime.
+  useEffect(() => {
+    // Lazy import the runtime helper to avoid increasing initial bundle size for SSR
+    let teardown: (() => void) | undefined;
+    (async () => {
+      try {
+        const mod = await import('./utils/header');
+        if (mod && typeof mod.initRuntimeHeaderHeight === 'function') {
+          teardown = mod.initRuntimeHeaderHeight();
+        } else if (typeof (mod as any).default === 'function') {
+          teardown = (mod as any).default();
+        }
+      } catch (e) {
+        // Non-fatal: keep the CSS defaults
+        // console.warn('Failed to initialize runtime header height measurement', e);
+      }
+    })();
+
+    return () => {
+      if (typeof teardown === 'function') teardown();
+    };
+  }, []);
+
   // Standalone digital business card route — rendered without the sidebar/main shell.
   if (isCardRoute) {
     return (
