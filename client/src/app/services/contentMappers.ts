@@ -4,7 +4,7 @@ import type { Father } from '../data/fathers';
 
 type ServerTag = { name: string };
 
-export type ServerHymnFile = {
+type ServerHymnFile = {
   type: string;
   fileUrl: string;
   originalName?: string | null;

@@ -4,9 +4,19 @@ import { apiGetJson, apiRequest } from './apiClient';
 export type ServerTag = {
   id: string;
   name: string;
-  category: string | null;
-  // Server returns lightweight relation counts instead of full hymn/saying arrays.
+  order?: number;
+  sectionId?: string | null;
+  category?: string;
+  section?: ServerTagSection | null;
   _count?: { hymns: number; sayings: number; images: number };
+};
+
+export type ServerTagSection = {
+  id: string;
+  name: string;
+  order: number;
+  _count?: { tags: number };
+  tags?: ServerTag[];
 };
 
 export interface Section {
@@ -18,7 +28,7 @@ export interface Section {
 export interface Topic {
   id: string;
   name: string;
-  sectionId: string;
+  sectionId: string | null;
   order: number;
 }
 
@@ -26,17 +36,6 @@ export interface TopicsBySection {
   section: Section;
   topics: string[];
 }
-
-export const DEFAULT_CATEGORY = 'مواضيع متنوعة';
-
-export const DEFAULT_SECTIONS: Section[] = [
-  { id: 'الأعياد السيدية', name: 'الأعياد السيدية', order: 1 },
-  { id: 'مناسبات كنسية', name: 'مناسبات كنسية', order: 2 },
-  { id: 'أسرار كنسية', name: 'أسرار كنسية', order: 3 },
-  { id: 'فضائل روحية', name: 'فضائل روحية', order: 4 },
-  { id: 'شخصيات كتابية', name: 'شخصيات كتابية', order: 5 },
-  { id: DEFAULT_CATEGORY, name: DEFAULT_CATEGORY, order: 6 },
-];
 
 export const TAGS_UPDATED_EVENT = 'adhg:tags-updated';
 
@@ -62,59 +61,68 @@ async function ensureOk(res: Response, message: string) {
   throw new Error(detail || message);
 }
 
-export function resolveCategory(category: string | null | undefined): string {
-  const trimmed = category?.trim();
-  return trimmed || DEFAULT_CATEGORY;
-}
+// ─── TagSection CRUD ────────────────────────────────────────────
 
-export function mapTagsToSectionsAndTopics(tags: ServerTag[]): {
-  sections: Section[];
-  topics: Topic[];
-} {
-  const categoriesFromTags = new Set(tags.map((t) => resolveCategory(t.category)));
-  const knownNames = new Set(DEFAULT_SECTIONS.map((s) => s.name));
-
-  const extraSections: Section[] = Array.from(categoriesFromTags)
-    .filter((name) => !knownNames.has(name))
-    .map((name, index) => ({
-      id: name,
-      name,
-      order: DEFAULT_SECTIONS.length + index + 1,
-    }));
-
-  const sections = [...DEFAULT_SECTIONS, ...extraSections].sort((a, b) => a.order - b.order);
-
-  const topics: Topic[] = [];
-  for (const section of sections) {
-    const sectionTags = tags
-      .filter((t) => resolveCategory(t.category) === section.id)
-      .sort((a, b) => a.name.localeCompare(b.name, 'ar'));
-
-    sectionTags.forEach((tag, index) => {
-      topics.push({
-        id: tag.id,
-        name: tag.name,
-        sectionId: section.id,
-        order: index + 1,
-      });
-    });
+export async function fetchAllSections(): Promise<ServerTagSection[]> {
+  if (!isApiConfigured()) {
+    throw new Error('VITE_API_BASE_URL is required for tag sections');
   }
-
-  return { sections, topics };
+  const rows = await apiGetJson<ServerTagSection[]>('/api/tag-sections');
+  if (!Array.isArray(rows)) throw new Error('Invalid sections response');
+  return rows;
 }
 
-export function groupTopicsBySection(sections: Section[], topics: Topic[]): TopicsBySection[] {
-  const sortedSections = [...sections].sort((a, b) => a.order - b.order);
-  return sortedSections
-    .map((section) => ({
-      section,
-      topics: topics
-        .filter((t) => t.sectionId === section.id)
-        .sort((a, b) => a.order - b.order)
-        .map((t) => t.name),
-    }))
-    .filter((group) => group.topics.length > 0);
+export async function createSection(
+  name: string,
+  token?: string | null,
+): Promise<ServerTagSection> {
+  const res = await apiRequest('/api/tag-sections', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...withAuth(token) },
+    body: JSON.stringify({ name: name.trim() }),
+  });
+  await ensureOk(res, 'Failed to create section');
+  return res.json() as Promise<ServerTagSection>;
 }
+
+export async function updateSection(
+  id: string,
+  name: string,
+  token?: string | null,
+): Promise<ServerTagSection> {
+  const res = await apiRequest(`/api/tag-sections/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...withAuth(token) },
+    body: JSON.stringify({ name: name.trim() }),
+  });
+  await ensureOk(res, 'Failed to update section');
+  return res.json() as Promise<ServerTagSection>;
+}
+
+export async function deleteSection(
+  id: string,
+  token?: string | null,
+): Promise<void> {
+  const res = await apiRequest(`/api/tag-sections/${id}`, {
+    method: 'DELETE',
+    headers: { ...withAuth(token) },
+  });
+  await ensureOk(res, 'Failed to delete section');
+}
+
+export async function reorderSections(
+  orderedIds: string[],
+  token?: string | null,
+): Promise<void> {
+  const res = await apiRequest('/api/tag-sections/reorder/batch', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...withAuth(token) },
+    body: JSON.stringify({ orderedIds }),
+  });
+  await ensureOk(res, 'Failed to reorder sections');
+}
+
+// ─── Tag CRUD ────────────────────────────────────────────────────
 
 export async function fetchAllTags(): Promise<ServerTag[]> {
   if (!isApiConfigured()) {
@@ -126,7 +134,7 @@ export async function fetchAllTags(): Promise<ServerTag[]> {
 }
 
 export async function createTag(
-  data: { name: string; category?: string | null },
+  data: { name: string; sectionId?: string | null },
   token?: string | null,
 ): Promise<ServerTag> {
   const res = await apiRequest('/api/tags', {
@@ -134,7 +142,7 @@ export async function createTag(
     headers: { 'Content-Type': 'application/json', ...withAuth(token) },
     body: JSON.stringify({
       name: data.name.trim(),
-      category: data.category?.trim() || null,
+      sectionId: data.sectionId || null,
     }),
   });
   await ensureOk(res, 'Failed to create tag');
@@ -143,14 +151,12 @@ export async function createTag(
 
 export async function updateTag(
   id: string,
-  data: { name?: string; category?: string | null },
+  data: { name?: string; sectionId?: string | null },
   token?: string | null,
 ): Promise<ServerTag> {
-  const body: { name?: string; category?: string | null } = {};
+  const body: { name?: string; sectionId?: string | null } = {};
   if (data.name !== undefined) body.name = data.name.trim();
-  if (data.category !== undefined) {
-    body.category = data.category?.trim() || null;
-  }
+  if (data.sectionId !== undefined) body.sectionId = data.sectionId || null;
 
   const res = await apiRequest(`/api/tags/${id}`, {
     method: 'PUT',
@@ -167,4 +173,61 @@ export async function deleteTag(id: string, token?: string | null): Promise<void
     headers: { ...withAuth(token) },
   });
   await ensureOk(res, 'Failed to delete tag');
+}
+
+export async function reorderTags(
+  orderedIds: string[],
+  token?: string | null,
+): Promise<void> {
+  const res = await apiRequest('/api/tags/reorder/batch', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...withAuth(token) },
+    body: JSON.stringify({ orderedIds }),
+  });
+  await ensureOk(res, 'Failed to reorder tags');
+}
+
+// ─── Mapping helpers ─────────────────────────────────────────────
+
+export function mapTagsToSectionsAndTopics(
+  tags: ServerTag[],
+  sections: Section[],
+): { sections: Section[]; topics: Topic[] } {
+  const topics: Topic[] = tags.map((tag, idx) => ({
+    id: tag.id,
+    name: tag.name,
+    sectionId: tag.sectionId || null,
+    order: tag.order ?? idx,
+  }));
+  topics.sort((a, b) => a.order - b.order);
+  return { sections, topics };
+}
+
+export function groupTopicsBySection(sections: Section[], topics: Topic[]): TopicsBySection[] {
+  const sortedSections = [...sections].sort((a, b) => a.order - b.order);
+  const sectionIds = new Set(sortedSections.map((s) => s.id));
+
+  const result: TopicsBySection[] = sortedSections
+    .map((section) => ({
+      section,
+      topics: topics
+        .filter((t) => t.sectionId === section.id)
+        .sort((a, b) => a.order - b.order)
+        .map((t) => t.name),
+    }))
+    .filter((group) => group.topics.length > 0);
+
+  const unassigned = topics
+    .filter((t) => !t.sectionId || !sectionIds.has(t.sectionId))
+    .sort((a, b) => a.order - b.order)
+    .map((t) => t.name);
+
+  if (unassigned.length > 0) {
+    result.push({
+      section: { id: '__default__', name: 'مواضيع متنوعة', order: Infinity },
+      topics: unassigned,
+    });
+  }
+
+  return result;
 }

@@ -1,16 +1,18 @@
 import { prisma } from './prisma.js';
 
+const TAG_SELECT = { id: true, name: true };
+
 export const SayingService = {
   getAll: async () => {
     return prisma.saying.findMany({
-      include: { tags: true }
+      include: { tags: { select: TAG_SELECT } }
     });
   },
 
   getById: async (id) => {
     return prisma.saying.findUnique({
       where: { id },
-      include: { tags: true }
+      include: { tags: { select: TAG_SELECT } }
     });
   },
 
@@ -30,7 +32,7 @@ export const SayingService = {
             }
           : undefined
       },
-      include: { tags: true }
+      include: { tags: { select: TAG_SELECT } }
     });
   },
 
@@ -43,7 +45,7 @@ export const SayingService = {
         source: data.source,
         content: data.content,
         tags: {
-          set: [], // clear old
+          set: [],
           ...(data.tags && data.tags.length > 0
             ? {
                 connectOrCreate: data.tags.map(tag => ({
@@ -54,7 +56,7 @@ export const SayingService = {
             : {})
         }
       },
-      include: { tags: true }
+      include: { tags: { select: TAG_SELECT } }
     });
   },
 
@@ -62,5 +64,33 @@ export const SayingService = {
     return prisma.saying.delete({
       where: { id }
     });
+  },
+
+  bulkImport: async (rows) => {
+    return prisma.$transaction(
+      rows.map(row => {
+        const tags = Array.isArray(row.tags)
+          ? row.tags.filter(Boolean)
+          : row.topic
+            ? [row.topic]
+            : [];
+
+        return prisma.saying.create({
+          data: {
+            content: row.content,
+            author: row.author,
+            source: row.source || null,
+            tags: tags.length > 0
+              ? {
+                  connectOrCreate: tags.map(tag => ({
+                    where: { name: tag },
+                    create: { name: tag }
+                  }))
+                }
+              : undefined
+          }
+        });
+      })
+    );
   }
 };

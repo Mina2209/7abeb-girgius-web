@@ -10,9 +10,9 @@ export function LoginRequiredModal({ isOpen, onClose, onLoginClick }: LoginRequi
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto" onClick={onClose}>
       <div 
-        className="bg-card rounded-xl shadow-2xl max-w-md w-full p-6 space-y-6"
+        className="bg-card rounded-xl shadow-2xl max-w-md w-full p-6 space-y-6 max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

@@ -114,7 +114,7 @@ export function FathersSection() {
           }`}
         >
           <div>
-            <h1 className="mb-2 font-bold text-[36px]">الآباء</h1>
+            <h1 className="mb-2 font-bold text-2xl sm:text-3xl lg:text-[36px]">الآباء</h1>
             <p className="text-muted-foreground leading-relaxed">
               آباء الكنيسة وقديسيها
             </p>
@@ -163,14 +163,14 @@ export function FathersSection() {
                       <img
                         src={father.profileImage}
                         alt={father.name}
-                        className="w-32 h-32 rounded-full object-cover border-4 border-background shadow-xl group-hover:scale-110 transition-transform duration-300"
+                        className="w-24 h-24 sm:w-32 sm:h-32 rounded-full object-cover border-4 border-background shadow-xl group-hover:scale-110 transition-transform duration-300"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = '';
                           (e.target as HTMLImageElement).style.display = 'none';
                         }}
                       />
                     ) : (
-                      <div className="w-32 h-32 rounded-full border-4 border-background shadow-xl bg-muted flex items-center justify-center">
+                      <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-background shadow-xl bg-muted flex items-center justify-center">
                         <ImageIcon className="w-12 h-12 text-muted-foreground" />
                       </div>
                     )}

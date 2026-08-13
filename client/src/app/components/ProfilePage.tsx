@@ -103,11 +103,11 @@ export function ProfilePage({ onNavigateToFavorites }: ProfilePageProps) {
   });
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="max-w-4xl mx-auto px-4 sm:p-6 space-y-6">
       {/* Header */}
-      <div className="bg-card rounded-xl p-6 shadow-sm">
-        <div className="flex items-start gap-6">
-          <div className="relative group">
+      <div className="bg-card rounded-xl p-4 sm:p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6">
+          <div className="relative group flex-shrink-0">
             <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center text-primary overflow-hidden">
               {profile.avatar_url ? (
                 <img src={profile.avatar_url} alt={profile.full_name} className="w-full h-full rounded-full object-cover" />
@@ -131,21 +131,21 @@ export function ProfilePage({ onNavigateToFavorites }: ProfilePageProps) {
               className="hidden"
             />
           </div>
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-2">
-              <h1 className="text-2xl font-bold">{profile.full_name}</h1>
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-3">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold truncate">{profile.full_name}</h1>
               <button
                 onClick={() => setIsEditing(!isEditing)}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
+                className="flex items-center justify-center sm:justify-start gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap"
               >
                 <Edit className="w-4 h-4" />
                 <span>{isEditing ? 'إلغاء' : 'تعديل الملف الشخصي'}</span>
               </button>
             </div>
-            <div className="space-y-2 text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4" />
-                <span>{profile.email}</span>
+            <div className="space-y-2 text-muted-foreground text-sm sm:text-base">
+              <div className="flex items-center gap-2 truncate">
+                <Mail className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">{profile.email}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
@@ -157,7 +157,7 @@ export function ProfilePage({ onNavigateToFavorites }: ProfilePageProps) {
       </div>
 
       {/* Personal Information */}
-      <div className="bg-card rounded-xl p-6 shadow-sm">
+      <div className="bg-card rounded-xl p-4 sm:p-6 shadow-sm">
         <h2 className="text-xl font-bold mb-4">المعلومات الشخصية</h2>
         <div className="space-y-4">
           {isEditing ? (
@@ -170,7 +170,7 @@ export function ProfilePage({ onNavigateToFavorites }: ProfilePageProps) {
                     type="text"
                     value={editedProfile.fullName}
                     onChange={(e) => setEditedProfile({ ...editedProfile, fullName: e.target.value })}
-                    className="w-full pr-11 pl-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className="w-full pr-10 pl-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm sm:text-base"
                   />
                 </div>
               </div>
@@ -182,7 +182,7 @@ export function ProfilePage({ onNavigateToFavorites }: ProfilePageProps) {
                     type="text"
                     value={editedProfile.churchName}
                     onChange={(e) => setEditedProfile({ ...editedProfile, churchName: e.target.value })}
-                    className="w-full pr-11 pl-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className="w-full pr-10 pl-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm sm:text-base"
                   />
                 </div>
               </div>
@@ -204,30 +204,30 @@ export function ProfilePage({ onNavigateToFavorites }: ProfilePageProps) {
               </div>
               <button
                 onClick={handleSave}
-                className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-medium hover:opacity-90 transition-opacity"
+                className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-medium hover:opacity-90 transition-opacity text-sm sm:text-base"
               >
                 حفظ التغييرات
               </button>
             </>
           ) : (
             <>
-              <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                <Church className="w-5 h-5 text-primary" />
-                <div>
+              <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg text-sm sm:text-base">
+                <Church className="w-5 h-5 text-primary flex-shrink-0" />
+                <div className="min-w-0">
                   <p className="text-sm text-muted-foreground">اسم الكنيسة</p>
                   <p className="font-medium">{profile.church_name}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                <Briefcase className="w-5 h-5 text-primary" />
-                <div>
+              <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg text-sm sm:text-base">
+                <Briefcase className="w-5 h-5 text-primary flex-shrink-0" />
+                <div className="min-w-0">
                   <p className="text-sm text-muted-foreground">الدور في الكنيسة</p>
                   <p className="font-medium">{profile.church_role}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                <Users className="w-5 h-5 text-primary" />
-                <div>
+              <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg text-sm sm:text-base">
+                <Users className="w-5 h-5 text-primary flex-shrink-0" />
+                <div className="min-w-0">
                   <p className="text-sm text-muted-foreground">الخدمات التي تقدمها</p>
                   <p className="font-medium">
                     {profile.services && Array.isArray(profile.services) && profile.services.length > 0 
@@ -242,7 +242,7 @@ export function ProfilePage({ onNavigateToFavorites }: ProfilePageProps) {
       </div>
 
       {/* Change Password */}
-      <div className="bg-card rounded-xl p-6 shadow-sm">
+      <div className="bg-card rounded-xl p-4 sm:p-6 shadow-sm">
         <div className="flex items-start justify-between mb-4">
           <div>
             <h2 className="text-xl font-bold mb-2">الأمان</h2>

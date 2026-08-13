@@ -3,12 +3,16 @@ import { loadGalleryImagesData, loadHymnsData, loadSayingsData } from '../servic
 import { useAuth } from '../contexts/AuthContext';
 import {
   createTag,
-  DEFAULT_CATEGORY,
+  createSection,
   deleteTag,
+  deleteSection,
+  fetchAllSections,
   fetchAllTags,
-  mapTagsToSectionsAndTopics,
-  notifyTagsUpdated,
+  reorderSections,
+  reorderTags,
   updateTag,
+  updateSection,
+  notifyTagsUpdated,
   type Section,
   type Topic,
 } from '../services/tagsService';
@@ -17,6 +21,10 @@ import { normalizeArabic } from '../utils/arabicUtils';
 import { Plus, Edit2, Trash2, Search, Tag, AlertTriangle, Save, X, ChevronDown, ChevronUp, FolderOpen, Folder } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+
+const DEFAULT_SECTION_NAME = 'مواضيع متنوعة';
+const UNASSIGNED_SECTION_ID = '__unassigned__';
+const UNASSIGNED_SECTION_NAME = 'غير مصنف';
 
 interface DeleteConfirmation {
   topicId?: string;
@@ -65,17 +73,32 @@ export function TopicsManagementPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [tags, hymns, sayings, images] = await Promise.all([
+      const [serverSections, tags, hymns, sayings, images] = await Promise.all([
+        fetchAllSections(),
         fetchAllTags(),
         loadHymnsData(),
         loadSayingsData(),
         loadGalleryImagesData(),
       ]);
-      const { sections: nextSections, topics: nextTopics } = mapTagsToSectionsAndTopics(tags);
-      setSections(nextSections);
-      setTopics(nextTopics);
+      const sectionList: Section[] = serverSections.map((s) => ({
+        id: s.id,
+        name: s.name,
+        order: s.order,
+      }));
+      const topicList: Topic[] = tags.map((t, idx) => ({
+        id: t.id,
+        name: t.name,
+        sectionId: t.sectionId || null,
+        order: t.order ?? idx,
+      }));
+      setSections(sectionList);
+      setTopics(topicList);
       setContentCache({ hymns, sayings, images });
-      setExpandedSections(new Set(nextSections.map((s) => s.id)));
+      const expanded = new Set(sectionList.map((s) => s.id));
+      if (topicList.some(t => !t.sectionId)) {
+        expanded.add(UNASSIGNED_SECTION_ID);
+      }
+      setExpandedSections(expanded);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Failed to load topics');
     } finally {
@@ -87,7 +110,6 @@ export function TopicsManagementPage() {
     reloadFromApi();
   }, [reloadFromApi]);
 
-  // Handle keyboard shortcuts for delete confirmation
   useEffect(() => {
     if (!deleteConfirmation) return;
 
@@ -138,11 +160,20 @@ export function TopicsManagementPage() {
   }, [contentCache]);
 
   const getSectionTopicsCount = (sectionId: string): number => {
+    if (sectionId === UNASSIGNED_SECTION_ID) {
+      return topics.filter(t => !t.sectionId).length;
+    }
     return topics.filter(t => t.sectionId === sectionId).length;
   };
 
-  // Section Management (sections are category names; empty sections exist in UI only)
-  const handleAddSection = () => {
+  const getDefaultSectionId = (): string | null => {
+    const defaultSection = sections.find(s => s.name === DEFAULT_SECTION_NAME);
+    return defaultSection?.id || null;
+  };
+
+  // ─── Section Management (backend) ──────────────────────────────
+
+  const handleAddSection = async () => {
     if (!newSectionName.trim()) return;
 
     if (sections.some(s => s.name.toLowerCase() === newSectionName.toLowerCase())) {
@@ -150,41 +181,57 @@ export function TopicsManagementPage() {
       return;
     }
 
-    const name = newSectionName.trim();
-    const newSection: Section = {
-      id: name,
-      name,
-      order: sections.length + 1,
-    };
-
-    setSections([...sections, newSection]);
-    setNewSectionName('');
+    setSaving(true);
+    try {
+      await createSection(newSectionName.trim(), accessToken);
+      await reloadFromApi();
+      notifyTagsUpdated();
+      setNewSectionName('');
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'فشل إضافة القسم');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleMoveSectionUp = (sectionId: string) => {
-    const index = sections.findIndex(s => s.id === sectionId);
+  const handleMoveSectionUp = async (sectionId: string) => {
+    const sorted = [...sections].sort((a, b) => a.order - b.order);
+    const index = sorted.findIndex(s => s.id === sectionId);
     if (index <= 0) return;
 
-    const updatedSections = [...sections];
-    [updatedSections[index - 1], updatedSections[index]] = [updatedSections[index], updatedSections[index - 1]];
-    
-    // Update order values
-    updatedSections.forEach((s, i) => s.order = i + 1);
-    
-    setSections(updatedSections);
+    const reordered = sorted.map(s => s.id);
+    [reordered[index - 1], reordered[index]] = [reordered[index], reordered[index - 1]];
+
+    setSaving(true);
+    try {
+      await reorderSections(reordered, accessToken);
+      await reloadFromApi();
+      notifyTagsUpdated();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'فشل ترتيب الأقسام');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleMoveSectionDown = (sectionId: string) => {
-    const index = sections.findIndex(s => s.id === sectionId);
-    if (index < 0 || index >= sections.length - 1) return;
+  const handleMoveSectionDown = async (sectionId: string) => {
+    const sorted = [...sections].sort((a, b) => a.order - b.order);
+    const index = sorted.findIndex(s => s.id === sectionId);
+    if (index < 0 || index >= sorted.length - 1) return;
 
-    const updatedSections = [...sections];
-    [updatedSections[index], updatedSections[index + 1]] = [updatedSections[index + 1], updatedSections[index]];
-    
-    // Update order values
-    updatedSections.forEach((s, i) => s.order = i + 1);
-    
-    setSections(updatedSections);
+    const reordered = sorted.map(s => s.id);
+    [reordered[index], reordered[index + 1]] = [reordered[index + 1], reordered[index]];
+
+    setSaving(true);
+    try {
+      await reorderSections(reordered, accessToken);
+      await reloadFromApi();
+      notifyTagsUpdated();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'فشل ترتيب الأقسام');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleStartEditSection = (section: Section) => {
@@ -208,23 +255,9 @@ export function TopicsManagementPage() {
       return;
     }
 
-    const tagsInSection = topics.filter((t) => t.sectionId === editingSectionId);
-    if (tagsInSection.length === 0) {
-      setSections(sections.map((s) =>
-        s.id === editingSectionId ? { ...s, id: newName, name: newName } : s,
-      ));
-      setEditingSectionId(null);
-      setEditingSectionName('');
-      return;
-    }
-
     setSaving(true);
     try {
-      await Promise.all(
-        tagsInSection.map((t) =>
-          updateTag(t.id, { category: newName }, accessToken),
-        ),
-      );
+      await updateSection(editingSectionId, newName, accessToken);
       await reloadFromApi();
       notifyTagsUpdated();
       setEditingSectionId(null);
@@ -255,7 +288,8 @@ export function TopicsManagementPage() {
     });
   };
 
-  // Topic Management
+  // ─── Topic Management (backend) ────────────────────────────────
+
   const handleAddTopic = async () => {
     if (!newTopicName.trim()) return;
 
@@ -264,16 +298,12 @@ export function TopicsManagementPage() {
       return;
     }
 
-    const targetSectionId =
-      newTopicSection ||
-      sections.find((s) => s.name === DEFAULT_CATEGORY)?.id ||
-      sections[sections.length - 1]?.id ||
-      DEFAULT_CATEGORY;
+    const targetSectionId = newTopicSection || getDefaultSectionId();
 
     setSaving(true);
     try {
       await createTag(
-        { name: newTopicName.trim(), category: targetSectionId },
+        { name: newTopicName.trim(), sectionId: targetSectionId },
         accessToken,
       );
       await reloadFromApi();
@@ -290,7 +320,7 @@ export function TopicsManagementPage() {
   const handleStartEditTopic = (topic: Topic) => {
     setEditingTopicId(topic.id);
     setEditingTopicName(topic.name);
-    setEditingTopicSection(topic.sectionId);
+    setEditingTopicSection(topic.sectionId || '');
   };
 
   const handleSaveEditTopic = async () => {
@@ -305,7 +335,7 @@ export function TopicsManagementPage() {
     try {
       await updateTag(
         editingTopicId,
-        { name: editingTopicName.trim(), category: editingTopicSection },
+        { name: editingTopicName.trim(), sectionId: editingTopicSection || getDefaultSectionId() },
         accessToken,
       );
       await reloadFromApi();
@@ -344,8 +374,17 @@ export function TopicsManagementPage() {
     if (!deleteConfirmation) return;
 
     if (deleteConfirmation.type === 'section' && deleteConfirmation.sectionId) {
-      setSections(sections.filter((s) => s.id !== deleteConfirmation.sectionId));
-      setDeleteConfirmation(null);
+      setSaving(true);
+      try {
+        await deleteSection(deleteConfirmation.sectionId, accessToken);
+        await reloadFromApi();
+        notifyTagsUpdated();
+        setDeleteConfirmation(null);
+      } catch (e) {
+        alert(e instanceof Error ? e.message : 'فشل حذف القسم');
+      } finally {
+        setSaving(false);
+      }
       return;
     }
 
@@ -395,46 +434,56 @@ export function TopicsManagementPage() {
   }, [filteredTopics, getTopicUsageBreakdown]);
 
   const getTopicsForSection = (sectionId: string): TopicWithUsage[] => {
+    if (sectionId === UNASSIGNED_SECTION_ID) {
+      return topicsWithUsage
+        .filter(t => !t.sectionId)
+        .sort((a, b) => a.order - b.order);
+    }
     return topicsWithUsage
       .filter(t => t.sectionId === sectionId)
-      .sort((a, b) => a.order - b.order); // Sort by order
+      .sort((a, b) => a.order - b.order);
   };
 
-  // Topic Ordering
-  const handleMoveTopicUp = (topicId: string, sectionId: string) => {
-    const sectionTopics = topics.filter(t => t.sectionId === sectionId).sort((a, b) => a.order - b.order);
-    const index = sectionTopics.findIndex(t => t.id === topicId);
+  // ─── Topic Ordering (backend) ──────────────────────────────────
+
+  const handleMoveTopicUp = async (topicId: string, _sectionId: string) => {
+    const sorted = [...topics].sort((a, b) => a.order - b.order);
+    const index = sorted.findIndex(t => t.id === topicId);
     if (index <= 0) return;
 
-    // Swap orders
-    const updatedTopics = topics.map(t => {
-      if (t.id === sectionTopics[index].id) {
-        return { ...t, order: sectionTopics[index - 1].order };
-      } else if (t.id === sectionTopics[index - 1].id) {
-        return { ...t, order: sectionTopics[index].order };
-      }
-      return t;
-    });
+    const reordered = sorted.map(t => t.id);
+    [reordered[index - 1], reordered[index]] = [reordered[index], reordered[index - 1]];
 
-    setTopics(updatedTopics);
+    setSaving(true);
+    try {
+      await reorderTags(reordered, accessToken);
+      await reloadFromApi();
+      notifyTagsUpdated();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'فشل ترتيب المواضيع');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleMoveTopicDown = (topicId: string, sectionId: string) => {
-    const sectionTopics = topics.filter(t => t.sectionId === sectionId).sort((a, b) => a.order - b.order);
-    const index = sectionTopics.findIndex(t => t.id === topicId);
-    if (index < 0 || index >= sectionTopics.length - 1) return;
+  const handleMoveTopicDown = async (topicId: string, _sectionId: string) => {
+    const sorted = [...topics].sort((a, b) => a.order - b.order);
+    const index = sorted.findIndex(t => t.id === topicId);
+    if (index < 0 || index >= sorted.length - 1) return;
 
-    // Swap orders
-    const updatedTopics = topics.map(t => {
-      if (t.id === sectionTopics[index].id) {
-        return { ...t, order: sectionTopics[index + 1].order };
-      } else if (t.id === sectionTopics[index + 1].id) {
-        return { ...t, order: sectionTopics[index].order };
-      }
-      return t;
-    });
+    const reordered = sorted.map(t => t.id);
+    [reordered[index], reordered[index + 1]] = [reordered[index + 1], reordered[index]];
 
-    setTopics(updatedTopics);
+    setSaving(true);
+    try {
+      await reorderTags(reordered, accessToken);
+      await reloadFromApi();
+      notifyTagsUpdated();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'فشل ترتيب المواضيع');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -457,7 +506,7 @@ export function TopicsManagementPage() {
   return (
     <div className="max-w-6xl mx-auto" dir="rtl">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">إدارة المواضيع والأقسام</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">إدارة المواضيع والأقسام</h1>
         <p className="text-muted-foreground">
           إدارة الأقسام والمواضيع المستخدمة في جميع المكتبات (الترانيم، الأقوال، المعرض)
         </p>
@@ -497,7 +546,7 @@ export function TopicsManagementPage() {
         </h2>
 
         {/* Add New Section */}
-        <div className="flex gap-3 mb-6">
+        <div className="flex gap-3 mb-6 flex-wrap">
           <Input
             type="text"
             placeholder="اسم القسم الجديد"
@@ -506,7 +555,7 @@ export function TopicsManagementPage() {
             onKeyPress={(e) => e.key === 'Enter' && handleAddSection()}
             className="flex-1"
           />
-          <Button onClick={handleAddSection} disabled={!newSectionName.trim()}>
+          <Button onClick={handleAddSection} disabled={!newSectionName.trim() || saving}>
             <Plus className="w-4 h-4 ml-2" />
             إضافة قسم
           </Button>
@@ -514,10 +563,10 @@ export function TopicsManagementPage() {
 
         {/* Sections List */}
         <div className="space-y-2">
-          {sections.map((section, index) => (
+          {[...sections].sort((a, b) => a.order - b.order).map((section, index) => (
             <div
               key={section.id}
-              className="flex items-center gap-3 p-3 border border-border rounded-lg hover:bg-muted/30 transition-colors"
+              className="flex items-center gap-3 p-3 border border-border rounded-lg hover:bg-muted/30 transition-colors flex-wrap"
             >
               {editingSectionId === section.id ? (
                 <>
@@ -529,7 +578,7 @@ export function TopicsManagementPage() {
                     className="flex-1"
                     autoFocus
                   />
-                  <Button size="sm" variant="ghost" onClick={handleSaveEditSection}>
+                  <Button size="sm" variant="ghost" onClick={handleSaveEditSection} disabled={saving}>
                     <Save className="w-4 h-4" />
                   </Button>
                   <Button size="sm" variant="ghost" onClick={handleCancelEditSection}>
@@ -548,7 +597,7 @@ export function TopicsManagementPage() {
                       size="sm"
                       variant="ghost"
                       onClick={() => handleMoveSectionUp(section.id)}
-                      disabled={index === 0}
+                      disabled={index === 0 || saving}
                     >
                       <ChevronUp className="w-4 h-4" />
                     </Button>
@@ -556,7 +605,7 @@ export function TopicsManagementPage() {
                       size="sm"
                       variant="ghost"
                       onClick={() => handleMoveSectionDown(section.id)}
-                      disabled={index === sections.length - 1}
+                      disabled={index === sections.length - 1 || saving}
                     >
                       <ChevronDown className="w-4 h-4" />
                     </Button>
@@ -572,7 +621,7 @@ export function TopicsManagementPage() {
                       variant="ghost"
                       className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       onClick={() => handleDeleteSection(section.id)}
-                      disabled={getSectionTopicsCount(section.id) > 0}
+                      disabled={getSectionTopicsCount(section.id) > 0 || saving}
                       title={getSectionTopicsCount(section.id) > 0 ? 'لا يمكن حذف قسم يحتوي على مواضيع' : ''}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -588,7 +637,7 @@ export function TopicsManagementPage() {
       {/* Add New Topic */}
       <div className="bg-card border border-border rounded-lg p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">إضافة موضوع جديد</h2>
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
           <Input
             type="text"
             placeholder="اسم الموضوع الجديد"
@@ -607,7 +656,7 @@ export function TopicsManagementPage() {
               <option key={section.id} value={section.id}>{section.name}</option>
             ))}
           </select>
-          <Button onClick={handleAddTopic} disabled={!newTopicName.trim()}>
+          <Button onClick={handleAddTopic} disabled={!newTopicName.trim() || saving}>
             <Plus className="w-4 h-4 ml-2" />
             إضافة
           </Button>
@@ -630,9 +679,16 @@ export function TopicsManagementPage() {
 
       {/* Topics by Section (Accordion) */}
       <div className="space-y-4">
-        {sections.map(section => {
-          const sectionTopics = getTopicsForSection(section.id);
-          const isExpanded = expandedSections.has(section.id);
+        {(() => {
+          const unassignedTopics = topicsWithUsage.filter(t => !t.sectionId);
+          const hasUnassigned = unassignedTopics.length > 0;
+          const sortedSections = [...sections].sort((a, b) => a.order - b.order);
+          const displaySections = hasUnassigned
+            ? [...sortedSections, { id: UNASSIGNED_SECTION_ID, name: UNASSIGNED_SECTION_NAME, order: Infinity }]
+            : sortedSections;
+          return displaySections.map(section => {
+            const sectionTopics = getTopicsForSection(section.id);
+            const isExpanded = expandedSections.has(section.id);
 
           return (
             <div key={section.id} className="bg-card border border-border rounded-lg overflow-hidden">
@@ -709,7 +765,7 @@ export function TopicsManagementPage() {
                                   </select>
                                 ) : (
                                   <span className="text-sm text-muted-foreground">
-                                    {sections.find(s => s.id === topic.sectionId)?.name}
+                                    {sections.find(s => s.id === topic.sectionId)?.name || DEFAULT_SECTION_NAME}
                                   </span>
                                 )}
                               </td>
@@ -737,7 +793,7 @@ export function TopicsManagementPage() {
                               <td className="px-4 py-3">
                                 {editingTopicId === topic.id ? (
                                   <div className="flex gap-1 justify-center">
-                                    <Button size="sm" variant="ghost" onClick={handleSaveEditTopic}>
+                                    <Button size="sm" variant="ghost" onClick={handleSaveEditTopic} disabled={saving}>
                                       <Save className="w-4 h-4" />
                                     </Button>
                                     <Button size="sm" variant="ghost" onClick={handleCancelEditTopic}>
@@ -750,7 +806,7 @@ export function TopicsManagementPage() {
                                       size="sm"
                                       variant="ghost"
                                       onClick={() => handleMoveTopicUp(topic.id, section.id)}
-                                      disabled={sectionTopics.indexOf(topic) === 0}
+                                      disabled={sectionTopics.indexOf(topic) === 0 || saving}
                                       title="نقل لأعلى"
                                     >
                                       <ChevronUp className="w-4 h-4" />
@@ -759,7 +815,7 @@ export function TopicsManagementPage() {
                                       size="sm"
                                       variant="ghost"
                                       onClick={() => handleMoveTopicDown(topic.id, section.id)}
-                                      disabled={sectionTopics.indexOf(topic) === sectionTopics.length - 1}
+                                      disabled={sectionTopics.indexOf(topic) === sectionTopics.length - 1 || saving}
                                       title="نقل لأسفل"
                                     >
                                       <ChevronDown className="w-4 h-4" />
@@ -794,7 +850,8 @@ export function TopicsManagementPage() {
               )}
             </div>
           );
-        })}
+        });
+        })()}
       </div>
 
       {/* Delete Confirmation */}
@@ -829,17 +886,17 @@ export function TopicsManagementPage() {
                 {deleteConfirmation.type === 'topic' && deleteConfirmation.usage.total > 0 ? (
                   <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-3 mb-2">
                     <p className="text-sm text-destructive font-semibold mb-2">
-                      ⚠️ يوجد {deleteConfirmation.usage.total} عنصر يستخدم هذا الموضوع
+                      يوجد {deleteConfirmation.usage.total} عنصر يستخدم هذا الموضوع
                     </p>
                     <div className="space-y-1 text-sm text-muted-foreground">
                       {deleteConfirmation.usage.hymns > 0 && (
-                        <p>• {deleteConfirmation.usage.hymns} ترنيمة</p>
+                        <p>- {deleteConfirmation.usage.hymns} ترنيمة</p>
                       )}
                       {deleteConfirmation.usage.images > 0 && (
-                        <p>• {deleteConfirmation.usage.images} صورة</p>
+                        <p>- {deleteConfirmation.usage.images} صورة</p>
                       )}
                       {deleteConfirmation.usage.sayings > 0 && (
-                        <p>• {deleteConfirmation.usage.sayings} قول</p>
+                        <p>- {deleteConfirmation.usage.sayings} قول</p>
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground mt-2">
@@ -852,6 +909,12 @@ export function TopicsManagementPage() {
                       هذا الموضوع غير مستخدم في أي عنصر حالياً.
                     </p>
                   </div>
+                ) : deleteConfirmation.type === 'section' && deleteConfirmation.usage.total > 0 ? (
+                  <div className="bg-muted/50 border border-border rounded-lg p-3 mb-2">
+                    <p className="text-sm text-muted-foreground">
+                      يحتوي القسم على {deleteConfirmation.usage.total} موضوع سيتم نقلها للقسم الافتراضي.
+                    </p>
+                  </div>
                 ) : (
                   <div className="bg-muted/50 border border-border rounded-lg p-3 mb-2">
                     <p className="text-sm text-muted-foreground">
@@ -862,10 +925,10 @@ export function TopicsManagementPage() {
               </div>
 
               <div className="flex gap-3 justify-end">
-                <Button variant="ghost" onClick={handleCancelDelete}>
+                <Button variant="ghost" onClick={handleCancelDelete} disabled={saving}>
                   إلغاء
                 </Button>
-                <Button variant="destructive" onClick={handleConfirmDelete} className="gap-2">
+                <Button variant="destructive" onClick={handleConfirmDelete} className="gap-2" disabled={saving}>
                   <Trash2 className="w-4 h-4" />
                   {deleteConfirmation.type === 'section' ? 'حذف القسم' : 'حذف الموضوع'}
                 </Button>
@@ -885,7 +948,7 @@ export function TopicsManagementPage() {
               <li>الأقسام تساعد في تنظيم المواضيع في المكتبات الثلاثة</li>
               <li>يمكن ترتيب الأقسام والمواضيع حسب الأولوية باستخدام الأسهم</li>
               <li>لا يمكن حذف قسم يحتوي على مواضيع</li>
-              <li>تعديل اسم الموضوع سيتم تحديثه تلقائياً في جميع المكتبات</li>
+              <li>عند حذف قسم، يتم نقل مواضيعه للقسم الافتراضي تلقائياً</li>
               <li>يمكن نقل المواضيع بين الأقسام وإعادة ترتيبها في أي وقت</li>
             </ul>
           </div>

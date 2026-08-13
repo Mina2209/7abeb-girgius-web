@@ -69,27 +69,33 @@ export function UserManagementPage() {
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
 
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     void loadUsers();
   }, []);
 
   const loadUsers = async () => {
-    const apiUsers = await apiGetJson<ServerUser[]>('/api/auth/users');
+    try {
+      setLoadError(null);
+      const apiUsers = await apiGetJson<ServerUser[]>('/api/auth/users');
 
-    const mapped: User[] = apiUsers.map((u) => ({
-      id: u.id,
-      email: u.username,
-      full_name: u.username,
-      church_name: '',
-      church_role: '',
-      services: [],
-      role: mapServerRoleToClient(u.role),
-      created_at: u.createdAt,
-      avatar_url: null,
-    }));
+      const mapped: User[] = apiUsers.map((u) => ({
+        id: u.id,
+        email: u.username,
+        full_name: u.username,
+        church_name: '',
+        church_role: '',
+        services: [],
+        role: mapServerRoleToClient(u.role),
+        created_at: u.createdAt,
+        avatar_url: null,
+      }));
 
-    setUsers(mapped);
+      setUsers(mapped);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'فشل تحميل المستخدمين');
+    }
   };
 
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
@@ -98,21 +104,25 @@ export function UserManagementPage() {
       return;
     }
 
-    const prismaRole = newRole === 'admin' ? 'ADMIN' : 'EDITOR';
+    const roleMap: Record<UserRole, ServerRole> = { admin: 'ADMIN', editor: 'EDITOR', viewer: 'VIEWER' };
+    const prismaRole = roleMap[newRole];
 
-    const res = await apiRequest(`/api/auth/users/${userId}`, {
-      method: 'PUT',
-      body: JSON.stringify({ role: prismaRole }),
-      headers: { 'Content-Type': 'application/json' },
-    });
+    try {
+      const res = await apiRequest(`/api/auth/users/${userId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ role: prismaRole }),
+        headers: { 'Content-Type': 'application/json' },
+      });
 
-    if (!res.ok) {
-      const txt = await res.text().catch(() => '');
-      throw new Error(txt || 'فشل تغيير صلاحية المستخدم');
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(txt || 'فشل تغيير صلاحية المستخدم');
+      }
+
+      await loadUsers();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'فشل تغيير الصلاحية');
     }
-
-    await loadUsers();
-    window.location.reload();
   };
 
   const handleDeleteUser = async (userId: string) => {
@@ -129,14 +139,18 @@ export function UserManagementPage() {
 
     if (!confirmed) return;
 
-    const res = await apiRequest(`/api/auth/users/${userId}`, { method: 'DELETE' });
+    try {
+      const res = await apiRequest(`/api/auth/users/${userId}`, { method: 'DELETE' });
 
-    if (!res.ok) {
-      const txt = await res.text().catch(() => '');
-      throw new Error(txt || 'فشل حذف المستخدم');
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(txt || 'فشل حذف المستخدم');
+      }
+
+      await loadUsers();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'فشل حذف المستخدم');
     }
-
-    await loadUsers();
   };
 
   const filteredUsers = useMemo(() => {
@@ -155,7 +169,7 @@ export function UserManagementPage() {
           return a.full_name.localeCompare(b.full_name, 'ar');
         case 'role': {
           const roleOrder = { admin: 0, editor: 1, viewer: 2 } as const;
-          return roleOrder[a.role] - roleOrder[b.role];
+          return (roleOrder[a.role] ?? 3) - (roleOrder[b.role] ?? 3);
         }
         case 'date':
         default:
@@ -220,7 +234,8 @@ export function UserManagementPage() {
     // السيرفر الحالي (auth.controller.js) createUser يستقبل username/password/role فقط.
     // لذلك نستخدم email كـ username.
     const username = userData.email;
-    const prismaRole: ServerRole = userData.role === 'admin' ? 'ADMIN' : 'EDITOR';
+    const roleMap: Record<UserRole, ServerRole> = { admin: 'ADMIN', editor: 'EDITOR', viewer: 'VIEWER' };
+    const prismaRole = roleMap[userData.role];
 
     const res = await apiRequest('/api/auth/users', {
       method: 'POST',
@@ -237,21 +252,25 @@ export function UserManagementPage() {
   };
 
   const handleExportLogs = async (format: 'csv' | 'json') => {
-    const allLogs = await apiGetJson<any[]>('/api/auth/logs');
-    if (format === 'csv') exportLogsToCSV(allLogs);
-    else exportLogsToJSON(allLogs);
+    try {
+      const allLogs = await apiGetJson<any[]>('/api/auth/logs');
+      if (format === 'csv') exportLogsToCSV(allLogs);
+      else exportLogsToJSON(allLogs);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'فشل تحميل سجل الأنشطة');
+    }
     setIsExportMenuOpen(false);
   };
 
   return (
     <div className="max-w-6xl mx-auto" dir="rtl">
       <div className="mb-8">
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-3xl font-bold mb-2">إدارة المستخدمين</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">إدارة المستخدمين</h1>
             <p className="text-muted-foreground">إدارة المستخدمين وتعيين الصلاحيات</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
               onClick={() => setIsAddUserModalOpen(true)}
               className="bg-primary text-primary-foreground hover:opacity-90"
@@ -302,6 +321,13 @@ export function UserManagementPage() {
           </div>
         </div>
       </div>
+
+      {loadError && (
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-lg p-4 mb-6 flex items-center justify-between">
+          <span>{loadError}</span>
+          <Button size="sm" variant="ghost" onClick={() => void loadUsers()}>إعادة المحاولة</Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-card border border-border rounded-lg p-4">
@@ -605,8 +631,8 @@ export function UserManagementPage() {
       </div>
 
       <div className="mt-6 bg-primary/5 border border-primary/20 rounded-lg p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="text-sm flex-1">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="text-sm flex-1 min-w-[200px]">
             <p className="font-semibold mb-2">مستويات الصلاحيات:</p>
             <ul className="space-y-2">
               <li className="flex items-start gap-2">

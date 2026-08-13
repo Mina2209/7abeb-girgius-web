@@ -22,6 +22,7 @@ import {
   Music,
 } from "lucide-react";
 import { useState, useMemo, useRef, useEffect } from "react";
+import { scrollElementIntoViewWithHeaderOffset } from "../utils/scroll";
 import { TagFilter } from "./TagFilter";
 import { useAuth } from "../contexts/AuthContext";
 import { LoginRequiredModal } from "./LoginRequiredModal";
@@ -43,6 +44,8 @@ import {
   updateHymn,
 } from "../services/contentWriteService";
 import { downloadFile, downloadViaUrl } from "../utils/download";
+import { trackEvent } from "../services/analytics";
+import { useSearchAnalytics } from "../hooks/useSearchAnalytics";
 import { getApiBaseUrl } from "../config/api";
 import { toast } from 'sonner';
 
@@ -120,8 +123,13 @@ const getDownloadName = (file: HymnFile, hymnTitle: string): string => {
 };
 
 // Download a single hymn file natively under its real name.
-const downloadHymnFile = (file: HymnFile, hymnTitle: string) => {
-  if (file?.url) downloadFile(file.url, getDownloadName(file, hymnTitle));
+const downloadHymnFile = (file: HymnFile, hymnTitle: string, hymnId?: ContentId) => {
+  if (file?.url)
+    downloadFile(file.url, getDownloadName(file, hymnTitle), {
+      contentType: "hymn",
+      contentId: hymnId,
+      contentName: hymnTitle,
+    });
 };
 
 // Trigger a server-built zip of one or more hymns. The server streams the files straight
@@ -131,7 +139,10 @@ const downloadHymnsZip = (hymnIds: ContentId[]) => {
   const ids = hymnIds.map((id) => String(id)).filter(Boolean);
   if (ids.length === 0) return;
   const query = ids.map((id) => encodeURIComponent(id)).join(",");
-  downloadViaUrl(`${getApiBaseUrl()}/api/hymns/zip?ids=${query}`);
+  downloadViaUrl(`${getApiBaseUrl()}/api/hymns/zip?ids=${query}`, {
+    contentType: "hymn",
+    properties: { count: ids.length },
+  });
 };
 
 // "Download all" for one hymn: a single file downloads directly (no point zipping one
@@ -140,7 +151,7 @@ const downloadAllHymnFiles = (hymn: Hymn) => {
   const files = hymn.files ?? [];
   if (files.length === 0) return;
   if (files.length === 1) {
-    downloadHymnFile(files[0], hymn.title);
+    downloadHymnFile(files[0], hymn.title, hymn.id);
     return;
   }
   downloadHymnsZip([hymn.id]);
@@ -247,8 +258,6 @@ export function HymnsSection({
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [expandedHymnId, setExpandedHymnId] = useState<ContentId | null>(null);
   const [expandedLyricsIds, setExpandedLyricsIds] = useState<ContentId[]>([]);
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [scrollProgress, setScrollProgress] = useState(0);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
@@ -289,47 +298,45 @@ export function HymnsSection({
     setPreviewTitle(title);
     setPreviewFile(file ?? null);
     setIsPreviewOpen(true);
+    if (type === "PowerPoint file") {
+      trackEvent("powerpoint_view", {
+        contentType: "hymn",
+        contentName: title,
+        properties: { fileType: type },
+      });
+    } else {
+      trackEvent("hymn_view", {
+        contentType: "hymn",
+        contentName: title,
+        properties: { fileType: type },
+      });
+    }
   };
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const fileTypeDropdownRef = useRef<HTMLDivElement>(null);
   const filtersContainerRef = useRef<HTMLDivElement>(null!);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const stickyToolbarRef = useRef<HTMLDivElement>(null);
   const hymnCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   // Use browser-compatible timer type to avoid NodeJS namespace issues
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const handleScroll = () => {
-      if (scrollContainerRef.current) {
-        const scrollTop = scrollContainerRef.current.scrollTop;
-        setIsScrolled(scrollTop > 20);
-      }
-    };
-
-    const scrollContainer = scrollContainerRef.current;
-    if (scrollContainer) {
-      scrollContainer.addEventListener("scroll", handleScroll);
-      handleScroll();
-    }
-
-    return () => {
-      if (scrollContainer) {
-        scrollContainer.removeEventListener("scroll", handleScroll);
-      }
-    };
-
-    // شيلنا isLoading وسيبنا الـ Ref ومصفوفة الداتا بس
-  }, [scrollContainerRef.current, hymns]);
-
-  useEffect(() => {
     if (!expandedHymnId) return;
 
-    const hymnsContainer = scrollContainerRef.current;
     const hymnElement = hymnCardRefs.current[String(expandedHymnId)];
-    if (!hymnsContainer || !hymnElement) return;
+    if (!hymnElement) return;
 
-    hymnElement.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+    // Prefer an explicit scroll container if available; the utility will
+    // fallback to walking up the DOM to find the correct scroll parent.
+    const scrollContainer = scrollContainerRef.current ?? null;
+
+    scrollElementIntoViewWithHeaderOffset(hymnElement, {
+      scrollContainer,
+      stickyToolbarRef: stickyToolbarRef.current ?? null,
+      behavior: 'smooth',
+    });
   }, [expandedHymnId]);
 
   // Get unique tags from hymns
@@ -624,6 +631,10 @@ export function HymnsSection({
   // Share hymn
   const shareHymn = async (hymn: (typeof hymns)[0]) => {
     // Try native share API first (works on mobile and some modern browsers)
+    trackEvent('share_started', {
+      contentType: 'hymn',
+      contentName: hymn.title,
+    });
     if (navigator.share) {
       try {
         await navigator.share({
@@ -631,12 +642,16 @@ export function HymnsSection({
           text: `ترنيمة: ${hymn.title}`,
           url: window.location.href,
         });
+        trackEvent('share_completed', {
+          contentType: 'hymn',
+          contentName: hymn.title,
+          properties: { method: 'native' },
+        });
         setShareMessage("تم مشاركة الترنيمة بنجاح");
         setTimeout(() => setShareMessage(null), 3000);
         return;
-      } catch (err) {
+      } catch {
         // User cancelled or share failed
-        console.log("Share cancelled or failed:", err);
       }
     }
 
@@ -652,10 +667,14 @@ export function HymnsSection({
       document.execCommand("copy");
       document.body.removeChild(textarea);
 
+      trackEvent('share_completed', {
+        contentType: 'hymn',
+        contentName: hymn.title,
+        properties: { method: 'copy' },
+      });
       setShareMessage("تم نسخ معلومات الترنيمة");
       setTimeout(() => setShareMessage(null), 3000);
-    } catch (err) {
-      console.log("Copy failed:", err);
+    } catch {
       setShareMessage("فشل النسخ - الرجاء المحاولة مرة أخرى");
       setTimeout(() => setShareMessage(null), 3000);
     }
@@ -728,6 +747,11 @@ export function HymnsSection({
     showFavoritesOnly,
     favoritedHymns,
   ]);
+
+  useSearchAnalytics(searchQuery, {
+    section: "hymns",
+    getResultCount: () => filteredHymns.length,
+  });
 
   const availableHymnsForTags = useMemo(
     () =>
@@ -810,18 +834,11 @@ export function HymnsSection({
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Sticky Header Section */}
-      <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
-        <div
-          className={`transition-all duration-500 ease-in-out overflow-hidden ${
-            isScrolled
-              ? "max-h-0 opacity-0 mb-0 pointer-events-none transform -translate-y-2"
-              : "max-h-[250px] opacity-100 mb-4 transform translate-y-0"
-          }`}
-        >
-          <div>
-            <h1 className="mb-2 font-bold text-2xl sm:text-[36px]">مكتبة الترانيم</h1>
+      <div className="flex flex-col h-full">
+      {/* Section Header - normal flow container, scrolls up naturally */}
+      <div className="pb-4 sm:pb-5">
+        <div>
+            <h1 className="mb-2 font-bold text-2xl sm:text-3xl lg:text-[36px]">مكتبة الترانيم</h1>
             <p className="text-muted-foreground leading-relaxed">
               مكتبة شاملة تضم مئات الترانيم والألحان القبطية مع فيديوهات وعروض
               PowerPoint وملفات صوتية ونصوص. استخدم البحث والفلاتر للعثور على
@@ -836,7 +853,6 @@ export function HymnsSection({
               <span>← شرح الاستخدام</span>
             </button>
           </div>
-        </div>
 
         {/* Admin Toolbar - Option 1: Dedicated Row */}
         {isEditor && (
@@ -929,9 +945,15 @@ export function HymnsSection({
             </div>
           </div>
         )}
+        </div>
 
+        {/* Sticky Filter Toolbar - pinned at the top while scrolling */}
+        <div
+          className="sticky z-50 isolate bg-background border-b border-border/50 shadow-[0_4px_16px_-4px_rgba(0,0,0,0.3)] py-3 sm:py-4" style={{ top: 'var(--app-header-height)' }}
+          ref={stickyToolbarRef}
+        >
         {/* Search and Filters Container */}
-        <div className="space-y-4 sm:space-y-8">
+        <div className="pt-0 space-y-4 sm:space-y-8">
           {/* Search Bar with Sort Button (Mobile) */}
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
@@ -976,7 +998,7 @@ export function HymnsSection({
             >
               <button
                 onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
-                className="flex items-center justify-center w-[50px] h-[50px] bg-card border border-border rounded-xl hover:bg-muted transition-colors"
+                className="flex items-center justify-center min-w-[44px] min-h-[44px] w-[50px] h-[50px] bg-card border border-border rounded-xl hover:bg-muted transition-colors"
               >
                 <ArrowUpDown className="w-5 h-5 text-muted-foreground" />
               </button>
@@ -1274,7 +1296,7 @@ export function HymnsSection({
       </div>
 
       {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-y-auto pt-6" ref={scrollContainerRef}>
+      <div className="pt-6" ref={scrollContainerRef}>
         <div className="space-y-3">
           {filteredHymns.length > 0 ? (
             filteredHymns.map((hymn) => (
@@ -1287,7 +1309,7 @@ export function HymnsSection({
                     delete hymnCardRefs.current[String(hymn.id)];
                   }
                 }}
-                className="bg-card rounded-xl border border-border relative group/card hover:z-10"
+                className="bg-card rounded-xl border border-border relative z-0 isolate group/card hover:z-10"
               >
                 {/* Collapsed State - Always Visible */}
                 <div
@@ -1637,7 +1659,7 @@ export function HymnsSection({
                   }}
                 >
                   <div>
-                    <div className="border-t border-border bg-muted/30 p-6">
+                    <div className="border-t border-border bg-muted/30 p-3">
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Right Column - Details */}
                         <div className="space-y-4">
@@ -1804,7 +1826,7 @@ export function HymnsSection({
                                     onClick={(e) => {
                                       e.preventDefault();
                                       if (actualFile) {
-                                        downloadHymnFile(actualFile, hymn.title);
+                                        downloadHymnFile(actualFile, hymn.title, hymn.id);
                                       }
                                     }}
                                     className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg hover:bg-primary/10 hover:border-primary transition-all text-foreground"
@@ -1821,7 +1843,7 @@ export function HymnsSection({
 
                           {/* Download All */}
                           <button
-                            className="w-full flex items-center justify-center gap-3 p-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all"
+                            className="w-full flex items-center justify-center mb-0 gap-3 p-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all"
                             onClick={() => {
                               // تحميل كل الملفات المتاحة للترنيمة بأسمائها الحقيقية
                               downloadAllHymnFiles(hymn);
@@ -2057,9 +2079,9 @@ export function HymnsSection({
             className="fixed inset-0 bg-black/80 z-[250] flex items-center justify-center p-4 animate-in fade-in duration-200"
             onClick={() => setIsPreviewOpen(false)}
           >
-          <div className="bg-card border border-border rounded-xl w-full max-w-3xl overflow-hidden shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-card border border-border rounded-xl w-full max-w-3xl max-h-[85vh] overflow-y-auto overflow-x-hidden shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
             {/* الهيدر */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/20">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border bg-muted/20 sticky top-0 z-10">
               <h3 className="font-bold text-lg text-right flex-1">
                 {previewTitle}
               </h3>
@@ -2070,7 +2092,7 @@ export function HymnsSection({
                   setPreviewType(null);
                   setPreviewFile(null);
                 }}
-                className="w-9 h-9 flex items-center justify-center rounded-xl bg-muted hover:bg-destructive hover:text-white transition-colors"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-muted hover:bg-destructive hover:text-white transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2113,7 +2135,7 @@ export function HymnsSection({
 {previewType === "PowerPoint file" && (
   <div className="w-full flex flex-col gap-4">
     {/* حاوية الـ iframe مع مقاس مناسب وتجاوبي */}
-    <div className="w-full h-[500px] rounded-lg overflow-hidden border border-border bg-muted relative">
+    <div className="w-full h-[300px] sm:h-[400px] lg:h-[500px] rounded-lg overflow-hidden border border-border bg-muted relative">
       <iframe
         src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`}
         width="100%"
@@ -2122,26 +2144,7 @@ export function HymnsSection({
         title={previewTitle || "PowerPoint Preview"}
         allowFullScreen
       />
-    </div>
-
-    {/* خيارات إضافية أسفل العرض (التحميل المباشر) */}
-    <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-card/50 backdrop-blur-sm">
-      <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium">هل تواجه مشكلة في العرض؟</p>
-        <p className="text-xs text-muted-foreground">
-          يمكنك تحميل الملف وتشغيله مباشرة على جهازك عبر برنامج Microsoft PowerPoint.
-        </p>
-      </div>
-      
-      <a
-        href={previewUrl}
-        download={`${previewTitle || "بوربوينت"}.pptx`}
-        className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all font-medium text-sm shadow-sm"
-      >
-        <Download className="w-4 h-4" />
-        <span>تحميل الملف</span>
-      </a>
-    </div>
+    </div>  
   </div>
 )}
             </div>
@@ -2157,8 +2160,7 @@ export function HymnsSection({
                   e.preventDefault();
                   if (previewFile) {
                     downloadHymnFile(previewFile, previewTitle);
-                  }
-                  setIsPreviewOpen(false);
+                  }                  setIsPreviewOpen(false);
                 }}
               >
                 <Download className="w-4 h-4" />

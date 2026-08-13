@@ -85,5 +85,26 @@ export const SayingController = {
     }
     
     res.status(204).send();
+  },
+
+  bulkImport: async (req, res) => {
+    const { rows } = req.body;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ error: 'Invalid or empty rows data' });
+    }
+
+    const importedSayings = await SayingService.bulkImport(rows);
+
+    if (req.user) {
+      await logService.createLog(
+        req.user.id,
+        'CREATE',
+        'SAYING',
+        null,
+        `Bulk imported ${importedSayings.length} sayings via Excel sheet.`
+      );
+    }
+
+    res.status(201).json({ success: true, count: importedSayings.length });
   }
 };

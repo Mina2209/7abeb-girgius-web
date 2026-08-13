@@ -25,7 +25,7 @@ export function VideoModal({ isOpen, onClose, videoUrl, title }: VideoModalProps
 
     return () => {
       document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = 'auto';
     };
   }, [isOpen, onClose]);
 

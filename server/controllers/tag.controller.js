@@ -16,7 +16,6 @@ export const TagController = {
   create: async (req, res) => {
     const tag = await TagService.create(req.body);
     
-    // Log the action if user is authenticated (only admins can create tags)
     if (req.user) {
       await logService.createLog(
         req.user.id,
@@ -33,7 +32,6 @@ export const TagController = {
   update: async (req, res) => {
     const tag = await TagService.update(req.params.id, req.body);
     
-    // Log the action if user is authenticated (only admins can update tags)
     if (req.user) {
       await logService.createLog(
         req.user.id,
@@ -53,7 +51,6 @@ export const TagController = {
     
     await TagService.delete(id);
     
-    // Log the action if user is authenticated (only admins can delete tags)
     if (req.user) {
       await logService.createLog(
         req.user.id,
@@ -65,5 +62,14 @@ export const TagController = {
     }
     
     res.status(204).send();
-  }
+  },
+
+  reorder: async (req, res) => {
+    const { orderedIds } = req.body;
+    if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+      return res.status(400).json({ error: 'orderedIds array is required' });
+    }
+    await TagService.reorder(orderedIds);
+    res.json({ success: true });
+  },
 };

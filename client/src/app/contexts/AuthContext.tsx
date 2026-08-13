@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef, ReactNode } from 'react';
 import { logLogin, logLogout } from '../utils/activityLogger';
 import { isApiConfigured } from '../config/api';
 import { apiGetJson } from '../services/apiClient';
+import { trackEvent } from '../services/analytics';
 import type { ClientUser, UserProfile } from '../types/auth';
 
 /**
@@ -75,32 +76,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // جلب بيانات الجلسة الحالية عند تشغيل التطبيق لأول مرة
   useEffect(() => {
-    const loadSavedSession = async () => {
-      // قراءة الجلسة الإنتاجية فقط
-      const savedUser = localStorage.getItem('user');
-      const savedProfile = localStorage.getItem('profile');
-      const savedToken = localStorage.getItem('token');
+    const savedUser = localStorage.getItem('user');
+    const savedProfile = localStorage.getItem('profile');
+    const savedToken = localStorage.getItem('token');
 
-      if (savedUser && savedProfile && savedToken) {
-        try {
-          setUser(JSON.parse(savedUser));
-          const parsedProfile = JSON.parse(savedProfile);
-
-          // التأكد من أن الخدمات مصفوفة دائماً
-          if (typeof (parsedProfile as any).services === 'string') {
-            (parsedProfile as any).services = (parsedProfile as any).services ? [(parsedProfile as any).services] : [];
-          }
-
-          setProfile(parsedProfile as UserProfile);
-          setAccessToken(savedToken);
-        } catch (e) {
-          console.error('Error parsing saved session data', e);
+    if (savedUser && savedProfile && savedToken) {
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        const parsedProfile = JSON.parse(savedProfile);
+        if (typeof (parsedProfile as any).services === 'string') {
+          (parsedProfile as any).services = (parsedProfile as any).services ? [(parsedProfile as any).services] : [];
         }
+        setUser(parsedUser);
+        setProfile(parsedProfile as UserProfile);
+        setAccessToken(savedToken);
+      } catch (e) {
+        console.error('Error parsing saved session data', e);
       }
-      setLoading(false);
-    };
-
-    loadSavedSession();
+    }
+    setLoading(false);
   }, []);
 
   // Session expiration handling (triggered from apiClient on 401/403)
@@ -108,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const handler = () => {
       // Don't rely on token being present; just wipe client session.
       logLogout();
+      trackEvent('logout');
       setUser(null);
       setProfile(null);
       setAccessToken(null);
@@ -123,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
   // دالة إنشاء حساب جديد وإرساله للسيرفر بالكامل
-  const signUp = async (
+  const signUp = useCallback(async (
     email: string,
     password: string,
     fullName: string,
@@ -182,11 +177,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('profile', JSON.stringify(serverProfile));
       localStorage.setItem('token', result.token);
       notifyUserChanged();
+      logLogin();
+      trackEvent('login_success', { properties: { role: clientRole } });
     }
-  };
+  }, []);
 
   // دالة تسجيل الدخول الحالية المربوطة بالسيرفر
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     if (!isApiConfigured()) {
       throw new Error('VITE_API_BASE_URL is not configured.');
     }
@@ -233,20 +230,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     notifyUserChanged();
     logLogin();
-  };
+    trackEvent('login_success', { properties: { role } });
+  }, []);
 
   // دوال الـ OAuth (يمكنك تركها مؤقتاً لحين بناء الروت الخاص بها في السيرفر أو دمجها)
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = useCallback(async () => {
     console.warn('نظام تسجيل الدخول عبر Google يحتاج للربط مع روت السيرفر المستقبلي');
-  };
+  }, []);
 
-  const signInWithApple = async () => {
+  const signInWithApple = useCallback(async () => {
     console.warn('نظام تسجيل الدخول عبر Apple يحتاج للربط مع روت السيرفر المستقبلي');
-  };
+  }, []);
 
   // دالة تسجيل الخروج وتنظيف المتصفح بالكامل
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     logLogout();
+    trackEvent('logout');
     
     setUser(null);
     setProfile(null);
@@ -259,10 +258,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     
     notifyUserChanged();
-  };
+  }, []);
 
   // دالة تحديث بيانات المستخدم الحالية من السيرفر مباشرة للتأكد من الصلاحيات والبيانات الفريش
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     try {
       if (!accessToken) return;
       
@@ -277,23 +276,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("فشل جلب الملف الشخصي المحدث من السيرفر:", error);
     }
-  };
+  }, [accessToken]);
+
+  const contextValue = useMemo(() => ({
+    user,
+    profile,
+    accessToken,
+    loading,
+    signUp,
+    signIn,
+    signInWithGoogle,
+    signInWithApple,
+    signOut,
+    refreshProfile,
+  }), [user, profile, accessToken, loading, signUp, signIn, signInWithGoogle, signInWithApple, signOut, refreshProfile]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        profile,
-        accessToken,
-        loading,
-        signUp,
-        signIn,
-        signInWithGoogle,
-        signInWithApple,
-        signOut,
-        refreshProfile,
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

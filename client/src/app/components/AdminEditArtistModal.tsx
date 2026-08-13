@@ -1,4 +1,4 @@
-import { X, Save, HelpCircle } from 'lucide-react';
+import { X, Save, HelpCircle, Upload } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { Artist } from '../data/artists';
 
@@ -110,24 +110,45 @@ export function AdminEditArtistModal({
 
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  صورة البروفايل (URL)
+                  صورة البروفايل
                 </label>
-                <input
-                  type="text"
-                  value={formData.profileImage}
-                  onChange={(e) => setFormData({ ...formData, profileImage: e.target.value })}
-                  className="w-full px-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  placeholder="https://example.com/image.jpg"
-                />
-                {formData.profileImage && (
-                  <div className="mt-2 w-20 h-20 rounded-full overflow-hidden border border-border">
-                    <img
-                      src={formData.profileImage}
-                      alt="Preview"
-                      className="w-full h-full object-cover"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                    />
+                {formData.profileImage ? (
+                  <div className="space-y-2">
+                    <div className="w-20 h-20 rounded-full overflow-hidden border border-border">
+                      <img
+                        src={formData.profileImage}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, profileImage: '' })}
+                      className="text-sm text-red-500 hover:text-red-600 transition-colors"
+                    >
+                      إزالة الصورة
+                    </button>
                   </div>
+                ) : (
+                  <label className="flex flex-col items-center gap-2 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-primary/50 transition-colors">
+                    <Upload className="w-8 h-8 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">اضغط لرفع صورة</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setFormData({ ...formData, profileImage: reader.result as string });
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
                 )}
               </div>
 
@@ -252,7 +273,7 @@ export function AdminEditArtistModal({
           </div>
         </form>
 
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-card">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-card flex-wrap">
           <button
             type="button"
             onClick={onClose}

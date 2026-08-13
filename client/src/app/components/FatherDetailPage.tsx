@@ -4,8 +4,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useIsEditor } from '../utils/adminUtils';
 import { AdminEditFatherModal } from './AdminEditFatherModal';
-import { fetchFatherById, updateFather } from '../services/contentWriteService';
+import { fetchFatherById, updateFather, createFather, fetchFatherByName } from '../services/contentWriteService';
 import { loadSayingsData } from '../services/contentLoaders';
+import { getFatherById as getStaticFatherById } from '../data/fathers';
 import type { Father } from '../data/fathers';
 import type { Saying } from '../types/content';
 
@@ -25,16 +26,49 @@ export function FatherDetailPage() {
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    Promise.all([
-      fetchFatherById(id, accessToken),
-      loadSayingsData(),
-    ])
-      .then(([f, s]) => {
-        if (f) setFather(f);
-        setSayings(s);
-      })
-      .catch(() => setMessage('فشل تحميل البيانات'))
-      .finally(() => setLoading(false));
+
+    const loadFather = async () => {
+      try {
+        const [f, s] = await Promise.all([
+          fetchFatherById(id, accessToken),
+          loadSayingsData(),
+        ]);
+
+        if (f) {
+          setFather(f);
+          setSayings(s);
+        } else {
+          const staticFather = getStaticFatherById(id);
+          if (staticFather) {
+            setFather(staticFather);
+            setSayings(s);
+          } else if (id.startsWith('author-')) {
+            const decodedName = decodeURIComponent(id.replace('author-', ''));
+            const serverFather = await fetchFatherByName(decodedName, accessToken);
+            if (serverFather) {
+              setFather(serverFather);
+            } else {
+              setFather({
+                id,
+                name: decodedName,
+                title: '',
+                bio: '',
+                profileImage: '',
+              });
+            }
+            setSayings(s);
+          } else {
+            setSayings(s);
+          }
+        }
+      } catch {
+        setMessage('فشل تحميل البيانات');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFather();
   }, [id, accessToken]);
 
   const fatherSayings = useMemo(() => {
@@ -44,11 +78,32 @@ export function FatherDetailPage() {
 
   const handleSave = async (fatherData: Father) => {
     try {
-      const updated = await updateFather(id!, fatherData, accessToken);
-      setFather(updated);
-      setMessage('تم تحديث بيانات الآب بنجاح');
+      if (id?.startsWith('static-') || id?.startsWith('author-')) {
+        try {
+          const created = await createFather(fatherData, accessToken);
+          setFather(created);
+          setMessage('تم حفظ بيانات الآب بنجاح');
+        } catch (createErr: any) {
+          if (createErr?.message?.includes('409') || createErr?.message?.includes('موجود')) {
+            const existing = await fetchFatherByName(fatherData.name, accessToken);
+            if (existing) {
+              const updated = await updateFather(existing.id, fatherData, accessToken);
+              setFather(updated);
+              setMessage('تم تحديث بيانات الآب بنجاح');
+            } else {
+              throw createErr;
+            }
+          } else {
+            throw createErr;
+          }
+        }
+      } else {
+        const updated = await updateFather(id!, fatherData, accessToken);
+        setFather(updated);
+        setMessage('تم تحديث بيانات الآب بنجاح');
+      }
     } catch {
-      setMessage('فشل تحديث بيانات الآب');
+      setMessage('فشل حفظ بيانات الآب');
     }
     setTimeout(() => setMessage(''), 2000);
   };
@@ -94,13 +149,13 @@ export function FatherDetailPage() {
                 <img
                   src={father.profileImage}
                   alt={father.name}
-                  className="w-40 h-40 rounded-full object-cover border-4 border-primary/20 shadow-xl flex-shrink-0"
+                  className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full object-cover border-4 border-primary/20 shadow-xl flex-shrink-0"
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = 'none';
                   }}
                 />
               ) : (
-                <div className="w-40 h-40 rounded-full border-4 border-primary/20 shadow-xl bg-muted flex items-center justify-center flex-shrink-0">
+                <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full border-4 border-primary/20 shadow-xl bg-muted flex items-center justify-center flex-shrink-0">
                   <MessageSquareQuote className="w-16 h-16 text-muted-foreground" />
                 </div>
               )}
@@ -124,7 +179,7 @@ export function FatherDetailPage() {
                 <div className="flex items-center justify-center md:justify-start gap-4 text-sm flex-wrap">
                   <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-xl font-medium">
                     <BookOpen className="w-5 h-5" />
-                    <span>{fatherSayings.length} قول مأثور</span>
+                    <span>{fatherSayings.length} قول</span>
                   </div>
                 </div>
               </div>

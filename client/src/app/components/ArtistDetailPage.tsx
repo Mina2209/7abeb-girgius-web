@@ -99,13 +99,13 @@ export function ArtistDetailPage() {
                 <img
                   src={artist.profileImage}
                   alt={artist.name}
-                  className="w-40 h-40 rounded-full object-cover border-4 border-primary/20 shadow-xl flex-shrink-0"
+                  className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full object-cover border-4 border-primary/20 shadow-xl flex-shrink-0"
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = 'none';
                   }}
                 />
               ) : (
-                <div className="w-40 h-40 rounded-full border-4 border-primary/20 shadow-xl bg-muted flex items-center justify-center flex-shrink-0">
+                <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full border-4 border-primary/20 shadow-xl bg-muted flex items-center justify-center flex-shrink-0">
                   <ImageIcon className="w-16 h-16 text-muted-foreground" />
                 </div>
               )}
@@ -195,7 +195,7 @@ export function ArtistDetailPage() {
             </div>
 
             {images.length > 0 ? (
-              <ResponsiveMasonry columnsCountBreakPoints={{ 350: 1, 750: 2, 900: 3, 1200: 4 }}>
+              <ResponsiveMasonry columnsCountBreakPoints={{ 0: 1, 350: 1, 750: 2, 900: 3, 1200: 4 }}>
                 <Masonry gutter="16px">
                   {images.map((image) => (
                     <div

@@ -107,8 +107,8 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] p-4" dir="rtl">
-      <div className="bg-background rounded-xl max-w-md w-full p-6 relative">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] p-4 overflow-y-auto" dir="rtl">
+      <div className="bg-background rounded-xl max-w-md w-full p-6 relative my-auto max-h-[85vh] overflow-y-auto">
         <button
           onClick={handleClose}
           className="absolute top-4 left-4 text-muted-foreground hover:text-foreground transition-colors"
@@ -210,7 +210,7 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
             </div>
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-3 pt-2 flex-wrap">
             <button
               type="submit"
               disabled={loading || !!success}

@@ -1,19 +1,31 @@
 import { prisma } from './prisma.js';
 import s3Service from './s3.service.js';
 
-// Server only: we rely on S3 for stored files. Local uploads fallback removed.
+const TAG_SELECT = { id: true, name: true };
+
+const INCLUDE_WITH_TAGS = {
+  tags: { select: TAG_SELECT },
+  files: true,
+  lyric: true,
+};
+
+function selectTags(result) {
+  if (!result) return result;
+  return {
+    ...result,
+    tags: (result.tags || []).map(t => ({ id: t.id, name: t.name })),
+  };
+}
 
 export const HymnService = {
   getAll: async () => {
-    return prisma.hymn.findMany({
-      include: { tags: true, files: true, lyric: true }
-    });
+    return prisma.hymn.findMany({ include: INCLUDE_WITH_TAGS });
   },
 
   getById: async (id) => {
     return prisma.hymn.findUnique({
       where: { id },
-      include: { tags: true, files: true, lyric: true }
+      include: INCLUDE_WITH_TAGS,
     });
   },
 
@@ -31,7 +43,7 @@ export const HymnService = {
             }
           : undefined
       },
-      include: { tags: true, files: true, lyric: true }
+      include: INCLUDE_WITH_TAGS,
     });
   },
 
@@ -40,13 +52,12 @@ export const HymnService = {
       where: { id },
       data: {
         title: data.title,
-        // Replace files with the provided list (destructive: clears then recreates)
         files: {
           deleteMany: {},
           create: (data.files ?? [])
         },
         tags: {
-          set: [], // clear old
+          set: [],
           ...(data.tags && data.tags.length > 0
             ? {
                 connectOrCreate: data.tags.map(tag => ({
@@ -57,7 +68,7 @@ export const HymnService = {
             : {})
         }
       },
-      include: { tags: true, files: true, lyric: true }
+      include: INCLUDE_WITH_TAGS,
     });
   },
 

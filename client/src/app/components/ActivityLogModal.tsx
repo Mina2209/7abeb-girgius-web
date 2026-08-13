@@ -49,6 +49,61 @@ const contentTypeIcons: Record<ContentType, any> = {
   settings: Settings,
 };
 const normalizeSearchText = (text: string) => normalizeArabic(text).toLowerCase();
+
+type ServerLog = {
+  id: string;
+  userId: string;
+  action: string;
+  entity: string;
+  entityId?: string | null;
+  details?: string | null;
+  createdAt: string;
+  user?: { username: string; role: string };
+};
+
+const actionToActivityType: Record<string, ActivityType> = {
+  LOGIN: 'login',
+  REGISTER: 'create',
+  CREATE: 'create',
+  UPDATE: 'edit',
+  DELETE: 'delete',
+  DOWNLOAD: 'download',
+  CLEANUP: 'delete',
+  favorite_add: 'favorite_add',
+  favorite_remove: 'favorite_remove',
+};
+
+const entityToContentType: Record<string, ContentType> = {
+  USER: 'user',
+  HYMN: 'hymn',
+  SAYING: 'saying',
+  IMAGE: 'image',
+  TAG: 'topic',
+  TAG_SECTION: 'section',
+  LYRIC: 'hymn',
+  AUTHOR: 'hymn',
+  FATHER: 'book',
+  BACKUP: 'settings',
+};
+
+function mapServerLog(raw: ServerLog): ActivityLog {
+  const activityType = actionToActivityType[raw.action] ?? 'create';
+  const contentType = entityToContentType[raw.entity] ?? undefined;
+  const desc = raw.details || `${raw.action} ${raw.entity}`;
+
+  return {
+    id: raw.id,
+    userId: raw.userId,
+    username: raw.user?.username ?? '',
+    userRole: raw.user?.role ?? '',
+    timestamp: raw.createdAt,
+    activityType,
+    contentType,
+    contentId: raw.entityId ?? undefined,
+    description: desc,
+  };
+}
+
 export function ActivityLogModal({ isOpen, onClose, userId, username, userRole }: ActivityLogModalProps) {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [stats, setStats] = useState<ReturnType<typeof getUserActivityStats> | null>(null);
@@ -69,9 +124,9 @@ export function ActivityLogModal({ isOpen, onClose, userId, username, userRole }
 
     const load = async () => {
       try {
-        // Production: fetch logs from server
-        const userLogs = await apiGetJson<ActivityLog[]>(`/api/auth/logs/user/${userId}`);
-        setLogs(userLogs || []);
+        // Production: fetch logs from server and map to ActivityLog shape
+        const rawLogs = await apiGetJson<ServerLog[]>(`/api/auth/logs/user/${userId}`);
+        setLogs((rawLogs || []).map(mapServerLog));
       } catch (e) {
         console.error('Failed to load user logs:', e);
         setLogs([]);
@@ -159,7 +214,7 @@ export function ActivityLogModal({ isOpen, onClose, userId, username, userRole }
 
   return (
     <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-card rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col border border-border">
+      <div className="bg-card rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col border border-border overflow-hidden overflow-x-hidden">
         {/* Header */}
         <div className="flex items-start justify-between p-6 border-b border-border">
           <div>
@@ -189,7 +244,7 @@ export function ActivityLogModal({ isOpen, onClose, userId, username, userRole }
 
         {/* Stats Cards */}
         {stats && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 p-6 border-b border-border bg-muted/30">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-6 border-b border-border bg-muted/30">
             <div className="bg-card rounded-xl p-4 border border-border">
               <div className="flex items-center gap-2 text-muted-foreground mb-1">
                 <Clock className="w-4 h-4" />
@@ -225,7 +280,7 @@ export function ActivityLogModal({ isOpen, onClose, userId, username, userRole }
 
         {/* Search and Filters */}
         <div className="p-6 border-b border-border space-y-3">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             {/* Search */}
             <div className="relative flex-1">
               <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -253,7 +308,7 @@ export function ActivityLogModal({ isOpen, onClose, userId, username, userRole }
               </button>
 
               {isFilterOpen && (
-                <div className="absolute left-0 top-full mt-2 w-64 bg-card border border-border rounded-xl shadow-lg z-10">
+                <div className="absolute left-0 top-full mt-2 min-w-[240px] w-64 bg-card border border-border rounded-xl shadow-lg z-10">
                   <div className="p-3 space-y-3">
                     {/* Activity Type Filter */}
                     <div>

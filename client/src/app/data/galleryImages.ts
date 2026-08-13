@@ -1,5 +1,5 @@
-import img1 from '../../assets/457193b7f5e9264d16ed2c788ed32db9dd4a93de.png';
-import img2 from '../../assets/f6ee383194c6e932ba28b9861e539c57992b6faa.png';
+import img1 from '../../assets/gallery-1.webp';
+import img2 from '../../assets/gallery-2.webp';
 
 export interface GalleryImage {
   id: number;
@@ -135,6 +135,4 @@ export const galleryImages: GalleryImage[] = [
   },
 ];
 
-// Get unique artists and types from the data
-export const allArtists = Array.from(new Set(galleryImages.map(img => img.artist)));
-export const allTypes = Array.from(new Set(galleryImages.map(img => img.type)));
+

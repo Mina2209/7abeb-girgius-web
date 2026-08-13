@@ -1,6 +1,7 @@
 @import "tailwindcss" source(none);
 @source "../**/*.{js,ts,jsx,tsx}";
 @import "tw-animate-css";
+
 @layer utilities {
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
@@ -9,4 +10,19 @@
     -ms-overflow-style: none; /* IE and Edge */
     scrollbar-width: none;    /* Firefox */
   }
+  .content-visibility-auto {
+    content-visibility: auto;
+    contain-intrinsic-block-size: auto 500px;
+  }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}
+.animate-marquee:hover {
+  animation-play-state: paused;
 }

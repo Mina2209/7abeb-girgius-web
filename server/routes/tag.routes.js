@@ -8,7 +8,8 @@ const router = Router();
 router.get('/', TagController.getAll);
 router.get('/:id', TagController.getById);
 
-// Protected routes - require authentication and ADMIN role only (editors cannot edit tags)
+// Protected routes - require ADMIN (specific paths before param routes)
+router.put('/reorder/batch', authenticate, requireAdmin, TagController.reorder);
 router.post('/', authenticate, requireAdmin, TagController.create);
 router.put('/:id', authenticate, requireAdmin, TagController.update);
 router.delete('/:id', authenticate, requireAdmin, TagController.delete);

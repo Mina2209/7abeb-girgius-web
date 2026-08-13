@@ -50,6 +50,8 @@ import { createImage, deleteImage, updateImage, updateArtist } from '../services
 import { getApiBaseUrl } from '../config/api';
 import { normalizeArabic } from '../utils/arabicUtils';
 import { downloadFile } from '../utils/download';
+import { trackEvent } from '../services/analytics';
+import { useSearchAnalytics } from '../hooks/useSearchAnalytics';
 
 type SortOption = 'alpha-asc' | 'alpha-desc' | 'date-asc' | 'date-desc';
 
@@ -210,8 +212,6 @@ export function ImageLibrarySection({
   const [shareMessage, setShareMessage] = useState('');
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedImages, setSelectedImages] = useState<ContentId[]>([]);
-  const [scrollProgress, setScrollProgress] = useState(0);
-  const [isScrolled, setIsScrolled] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   const [artistProfileOpen, setArtistProfileOpen] = useState(false);
@@ -234,30 +234,6 @@ export function ImageLibrarySection({
   const filtersContainerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (scrollContainerRef.current) {
-        const scrollTop = scrollContainerRef.current.scrollTop;
-        setIsScrolled(scrollTop > 20);
-        const scrollRange = 50;
-        const progress = Math.min(scrollTop / scrollRange, 1);
-        setScrollProgress(progress);
-      }
-    };
-
-    const scrollContainer = scrollContainerRef.current;
-    if (scrollContainer) {
-      scrollContainer.addEventListener('scroll', handleScroll);
-      handleScroll();
-    }
-
-    return () => {
-      if (scrollContainer) {
-        scrollContainer.removeEventListener('scroll', handleScroll);
-      }
-    };
-  }, [scrollContainerRef.current, images]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -301,6 +277,14 @@ export function ImageLibrarySection({
   const openLightbox = (index: number) => {
     setCurrentImageIndex(index);
     setLightboxOpen(true);
+    const img = sortedImages[index];
+    if (img) {
+      trackEvent('image_view', {
+        contentType: 'image',
+        contentId: img.id,
+        contentName: img.title,
+      });
+    }
   };
 
   const nextImage = () => {
@@ -353,7 +337,11 @@ export function ImageLibrarySection({
   };
 
   const downloadImage = (image: GalleryImage) => {
-    downloadFile(image.src, `${image.title}.png`);
+    downloadFile(image.src, `${image.title}.png`, {
+      contentType: 'image',
+      contentId: image.id,
+      contentName: image.title,
+    });
   };
 
   const toggleImageSelection = (imageId: ContentId) => {
@@ -705,6 +693,8 @@ export function ImageLibrarySection({
   // The server already filtered + sorted; `images` holds the pages loaded so far.
   const sortedImages = images;
 
+  useSearchAnalytics(searchQuery, { section: "images" });
+
   const handleLogin = () => {
     setShowLoginModal(false);
     window.dispatchEvent(new CustomEvent('openLoginModal'));
@@ -719,19 +709,12 @@ export function ImageLibrarySection({
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Sticky Header Section */}
-      <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
-        <div
-          className={`transition-all duration-500 ease-in-out overflow-hidden ${
-            isScrolled
-              ? 'max-h-0 opacity-0 mb-0 pointer-events-none transform -translate-y-2'
-              : 'max-h-[250px] opacity-100 mb-4 transform translate-y-0'
-          }`}
-        >
-          <div>
+      <div className="flex flex-col h-full">
+      {/* Section Header - normal flow container, scrolls up naturally */}
+      <div>
+        <div>
             <div className="flex items-start justify-between gap-4 mb-2">
-              <h1 className="font-bold text-2xl sm:text-[36px]">مكتبة الصور</h1>
+              <h1 className="font-bold text-2xl sm:text-3xl lg:text-[36px]">مكتبة الصور</h1>
               <button
                 onClick={() => navigate('/artists')}
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium shrink-0"
@@ -754,7 +737,6 @@ export function ImageLibrarySection({
               <span>← شرح الاستخدام</span>
             </button>
           </div>
-        </div>
 
         {isEditor && (
           <div className="mt-4 mb-4 px-3 py-2 bg-primary/5 border border-primary/20 rounded-lg">
@@ -861,7 +843,10 @@ export function ImageLibrarySection({
             </div>
           </div>
         )}
+        </div>
 
+        {/* Sticky Filter Toolbar - pinned at the top while scrolling */}
+        <div className="sticky z-50 isolate bg-background border-b border-border/50 shadow-[0_4px_16px_-4px_rgba(0,0,0,0.3)] py-3 sm:py-4" style={{ top: 'var(--app-header-height)' }}>
         <div className="space-y-4 sm:space-y-8">
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
@@ -901,7 +886,7 @@ export function ImageLibrarySection({
             <div className="relative flex-shrink-0 sm:hidden" ref={sortDropdownRef}>
               <button
                 onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
-                className="flex items-center justify-center w-[50px] h-[50px] bg-card border border-border rounded-xl hover:bg-muted transition-colors"
+                className="flex items-center justify-center min-w-[44px] min-h-[44px] w-[50px] h-[50px] bg-card border border-border rounded-xl hover:bg-muted transition-colors"
               >
                 <ArrowUpDown className="w-5 h-5 text-muted-foreground" />
               </button>
@@ -1059,16 +1044,16 @@ export function ImageLibrarySection({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto pt-6" ref={scrollContainerRef}>
+      <div className="pt-6" ref={scrollContainerRef}>
         <ResponsiveMasonry
-          columnsCountBreakPoints={{ 350: 1, 750: 2, 900: 3, 1200: 4 }}
+          columnsCountBreakPoints={{ 0: 1, 350: 1, 750: 2, 900: 3, 1200: 4 }}
         >
           <Masonry gutter="16px">
             {sortedImages.length > 0 ? (
               sortedImages.map((image, index) => (
                 <div
                   key={image.id}
-                  className={`group relative overflow-hidden rounded-xl bg-card border cursor-pointer transition-all ${
+                  className={`group relative z-0 isolate overflow-hidden rounded-xl bg-card border cursor-pointer transition-all ${
                     (isSelectionMode || bulkEditMode) &&
                     selectedImages.some((x) => String(x) === String(image.id))
                       ? 'border-2 border-primary ring-2 ring-primary/20'

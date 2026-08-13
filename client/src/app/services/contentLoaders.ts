@@ -2,16 +2,13 @@ import { isApiConfigured } from '../config/api';
 import type { GalleryImage, Hymn, Saying } from '../types/content';
 import { apiGetJson } from './apiClient';
 import {
-  mapServerAuthorToClient,
   mapServerHymnToClient,
   mapServerImageToClient,
   mapServerSayingToClient,
-  type ServerAuthorRow,
   type ServerHymn,
   type ServerImageRow,
   type ServerSayingRow,
 } from './contentMappers';
-import type { Artist } from '../data/artists';
 
 async function fetchHymnsRemote(): Promise<Hymn[]> {
   const rows = await apiGetJson<ServerHymn[]>('/api/hymns');
@@ -153,33 +150,6 @@ export async function fetchGalleryPage(
 export async function fetchGalleryIds(q: GalleryQuery): Promise<string[]> {
   const p = galleryParams(q);
   return apiGetJson<string[]>(`/api/images/ids?${p.toString()}`, authInit(q.token));
-}
-
-// Fetch specific images by id (e.g. favorites), chunked to respect the server's page cap.
-export async function fetchGalleryByIds(
-  ids: string[],
-  token?: string | null,
-): Promise<GalleryImage[]> {
-  if (!ids.length) return [];
-  const out: GalleryImage[] = [];
-  for (let i = 0; i < ids.length; i += 100) {
-    const chunk = ids.slice(i, i + 100);
-    const res = await apiGetJson<{ data: ServerImageRow[] }>(
-      `/api/images?ids=${chunk.join(',')}&limit=100`,
-      authInit(token),
-    );
-    out.push(...(res.data ?? []).map(mapServerImageToClient));
-  }
-  return out;
-}
-
-export async function fetchArtistById(id: string): Promise<Artist | null> {
-  try {
-    const row = await apiGetJson<ServerAuthorRow>(`/api/images/meta/authors/${id}`);
-    return row ? mapServerAuthorToClient(row) : null;
-  } catch {
-    return null;
-  }
 }
 
 export async function fetchImageArtists(): Promise<string[]> {

@@ -1,10 +1,17 @@
-import { Suspense, useEffect, useMemo, useState, lazy } from 'react';
+import { Suspense, useEffect, useState, useCallback, lazy } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { ChurchSidebar } from './components/ChurchSidebar';
 import { AuthProvider } from './contexts/AuthContext';
-import { Toaster } from './components/ui/sonner';
+import { AnalyticsRouteTracker } from './components/AnalyticsRouteTracker';
+import { HomeSection } from './components/HomeSection';
 
-const HomeSection = lazy(() => import('./components/HomeSection').then((m) => ({ default: m.HomeSection })));
+const LazyToaster = lazy(() =>
+  import('./components/ui/sonner').then((m) => ({ default: m.Toaster })),
+);
+
+const ChurchSidebar = lazy(() =>
+  import('./components/ChurchSidebar').then((m) => ({ default: m.ChurchSidebar })),
+);
+
 const LiturgySection = lazy(() => import('./components/LiturgySection').then((m) => ({ default: m.LiturgySection })));
 const HymnsSection = lazy(() =>
   import('./components/HymnsSection').then((m) => ({ default: m.HymnsSection })),
@@ -51,10 +58,22 @@ const TopicsManagementPage = lazy(() =>
 const SiteSettingsPage = lazy(() =>
   import('./components/SiteSettingsPage').then((m) => ({ default: m.SiteSettingsPage })),
 );
+const AnalyticsPage = lazy(() =>
+  import('./pages/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })),
+);
+const UserActivityPage = lazy(() =>
+  import('./pages/UserActivityPage').then((m) => ({ default: m.UserActivityPage })),
+);
+const AdminExportPage = lazy(() =>
+  import('./pages/AdminExportPage').then((m) => ({ default: m.AdminExportPage })),
+);
 
 const LoginModal = lazy(() => import('./components/LoginModal').then((m) => ({ default: m.LoginModal })));
 const SignupModal = lazy(() => import('./components/SignupModal').then((m) => ({ default: m.SignupModal })));
 
+const BioLinkPage = lazy(() =>
+  import('./pages/BioLinkPage').then((m) => ({ default: m.BioLinkPage })),
+);
 
 const sectionToPath: Record<string, string> = {
   home: '/',
@@ -100,10 +119,37 @@ export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const activeSection = pathToSection(location.pathname);
+  const isCardRoute = location.pathname === '/card';
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isSignupModalOpen, setIsSignupModalOpen] = useState(false);
+  const [deferredReady, setDeferredReady] = useState(false);
+
+  useEffect(() => {
+    if ('requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(() => setDeferredReady(true), { timeout: 2000 });
+    } else {
+      const id = setTimeout(() => setDeferredReady(true), 0);
+      return () => clearTimeout(id);
+    }
+  }, []);
+
+  const handleSidebarSectionChange = useCallback((section: string) => {
+    const path = sectionToPath[section];
+    if (path) navigate(path);
+  }, [navigate]);
+
+  const handleOpenLogin = useCallback(() => setIsLoginModalOpen(true), []);
+  const handleNavigateToProfile = useCallback(() => navigate('/profile'), [navigate]);
+  const handleNavigateToFavorites = useCallback(() => navigate('/favorites'), [navigate]);
+  const handleNavigateToUserManagement = useCallback(() => navigate('/admin/users'), [navigate]);
+  const handleNavigateToTopicsManagement = useCallback(() => navigate('/admin/topics'), [navigate]);
+  const handleNavigateToSiteSettings = useCallback(() => navigate('/admin/settings'), [navigate]);
+  const handleNavigateToAnalytics = useCallback(() => navigate('/admin/analytics'), [navigate]);
+  const handleNavigateToActivity = useCallback(() => navigate('/admin/activity'), [navigate]);
+  const handleNavigateToExport = useCallback(() => navigate('/admin/export'), [navigate]);
+  const handleCollapseChange = useCallback((collapsed: boolean) => setIsSidebarCollapsed(collapsed), []);
 
   useEffect(() => {
     const pageTitles: Record<string, string> = {
@@ -122,35 +168,74 @@ export default function App() {
       '/admin/users': 'إدارة المستخدمين',
       '/admin/topics': 'إدارة الموضوعات',
       '/admin/settings': 'إعدادات الموقع',
+      '/admin/analytics': 'الإحصائيات والتحليلات',
+      '/admin/activity': 'سجل نشاط المستخدمين',
+      '/admin/export': 'تصدير البيانات',
+      '/card': 'بطاقة خدمة الأرشيدياكون حبيب جرجس',
     };
 
     document.title = pageTitles[location.pathname] || 'لوحة التحكم';
   }, [location.pathname]);
 
+  // Standalone digital business card route — rendered without the sidebar/main shell.
+  if (isCardRoute) {
+    return (
+      <AuthProvider>
+        <AnalyticsRouteTracker />
+        {deferredReady && (
+          <Suspense fallback={null}>
+            <LazyToaster />
+          </Suspense>
+        )}
+        <Suspense fallback={null}>
+          <Routes>
+            <Route path="/card" element={<BioLinkPage />} />
+          </Routes>
+        </Suspense>
+      </AuthProvider>
+    );
+  }
+
   return (
     <AuthProvider>
-      <Toaster />
-      <div className="flex h-screen bg-background" dir="rtl">
-        <ChurchSidebar
-          activeSection={activeSection}
-          onSectionChange={(section) => {
-            const path = sectionToPath[section];
-            if (path) navigate(path);
-          }}
-          onCollapseChange={setIsSidebarCollapsed}
-          onOpenLogin={() => setIsLoginModalOpen(true)}
-          onNavigateToProfile={() => navigate('/profile')}
-          onNavigateToFavorites={() => navigate('/favorites')}
-          onNavigateToUserManagement={() => navigate('/admin/users')}
-          onNavigateToTopicsManagement={() => navigate('/admin/topics')}
-          onNavigateToSiteSettings={() => navigate('/admin/settings')}
-        />
+      <AnalyticsRouteTracker />
+      {deferredReady && (
+        <Suspense fallback={null}>
+          <LazyToaster />
+        </Suspense>
+      )}
+      <div className="flex h-screen bg-background overflow-x-hidden" dir="rtl">
+        {deferredReady ? (
+          <Suspense
+            fallback={
+              <div className="hidden lg:flex w-20 bg-sidebar" aria-hidden="true" />
+            }
+          >
+            <ChurchSidebar
+              activeSection={activeSection}
+              onSectionChange={handleSidebarSectionChange}
+              onCollapseChange={handleCollapseChange}
+              onOpenLogin={handleOpenLogin}
+              onNavigateToProfile={handleNavigateToProfile}
+              onNavigateToFavorites={handleNavigateToFavorites}
+              onNavigateToUserManagement={handleNavigateToUserManagement}
+              onNavigateToTopicsManagement={handleNavigateToTopicsManagement}
+              onNavigateToSiteSettings={handleNavigateToSiteSettings}
+              onNavigateToAnalytics={handleNavigateToAnalytics}
+              onNavigateToActivity={handleNavigateToActivity}
+              onNavigateToExport={handleNavigateToExport}
+            />
+          </Suspense>
+        ) : (
+          <div className="hidden lg:block w-64 shrink-0" aria-hidden="true" />
+        )}
 
         <main
-          className={`flex-1 p-4 lg:p-8 h-screen overflow-y-auto pt-20 lg:pt-8 transition-all duration-300 ${
+          className={`flex-1 p-4 lg:p-8 h-screen overflow-y-auto transition-[margin] duration-300 ${
             isSidebarCollapsed ? 'lg:mr-20' : 'lg:mr-64'
-          }`}
+                    }`} style={{ paddingTop: 'var(--app-header-height)' }}
         >
+          <div className="max-w-7xl mx-auto">
           <Suspense
             fallback={
               <div className="w-full flex items-center justify-center py-10 text-muted-foreground">
@@ -185,30 +270,43 @@ export default function App() {
               <Route path="/admin/users" element={<UserManagementPage />} />
               <Route path="/admin/topics" element={<TopicsManagementPage />} />
               <Route path="/admin/settings" element={<SiteSettingsPage />} />
+              <Route path="/admin/analytics" element={<AnalyticsPage />} />
+              <Route path="/admin/activity" element={<UserActivityPage />} />
+              <Route path="/admin/export" element={<AdminExportPage />} />
               <Route path="*" element={<HomeSection />} />
             </Routes>
           </Suspense>
+          </div>
         </main>
+
+        {/* Lazy-load modals only when opened to reduce initial JS evaluation */}
+        {(isLoginModalOpen || isSignupModalOpen) && (
+          <Suspense fallback={null}>
+            {isLoginModalOpen && (
+              <LoginModal
+                isOpen={isLoginModalOpen}
+                onClose={() => setIsLoginModalOpen(false)}
+                onSwitchToSignup={() => {
+                  setIsLoginModalOpen(false);
+                  setIsSignupModalOpen(true);
+                }}
+              />
+            )}
+            {isSignupModalOpen && (
+              <SignupModal
+                isOpen={isSignupModalOpen}
+                onClose={() => setIsSignupModalOpen(false)}
+                onSwitchToLogin={() => {
+                  setIsSignupModalOpen(false);
+                  setIsLoginModalOpen(true);
+                }}
+              />
+            )}
+          </Suspense>
+        )}
       </div>
-
-      <LoginModal
-        isOpen={isLoginModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
-        onSwitchToSignup={() => {
-          setIsLoginModalOpen(false);
-          setIsSignupModalOpen(true);
-        }}
-      />
-
-      <SignupModal
-        isOpen={isSignupModalOpen}
-        onClose={() => setIsSignupModalOpen(false)}
-        onSwitchToLogin={() => {
-          setIsSignupModalOpen(false);
-          setIsLoginModalOpen(true);
-        }}
-      />
     </AuthProvider>
   );
 }
+
 

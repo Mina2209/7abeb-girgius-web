@@ -303,7 +303,7 @@ export function AdminBulkEditBooksModal({
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-card border-t border-border p-6 flex gap-3 justify-end">
+        <div className="sticky bottom-0 bg-card border-t border-border p-6 flex gap-3 justify-end flex-wrap">
           <button
             onClick={onClose}
             className="px-6 py-3 rounded-xl border border-border hover:bg-muted transition-colors"

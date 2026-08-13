@@ -1,4 +1,4 @@
-import { Download, Info, RefreshCw, AlertTriangle, Layers, CheckCircle } from 'lucide-react';
+import { Download, Info, RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
@@ -7,67 +7,32 @@ export function LiturgySection() {
   const downloadLink = "https://www.mediafire.com/file/wpbqlo0imtdzct7/St.Mary_Elnozha_Liturgy_Powerpoint_Widescreen_December2025.rar/file";
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto p-4 animate-fade-in">
+    <div className="space-y-8 max-w-5xl mx-auto p-4 md:p-6 lg:p-8 animate-fade-in">
       {/* Header Section */}
       <div className="border-b border-border pb-6">
-        <h1 className="mb-2 font-bold text-[36px] text-foreground tracking-tight">بوربوينت الليتورجية</h1>
+        <h1 className="mb-2 font-bold text-2xl sm:text-3xl lg:text-[36px] text-foreground tracking-tight">بوربوينت الليتورجية</h1>
         <p className="text-muted-foreground text-lg">
           عروض تقديمية شاملة للطقوس والقداسات الكنسية
         </p>
       </div>
 
-      {/* About & Stats Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Description */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl font-bold">
-                <Info className="w-5 h-5 text-primary" />
-                عن الخدمة ومحتوى الملفات
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-card-foreground leading-relaxed">
-              <p className="text-justify">
-                خدمة الأرشيدياكون حبيب جرجس للداتا شو هى خدمة هدفها تقديم صلوات الكنيسة الليتورجية فى شكل عروض تقديمية (Powerpoint) تعمل على أجهزة البروجيكتور حتى نسهل على شعب الكنيسة متابعة الصلوات والمشاركة فيها.
-              </p>
-              <p className="text-justify">
-                من خلال هذه الصفحة نشارككم ثمار تلك الخدمة حيث يمكنكم الآن تنزيل جميع هذه العروض فى شكل ملف مضغوط صغير الحجم وذلك لتستفيد منها جميع الكنائس.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* File Division & Explanation */}
-        <div className="space-y-4">
-          <Card className="bg-accent/40 border-dashed">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Layers className="w-4 h-4" />
-                مكونات وتوزيعة الملفات
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between items-center border-b border-border/60 pb-2">
-                <span className="text-sm">القداسات الباسيلية والغريغورية</span>
-                <span className="font-bold text-primary">كاملة</span>
-              </div>
-              <div className="flex justify-between items-center border-b border-border/60 pb-2">
-                <span className="text-sm">تسبحة نصف الليل والأبصاليات</span>
-                <span className="font-bold text-primary">محدثة</span>
-              </div>
-              <div className="flex justify-between items-center border-b border-border/60 pb-2">
-                <span className="text-sm">طقوس السيامات والقراءات</span>
-                <span className="font-bold text-primary">مضافة</span>
-              </div>
-              <div className="flex justify-between items-center pt-1">
-                <span className="text-sm font-semibold">صيغة الملفات بالداخل</span>
-                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-mono">PPSX / PPTX</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      {/* About Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-xl font-bold">
+            <Info className="w-5 h-5 text-primary" />
+            عن الخدمة ومحتوى الملفات
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 text-card-foreground leading-relaxed">
+          <p className="text-justify">
+            خدمة الأرشيدياكون حبيب جرجس للداتا شو هى خدمة هدفها تقديم صلوات الكنيسة الليتورجية فى شكل عروض تقديمية (Powerpoint) تعمل على أجهزة البروجيكتور حتى نسهل على شعب الكنيسة متابعة الصلوات والمشاركة فيها.
+          </p>
+          <p className="text-justify">
+            من خلال هذه الصفحة نشارككم ثمار تلك الخدمة حيث يمكنكم الآن تنزيل جميع هذه العروض فى شكل ملف مضغوط صغير الحجم وذلك لتستفيد منها جميع الكنائس.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Main Action Download Box */}
       <Card className="border-primary/30 bg-gradient-to-l from-primary/5 via-transparent to-transparent shadow-md">
@@ -85,11 +50,11 @@ export function LiturgySection() {
             </p>
           </div>
           <Button 
-            size="lg" 
-            className="w-full sm:w-auto gap-2 text-base font-semibold shadow-sm cursor-pointer"
+            size="lg"
+            className="w-full sm:w-auto gap-3 text-xl font-bold shadow-lg px-8 py-6 rounded-xl hover:scale-105 transition-transform cursor-pointer"
             onClick={() => window.open(downloadLink, '_blank')}
           >
-            <Download className="w-5 h-5" />
+            <Download className="w-7 h-7" />
             إضغط للتنزيل
           </Button>
         </CardContent>

@@ -622,7 +622,7 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         </form>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-card">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-card flex-wrap">
           <button
             type="button"
             onClick={onClose}

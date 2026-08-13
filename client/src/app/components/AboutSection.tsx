@@ -1,3 +1,4 @@
+import React from 'react';
 import { 
   Calendar, 
   Target, 
@@ -20,9 +21,13 @@ import {
   Monitor,
   AlertTriangle,
   Ban,
-  Share2
+  Share2,
+  Facebook,
+  Youtube,
+  Mail
 } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { trackEvent } from '../services/analytics';
 
 export function AboutSection() {
   return (
@@ -250,90 +255,6 @@ export function AboutSection() {
         </div>
       </section>
 
-      {/* What We Offer */}
-      <section className="space-y-6">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-            <Sparkles className="w-6 h-6 text-primary" />
-          </div>
-          <h2 className="font-bold text-2xl md:text-3xl">ماذا نقدم</h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Service 1 - Liturgy PowerPoints */}
-          <div className="bg-card rounded-2xl p-6 border border-border shadow-sm hover:shadow-lg hover:border-primary/50 transition-all group">
-            <div className="w-14 h-14 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <Church className="w-7 h-7 text-primary" />
-            </div>
-            <h3 className="font-bold text-lg mb-3">بوربوينت الليتورجية</h3>
-            <p className="text-foreground/80 leading-relaxed">
-              مكتبة شرائح بوربوينت الليتورجية الكاملة، المعروفة والمستخدمة على نطاق واسع، تشمل صلوات القداس والطقوس الكنسية.
-            </p>
-          </div>
-
-          {/* Service 2 - Hymns */}
-          <div className="bg-card rounded-2xl p-6 border border-border shadow-sm hover:shadow-lg hover:border-primary/50 transition-all group">
-            <div className="w-14 h-14 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <Music className="w-7 h-7 text-primary" />
-            </div>
-            <h3 className="font-bold text-lg mb-3">ترانيم للعرض</h3>
-            <p className="text-foreground/80 leading-relaxed">
-              ترانيم مُعدّة للعرض، تشمل بوربوينت كلمات مع صور والموسيقى والفيديو منظمة حسب الموضوع، مناسبة للترنيم في مدارس الأحد والاجتماعات.
-            </p>
-          </div>
-
-          {/* Service 3 - Various PowerPoints */}
-          <div className="bg-card rounded-2xl p-6 border border-border shadow-sm hover:shadow-lg hover:border-primary/50 transition-all group">
-            <div className="w-14 h-14 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <Presentation className="w-7 h-7 text-primary" />
-            </div>
-            <h3 className="font-bold text-lg mb-3">عروض متنوعة</h3>
-            <p className="text-foreground/80 leading-relaxed">
-              مكتبة عروض بوربوينت متنوعة منها بعض الصلوات الليتورجية بالصور، تأملات من صلوات القديسين وعروض أخرى.
-            </p>
-          </div>
-
-          {/* Service 4 - Images */}
-          <div className="bg-card rounded-2xl p-6 border border-border shadow-sm hover:shadow-lg hover:border-primary/50 transition-all group">
-            <div className="w-14 h-14 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <ImageIcon className="w-7 h-7 text-primary" />
-            </div>
-            <h3 className="font-bold text-lg mb-3">مكتبة الصور</h3>
-            <p className="text-foreground/80 leading-relaxed">
-              مكتبة صور مسيحية وقبطية عالية الجودة، للاستخدام في الخدمة، مُنظَّمة حسب الموضوع، ونوع الصورة والمصدر.
-            </p>
-          </div>
-
-          {/* Service 5 - Sayings */}
-          <div className="bg-card rounded-2xl p-6 border border-border shadow-sm hover:shadow-lg hover:border-primary/50 transition-all group">
-            <div className="w-14 h-14 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <MessageSquareQuote className="w-7 h-7 text-primary" />
-            </div>
-            <h3 className="font-bold text-lg mb-3">أقوال الآباء</h3>
-            <p className="text-foreground/80 leading-relaxed">
-              مكتبة أقوال الآباء منقاة منظمة حس الموضوع، والقائل والمصدر، مراجَعة بعناية قبل نشرها.
-            </p>
-          </div>
-
-          {/* Service 6 - Coptic */}
-          <div className="bg-card rounded-2xl p-6 border border-border shadow-sm hover:shadow-lg hover:border-primary/50 transition-all group">
-            <div className="w-14 h-14 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <PenTool className="w-7 h-7 text-primary" />
-            </div>
-            <h3 className="font-bold text-lg mb-3">كتابة القبطي</h3>
-            <p className="text-foreground/80 leading-relaxed">
-              صفحة مخصصة لكتابة القبطي رقميًا، تشمل شرح التقنيات المتاحة مع توفير وتجميع الأدوات المطلوبة لذلك.
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-muted/50 rounded-xl p-5 border border-border">
-          <p className="text-center text-foreground/80 leading-relaxed">
-            <span className="font-semibold">جميع مواد المكتبات</span> مصنّفة ومنظمة حسب الموضوع، قابلة للبحث، ومراجَعة بعناية قبل نشرها.
-          </p>
-        </div>
-      </section>
-
       {/* Platform Features */}
       <section className="space-y-6">
         <div className="flex items-center gap-4 mb-6">
@@ -398,54 +319,56 @@ export function AboutSection() {
 
       {/* Important Notice */}
       <section className="space-y-6">
-        <div className="bg-gradient-to-br from-destructive/10 via-destructive/5 to-transparent rounded-2xl p-6 md:p-8 border-2 border-destructive/30 shadow-lg">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-12 h-12 bg-destructive/20 rounded-xl flex items-center justify-center">
-              <AlertTriangle className="w-6 h-6 text-destructive" />
-            </div>
-            <h2 className="font-bold text-2xl text-destructive">تنبيه هام</h2>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-destructive/20 rounded-xl flex items-center justify-center">
+            <AlertTriangle className="w-6 h-6 text-destructive" />
           </div>
+          <h2 className="font-bold text-2xl md:text-3xl text-destructive">تنبيه هام</h2>
+        </div>
 
-          <div className="space-y-6">
-            {/* Commercial Use Warning */}
-            <div className="bg-card/50 rounded-xl p-6 border border-destructive/20">
-              <div className="flex items-start gap-4 mb-4">
-                <Ban className="w-6 h-6 text-destructive flex-shrink-0 mt-1" />
-                <div>
-                  <h3 className="font-bold text-lg mb-3">ممنوع الاستخدام التجاري</h3>
-                  <p className="text-foreground/90 leading-relaxed mb-4">
-                    ممنوع منعًا باتًا استخدام المحتوى المتاح على المنصة بشكل تجاري أو هادف للربح.
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Commercial Use Warning */}
+          <div className="bg-card rounded-2xl p-6 md:p-8 border-2 border-destructive/25 shadow-sm">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 bg-destructive/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Ban className="w-5 h-5 text-destructive" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-lg mb-3">ممنوع الاستخدام التجاري</h3>
+                <p className="text-foreground/90 leading-relaxed mb-4">
+                  ممنوع منعًا باتًا استخدام المحتوى المتاح على المنصة بشكل تجاري أو هادف للربح.
+                </p>
+                <div className="bg-primary/5 rounded-lg p-4 border border-primary/20">
+                  <p className="text-center text-lg italic font-medium">
+                    <span className="text-primary">"</span>
+                    مجانًا أخذتم مجانًا أعطوا
+                    <span className="text-primary">"</span>
                   </p>
-                  <div className="bg-primary/5 rounded-lg p-4 border border-primary/20">
-                    <p className="text-center text-lg italic font-medium">
-                      <span className="text-primary">"</span>
-                      مجانًا أخذتم مجانًا أعطوا
-                      <span className="text-primary">"</span>
-                    </p>
-                    <p className="text-center text-sm text-muted-foreground mt-2">(متى 10:8)</p>
-                  </div>
+                  <p className="text-center text-sm text-muted-foreground mt-2">(متى 10:8)</p>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Sharing Guidelines */}
-            <div className="bg-card/50 rounded-xl p-6 border border-destructive/20">
-              <div className="flex items-start gap-4">
-                <Share2 className="w-6 h-6 text-orange-500 flex-shrink-0 mt-1" />
-                <div>
-                  <h3 className="font-bold text-lg mb-3">إرشادات المشاركة</h3>
-                  <p className="text-foreground/90 leading-relaxed mb-3">
-                    نرجو عدم إعادة رفع الملفات في أماكن أخرى أو على منصات التواصل الاجتماعي.
+          {/* Sharing Guidelines */}
+          <div className="bg-card rounded-2xl p-6 md:p-8 border-2 border-destructive/25 shadow-sm">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Share2 className="w-5 h-5 text-orange-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-lg mb-3">إرشادات المشاركة</h3>
+                <p className="text-foreground/90 leading-relaxed mb-3">
+                  نرجو عدم إعادة رفع الملفات في أماكن أخرى أو على منصات التواصل الاجتماعي.
+                </p>
+                <p className="text-foreground/90 leading-relaxed">
+                  إننا غير مسؤولين عن أي ملفات تحمل اسم الخدمة يتم تحميلها من مصدر آخر.
+                </p>
+                <div className="bg-green-500/5 rounded-lg p-4 border border-green-500/20 mt-4">
+                  <p className="text-foreground/90 leading-relaxed flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
+                    <span><span className="font-semibold">الرجاء:</span> مشاركة رابط المنصة مباشرة لنشر محتواها</span>
                   </p>
-                  <p className="text-foreground/90 leading-relaxed">
-                    إننا غير مسؤولين عن أي ملفات تحمل اسم الخدمة يتم تحميلها من مصدر آخر.
-                  </p>
-                  <div className="bg-green-500/5 rounded-lg p-4 border border-green-500/20 mt-4">
-                    <p className="text-foreground/90 leading-relaxed flex items-center gap-2">
-                      <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
-                      <span><span className="font-semibold">الرجاء:</span> مشاركة رابط المنصة مباشرة لنشر محتواها</span>
-                    </p>
-                  </div>
                 </div>
               </div>
             </div>
@@ -456,11 +379,35 @@ export function AboutSection() {
       {/* Contact Footer */}
       <section className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-2xl p-6 md:p-8 border border-primary/20">
         <div className="text-center">
-          <h3 className="font-bold text-xl mb-3">نحن هنا لخدمتكم</h3>
-          <p className="text-muted-foreground leading-relaxed mb-4">
-            إذا كان لديكم أي استفسارات أو اقتراحات، نسعد بالتواصل معكم
-          </p>
-          <div className="inline-flex items-center gap-2 text-primary">
+          <h3 className="font-bold text-xl md:text-2xl mb-6">تواصل معنا</h3>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <a
+              href="https://www.facebook.com/archdeaconhabibgerges"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => trackEvent('facebook_click')}
+              className="inline-flex items-center gap-2 px-5 py-3 bg-muted hover:bg-primary hover:text-primary-foreground rounded-xl transition-colors text-sm font-medium"
+            >
+              <Facebook className="w-5 h-5" />
+            </a>
+            <a
+              href="https://www.youtube.com/@archdeaconhabibgerges"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => trackEvent('youtube_click')}
+              className="inline-flex items-center gap-2 px-5 py-3 bg-muted hover:bg-primary hover:text-primary-foreground rounded-xl transition-colors text-sm font-medium"
+            >
+              <Youtube className="w-5 h-5" />
+            </a>
+            <a
+              href="mailto:archdeaconhabibgerges@gmail.com"
+              onClick={() => trackEvent('email_click')}
+              className="inline-flex items-center gap-2 px-5 py-3 bg-muted hover:bg-primary hover:text-primary-foreground rounded-xl transition-colors text-sm font-medium"
+            >
+              <Mail className="w-5 h-5" />
+            </a>
+          </div>
+          <div className="inline-flex items-center gap-2 text-primary mt-6">
             <Church className="w-5 h-5" />
             <span className="font-medium">خدمة الأرشيدياكون حبيب جرجس للداتا شو</span>
           </div>

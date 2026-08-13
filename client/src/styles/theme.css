@@ -42,6 +42,18 @@
   --sidebar-toggle-text: #374151;
   --sidebar-border: rgba(0, 0, 0, 0.08);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Global header/sticky offsets - single source of truth */
+  /* Default (mobile / small screens) — matches App.tsx pt-20 (80px) */
+  --app-header-height: 80px;
+  --app-sticky-offset: var(--app-header-height);
+}
+
+/* Desktop (lg and up) — matches App.tsx lg:pt-8 (32px) */
+@media (min-width: 1024px) {
+  :root {
+    --app-header-height: 32px;
+  }
 }
 
 .dark {
@@ -133,8 +145,8 @@
     @apply border-border outline-ring/50;
   }
 
-  body {
-    @apply bg-background text-foreground;
+  html, body {
+    @apply bg-background text-foreground overflow-x-hidden;
     font-family: 'Tajawal', sans-serif;
   }
 

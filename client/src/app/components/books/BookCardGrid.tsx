@@ -37,7 +37,7 @@ export function BookCardGrid({
           <div
             key={book.id}
             onClick={() => !bulkEditMode && onViewBook(book)}
-            className={`bg-card border border-border rounded-lg overflow-hidden group relative flex flex-col ${
+            className={`bg-card border border-border rounded-lg overflow-hidden group relative z-0 isolate flex flex-col ${
               !bulkEditMode ? 'cursor-pointer' : ''
             }`}
           >

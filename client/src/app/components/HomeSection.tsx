@@ -17,9 +17,39 @@ import {
   TrendingUp,
   FolderOpen,
   CheckCircle2,
-  Download
+  Download,
+  BookOpen,
+  GraduationCap,
+  Mic2,
+  Cross
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+
+const marqueeItems = [
+  { icon: Church, title: 'الليتورجية', desc: 'صلوات القداس والطقوس', color: 'from-amber-500/15 to-amber-600/5', iconColor: 'text-amber-600', border: 'border-amber-500/20' },
+  { icon: Music, title: 'الترانيم', desc: 'كلمات وألحان مسيحية', color: 'from-rose-500/15 to-rose-600/5', iconColor: 'text-rose-600', border: 'border-rose-500/20' },
+  { icon: Presentation, title: 'العروض', desc: 'شرائح متنوعة للعرض', color: 'from-violet-500/15 to-violet-600/5', iconColor: 'text-violet-600', border: 'border-violet-500/20' },
+  { icon: Images, title: 'الصور', desc: 'مكتبة صور قبطية عالية الجودة', color: 'from-emerald-500/15 to-emerald-600/5', iconColor: 'text-emerald-600', border: 'border-emerald-500/20' },
+  { icon: MessageSquareQuote, title: 'أقوال الآباء', desc: 'حكم وأقوال روحية', color: 'from-sky-500/15 to-sky-600/5', iconColor: 'text-sky-600', border: 'border-sky-500/20' },
+  { icon: PenTool, title: 'القبطي', desc: 'كتابة وتعلم اللغة القبطية', color: 'from-orange-500/15 to-orange-600/5', iconColor: 'text-orange-600', border: 'border-orange-500/20' },
+  { icon: BookOpen, title: 'المراجع', desc: 'كتب ومراجع دينية', color: 'from-teal-500/15 to-teal-600/5', iconColor: 'text-teal-600', border: 'border-teal-500/20' },
+  { icon: GraduationCap, title: 'التعليم', desc: 'مواد تعليمية للخدمة', color: 'from-indigo-500/15 to-indigo-600/5', iconColor: 'text-indigo-600', border: 'border-indigo-500/20' },
+  { icon: Mic2, title: 'التسجيلات', desc: 'تسجيلات صوتية للترانيم', color: 'from-pink-500/15 to-pink-600/5', iconColor: 'text-pink-600', border: 'border-pink-500/20' },
+  { icon: Cross, title: 'الأعياد', desc: 'محتوى مناسب لأعياد الكنيسة', color: 'from-yellow-500/15 to-yellow-600/5', iconColor: 'text-yellow-600', border: 'border-yellow-500/20' },
+];
+
+const marqueeCardList = marqueeItems.map((item, i) => (
+  <div
+    key={`card-${i}`}
+    className={`flex-shrink-0 w-56 bg-gradient-to-br ${item.color} rounded-2xl p-5 border ${item.border} hover:scale-105 hover:shadow-lg transition-all duration-300 cursor-default`}
+  >
+    <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-3 bg-background/60 backdrop-blur-sm">
+      <item.icon className={`w-6 h-6 ${item.iconColor}`} />
+    </div>
+    <h4 className="font-bold text-base mb-1">{item.title}</h4>
+    <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
+  </div>
+));
 
 export function HomeSection() {
   const navigate = useNavigate();
@@ -89,7 +119,7 @@ export function HomeSection() {
       </section>
 
       {/* Featured Services Grid */}
-      <section className="space-y-6">
+      <section className="space-y-6 content-visibility-auto">
         <div className="text-center mb-8">
           <h2 className="font-bold text-2xl md:text-3xl mb-3">خدماتنا</h2>
           <p className="text-lg text-muted-foreground">اختر ما تحتاجه من مكتباتنا المتنوعة</p>
@@ -207,7 +237,7 @@ export function HomeSection() {
       </section>
 
       {/* Vision Statement Box */}
-      <section>
+      <section className="content-visibility-auto">
         <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-2xl p-8 md:p-12 border border-primary/20 shadow-sm">
           <blockquote className="text-xl md:text-2xl lg:text-3xl leading-relaxed text-center font-bold mb-4">
             <span className="text-primary text-4xl">"</span>
@@ -218,8 +248,16 @@ export function HomeSection() {
         </div>
       </section>
 
+      {/* Horizontal Scrolling Showcase */}
+      <section className="overflow-hidden py-2">
+        <div className="inline-flex animate-marquee">
+          <div className="flex gap-4 shrink-0">{marqueeCardList}</div>
+          <div className="flex gap-4 shrink-0">{marqueeCardList}</div>
+        </div>
+      </section>
+
       {/* Platform Features */}
-      <section className="space-y-6">
+      <section className="space-y-6 content-visibility-auto">
         <div className="text-center mb-8">
           <h2 className="font-bold text-2xl md:text-3xl mb-3">مميزات المنصة</h2>
           <p className="text-lg text-muted-foreground">أدوات تساعدك على الوصول للمحتوى بسهولة</p>
@@ -269,7 +307,7 @@ export function HomeSection() {
       </section>
 
       {/* How to Get Started */}
-      <section className="space-y-6">
+      <section className="space-y-6 content-visibility-auto">
         <div className="text-center mb-8">
           <h2 className="font-bold text-2xl md:text-3xl mb-3">كيف تبدأ؟</h2>
           <p className="text-lg text-muted-foreground">ثلاث خطوات بسيطة للاستفادة من المنصة</p>
@@ -321,7 +359,7 @@ export function HomeSection() {
       </section>
 
       {/* Footer CTA */}
-      <section className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-2xl p-8 md:p-12 border border-primary/20">
+      <section className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-2xl p-8 md:p-12 border border-primary/20 content-visibility-auto">
         <div className="text-center max-w-2xl mx-auto">
           <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
             <Church className="w-8 h-8 text-primary" />

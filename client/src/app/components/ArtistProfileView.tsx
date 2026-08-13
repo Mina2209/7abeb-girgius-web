@@ -157,7 +157,7 @@ export function ArtistProfileView({
             {/* Gallery Grid */}
             {artistImages.length > 0 ? (
               <ResponsiveMasonry
-                columnsCountBreakPoints={{350: 1, 750: 2, 900: 3, 1200: 4}}
+                columnsCountBreakPoints={{0: 1, 350: 1, 750: 2, 900: 3, 1200: 4}}
               >
                 <Masonry gutter="16px">
                   {artistImages.map((image, index) => (

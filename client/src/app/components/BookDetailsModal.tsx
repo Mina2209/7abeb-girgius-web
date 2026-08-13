@@ -52,12 +52,12 @@ export function BookDetailsModal({ book, onClose, onToggleFavorite, onEdit, onDe
         dir="rtl"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border">
-          <div className="flex items-center gap-3 flex-1">
-            <BookOpen className="w-6 h-6 text-primary" />
-            <h2 className="text-2xl font-bold">{book.title}</h2>
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border gap-2">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" />
+            <h2 className="text-lg sm:text-2xl font-bold truncate">{book.title}</h2>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0 flex-wrap">
             <Button
               variant="ghost"
               size="sm"
@@ -188,7 +188,7 @@ export function BookDetailsModal({ book, onClose, onToggleFavorite, onEdit, onDe
 
             {/* Left Column - PDF Preview */}
             <div className="lg:col-span-2">
-              <div className="bg-muted/30 rounded-lg border border-border p-4 h-full min-h-[600px]">
+              <div className="bg-muted/30 rounded-lg border border-border p-4 h-full min-h-[300px] lg:min-h-[600px]">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold">معاينة الكتاب</h3>
                   <Button size="sm" variant="default" onClick={handleDownload}>

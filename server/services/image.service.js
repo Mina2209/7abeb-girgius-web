@@ -2,7 +2,7 @@ import { prisma } from './prisma.js';
 import s3Service from './s3.service.js';
 import { normalizeArabic } from './normalize.js';
 
-const includeRelations = { tags: true, author: true, type: true };
+const includeRelations = { tags: { select: { id: true, name: true } }, author: true, type: true };
 
 // Build a Prisma `where` for image queries from the supported filters.
 function buildImageWhere({ search, tags, artists, types, ai, ids, includeUnpublished } = {}) {

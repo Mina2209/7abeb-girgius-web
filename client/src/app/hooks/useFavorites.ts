@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiGetJson, apiPostJson, apiDeleteJson } from '../services/apiClient';
 import { getApiBaseUrl } from '../config/api';
+import { trackEvent } from '../services/analytics';
 import type { ContentId } from '../types/content';
 import type { ApiError } from '../services/apiClient';
 import { useAuth } from '../contexts/AuthContext';
@@ -75,6 +76,11 @@ export function useFavorites(contentType: FavoriteContentType): UseFavoritesResu
             return prev.filter((id) => normalizeContentId(id) !== contentIdStr);
           }
           return [...prev, contentId];
+        });
+        // Only track the successful state transition (fire-and-forget).
+        trackEvent(isCurrentlyFavorited ? 'favorite_removed' : 'favorite_added', {
+          contentType: String(contentType).toLowerCase(),
+          contentId: contentIdStr,
         });
       } catch (e) {
         setError(e instanceof Error ? e : new Error(String(e)));

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Heart, Trash2 } from 'lucide-react';
+import { Heart, Trash2, Music } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { FlatIcon } from './icons/FlatIcon';
 import { useHymnsData } from '../hooks/useHymnsData';
@@ -8,7 +8,7 @@ import { useSayingsData } from '../hooks/useSayingsData';
 import { useFavorites } from '../hooks/useFavorites';
 
 // Icon wrapper components for Flaticon (matching navigation icons)
-const MusicIcon = (props: any) => <FlatIcon iconClass="fi-ss-music-alt" {...props} />;
+const MusicIcon = (props: any) => <Music {...props} />;
 const PictureIcon = (props: any) => <FlatIcon iconClass="fi-sr-picture" {...props} />;
 const BookOpenIcon = (props: any) => <FlatIcon iconClass="fi-sr-book-alt" {...props} />;
 const QuoteIcon = (props: any) => <FlatIcon iconClass="fi-sr-comment-quote" {...props} />;
@@ -103,13 +103,13 @@ export function FavoritesPage() {
             <Heart className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">المفضلات</h1>
+            <h1 className="text-2xl md:text-3xl font-bold">المفضلات</h1>
             <p className="text-muted-foreground">جميع العناصر المفضلة لديك في مكان واحد</p>
           </div>
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mt-6">
           <div className="bg-muted/50 rounded-lg p-4 text-center">
             <p className="text-2xl font-bold text-primary">{stats.total}</p>
             <p className="text-sm text-muted-foreground">إجمالي المفضلات</p>
@@ -135,19 +135,19 @@ export function FavoritesPage() {
 
       {/* Tabs */}
       <div className="bg-card rounded-xl shadow-sm overflow-hidden">
-        <div className="flex border-b border-border">
+        <div className="flex border-b border-border overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-6 py-4 transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'bg-primary text-primary-foreground'
                   : 'hover:bg-muted text-muted-foreground'
               }`}
             >
-              <tab.icon className="w-5 h-5" />
-              <span>{tab.label}</span>
+              <tab.icon className="w-5 h-5 flex-shrink-0" />
+              <span className="text-sm sm:text-base">{tab.label}</span>
               <span className={`px-2 py-1 rounded-full text-xs ${
                 activeTab === tab.id
                   ? 'bg-primary-foreground/20'

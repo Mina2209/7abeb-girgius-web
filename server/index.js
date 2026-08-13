@@ -6,6 +6,7 @@ import { prisma } from './services/prisma.js';
 
 import hymnRoutes from './routes/hymn.routes.js';
 import tagRoutes from './routes/tag.routes.js';
+import tagSectionRoutes from './routes/tagSection.routes.js';
 import sayingRoutes from './routes/saying.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
 import authRoutes from './routes/auth.routes.js';
@@ -17,6 +18,9 @@ import backupRoutes from './routes/backup.routes.js';
 import imageRoutes from './routes/image.routes.js';
 import fatherRoutes from './routes/father.routes.js';
 import favoriteRoutes from './routes/favorite.routes.js';
+import analyticsRoutes from './routes/analytics.routes.js';
+import adminActivityRoutes from './routes/adminActivity.routes.js';
+import analyticsExportRoutes from './routes/analyticsExport.routes.js';
 import { BackupScheduler } from './services/backup.scheduler.js';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
 
@@ -84,6 +88,8 @@ app.use('/api/auth/settings', settingsRoutes);
 
 app.use('/api/hymns', hymnRoutes);
 app.use('/api/tags', tagRoutes);
+app.use('/api/tag-sections', tagSectionRoutes);
+
 app.use('/api/sayings', sayingRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/lyrics', lyricRoutes);
@@ -91,6 +97,9 @@ app.use('/api/backup', backupRoutes);
 app.use('/api/images', imageRoutes);
 app.use('/api/fathers', fatherRoutes);
 app.use('/api/favorites', favoriteRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/admin/activity', adminActivityRoutes);
+app.use('/api/admin/analytics/export', analyticsExportRoutes);
 // note: uploads are served from S3 via presigned URLs; no local static serving
 
 // Lightweight health endpoint for Elastic Beanstalk / load balancer

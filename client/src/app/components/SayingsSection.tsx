@@ -1,10 +1,9 @@
-  import { Heart, Share2, ArrowUpDown, Search, ChevronDown, Tags, User, BookOpen, Calendar, Plus, Edit2, Trash2, Download, Upload, CheckSquare, Square, CheckCheck, Video, MessageSquareQuote, Users, X, Image as ImageIcon } from 'lucide-react';
+  import { Heart, Share2, ArrowUpDown, Search, ChevronDown, Tags, User, BookOpen, Calendar, Plus, Edit2, Trash2, Download, Upload, CheckSquare, Square, CheckCheck, Video, MessageSquareQuote, Users, X, Image as ImageIcon, FileSpreadsheet } from 'lucide-react';
   import { useState, useMemo, useRef, useEffect } from 'react';
   import { useNavigate } from 'react-router-dom';
   import { TagFilter } from './TagFilter';
   import { MultiSelectFilter } from './MultiSelectFilter';
   import Masonry, { ResponsiveMasonry } from 'react-responsive-masonry';
-  import { FatherProfileModal } from './FatherProfileModal';
   import { getFatherByName, fathers as staticFathersData } from '../data/fathers';
   import { useIsEditor } from '../utils/adminUtils';
   import { normalizeArabic } from '../utils/arabicUtils';
@@ -14,9 +13,11 @@
   import { useFavorites } from '../hooks/useFavorites';
   import type { ContentId, Saying } from '../types/content';
   import { useAuth } from '../contexts/AuthContext';
-  import { createSaying, deleteSaying, updateSaying, fetchFatherByName, fetchFathers, updateFather } from '../services/contentWriteService';
-  import { AdminEditFatherModal } from './AdminEditFatherModal';
+import { createSaying, deleteSaying, updateSaying, fetchFatherByName, fetchFathers, createFather, bulkImportSayings } from '../services/contentWriteService';
+import { AdminEditFatherModal } from './AdminEditFatherModal';
 import { apiRequest } from '../services/apiClient';
+import { trackEvent } from '../services/analytics';
+import { useSearchAnalytics } from '../hooks/useSearchAnalytics';
 import { toast } from 'sonner';
   import type { Father } from '../data/fathers';
 
@@ -132,21 +133,6 @@ import { toast } from 'sonner';
   }
 
   export function SayingsSection() {
-
-
-useEffect(() => {
-  const checkScroll = () => {
-    if (window.scrollY > 40) {
-      setIsScrolled(true);
-    } else {
-      setIsScrolled(false);
-    }
-  };
-
-  checkScroll();
-  window.addEventListener('scroll', checkScroll);
-  return () => window.removeEventListener('scroll', checkScroll);
-}, []);
     const navigate = useNavigate();
     const isEditor = useIsEditor();
     const { accessToken } = useAuth();
@@ -158,20 +144,15 @@ useEffect(() => {
     const [searchQuery, setSearchQuery] = useState('');
     const [sortBy, setSortBy] = useState<SortOption>('date-desc');
     const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
-    const [isScrolled, setIsScrolled] = useState(false);
-    const [scrollProgress, setScrollProgress] = useState(0);
     const [expandedQuoteId, setExpandedQuoteId] = useState<ContentId | null>(null);
     const { favoriteIds: favoritedQuoteIds, toggleFavorite: apiToggleFavorite, count: favoritedCount } = useFavorites('SAYING');
     const favoritedQuotes = Array.from(favoritedQuoteIds);
     const [shareMessage, setShareMessage] = useState<string | null>(null);
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-    const [selectedFather, setSelectedFather] = useState<string | null>(null);
-    const [isFatherModalOpen, setIsFatherModalOpen] = useState(false);
     const [showFathersList, setShowFathersList] = useState(false);
     const [allFathers, setAllFathers] = useState<Father[]>([]);
     const [fathersLoading, setFathersLoading] = useState(false);
-    const [editFather, setEditFather] = useState<Father | null>(null);
-    const [isEditFatherModalOpen, setIsEditFatherModalOpen] = useState(false);
+    const [isNewFatherModalOpen, setIsNewFatherModalOpen] = useState(false);
 
     // Admin state
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -186,35 +167,62 @@ useEffect(() => {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const filtersContainerRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const excelFileInputRef = useRef<HTMLInputElement>(null);
+
+    // Load all fathers eagerly so we can resolve author images for cards
+    useEffect(() => {
+      const seen = new Set<string>();
+      const combined: Father[] = [];
+      for (const f of staticFathersData) { combined.push(f); seen.add(f.name); }
+      fetchFathers(accessToken).then(serverFathers => {
+        for (const f of serverFathers) {
+          if (!seen.has(f.name)) { combined.push(f); }
+          else { const idx = combined.findIndex(c => c.name === f.name); if (idx !== -1 && !f.id.startsWith('static-')) combined[idx] = f; }
+          seen.add(f.name);
+        }
+        setAllFathers(combined);
+      }).catch(() => setAllFathers(combined));
+    }, []);
+
+    // Map author name -> father profileImage for fallback
+    const fatherImageMap = useMemo(() => {
+      const map = new Map<string, string>();
+      for (const f of allFathers) {
+        if (f.profileImage) map.set(f.name, f.profileImage);
+      }
+      return map;
+    }, [allFathers]);
 
     // Get unique authors, sources, and tags
     const allAuthors = useMemo(() => Array.from(new Set(sayings.map(s => s.author))), [sayings]);
     const allSources = useMemo(() => Array.from(new Set(sayings.map(s => s.source))), [sayings]);
     const allTags = useMemo(() => Array.from(new Set(sayings.flatMap(s => s.tags))), [sayings]);
 
-  // Detect scroll to hide title/description
-  useEffect(() => {
-  const handleScroll = () => {
-    if (scrollContainerRef.current) {
-      const scrollTop = scrollContainerRef.current.scrollTop;
-      setIsScrolled(scrollTop > 20);
-    }
-  };
+    const fathersWithSayings = useMemo(() => {
+      const authorMap = new Map<string, Father>();
+      for (const f of staticFathersData) authorMap.set(f.name, f);
 
-  const scrollContainer = scrollContainerRef.current;
-  if (scrollContainer) {
-    scrollContainer.addEventListener("scroll", handleScroll);
-    handleScroll();
-  }
+      const uniqueAuthors = Array.from(new Set(sayings.map(s => s.author).filter(Boolean)));
 
-  return () => {
-    if (scrollContainer) {
-      scrollContainer.removeEventListener("scroll", handleScroll);
-    }
-  };
-  
-//  شيلنا isLoading وسيبنا الـ Ref ومصفوفة الداتا بس
-}, [scrollContainerRef.current, sayings]);
+      for (const name of uniqueAuthors) {
+        if (authorMap.has(name)) continue;
+        const serverFather = allFathers.find(f => f.name === name && !f.id.startsWith('static-'));
+        if (serverFather) {
+          authorMap.set(name, serverFather);
+        } else {
+          authorMap.set(name, {
+            id: `author-${name}`,
+            name,
+            title: '',
+            bio: '',
+            profileImage: '',
+          });
+        }
+      }
+
+      return Array.from(authorMap.values()).filter(f => uniqueAuthors.includes(f.name));
+    }, [allFathers, sayings]);
+
     // Close sort dropdown when clicking outside
     useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
@@ -392,6 +400,59 @@ useEffect(() => {
       event.target.value = '';
     };
 
+    const handleExcelImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      try {
+        const XLSX = await import('xlsx');
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' }) as unknown as Record<string, string>[];
+
+        if (jsonData.length === 0) {
+          toast.error('الملف فارغ أو لا يحتوي على بيانات');
+          return;
+        }
+
+        const rows = jsonData.map(row => ({
+          content: row['القول'] || '',
+          author: row['القائل'] || '',
+          source: row['المصدر'] || undefined,
+          topic: row['الموضوع'] || undefined,
+        })).filter(row => row.content && row.author);
+
+        if (rows.length === 0) {
+          toast.error('لا توجد بيانات صالحة. تأكد من وجود أعمدة "القول" و"القائل"');
+          return;
+        }
+
+        const result = await bulkImportSayings(rows, accessToken);
+
+        const imported: Saying[] = rows.map((row, i) => ({
+          id: `excel-${Date.now()}-${i}`,
+          quote: row.content,
+          author: row.author,
+          authorImage: '',
+          tags: row.topic ? [row.topic] : [],
+          source: row.source || '',
+          dateAdded: new Date().toISOString().split('T')[0],
+        }));
+
+        setSayings(prev => [...prev, ...imported]);
+        setShareMessage(`تم استيراد ${result.count} قول بنجاح`);
+        setTimeout(() => setShareMessage(null), 2000);
+        toast.success(`تم استيراد ${result.count} قول`);
+      } catch (err) {
+        console.error('Excel import error:', err);
+        toast.error('فشل استيراد الملف. تأكد من صيغة الملف والأعمدة المطلوبة.');
+      }
+
+      event.target.value = '';
+    };
+
     const toggleSelectSaying = (id: ContentId) => {
       setSelectedSayingIds((prev) =>
         prev.some((sid) => String(sid) === String(id))
@@ -414,21 +475,39 @@ useEffect(() => {
 
     const handleShare = (quote: Saying) => {
       const shareText = `"${quote.quote}"\n\n- ${quote.author}`;
-      
+      // Engage with a specific quote — never send the quote text itself.
+      trackEvent('saying_view', {
+        contentType: 'saying',
+        contentId: quote.id,
+        contentName: quote.author,
+      });
+      trackEvent('share_started', {
+        contentType: 'saying',
+        contentId: quote.id,
+        contentName: quote.author,
+      });
+
       if (navigator.share) {
         navigator.share({
           title: 'قول من أقوال الآباء',
           text: shareText,
+        }).then(() => {
+          trackEvent('share_completed', {
+            contentType: 'saying',
+            contentId: quote.id,
+            contentName: quote.author,
+            properties: { method: 'native' },
+          });
         }).catch(() => {
           // Fallback to clipboard
-          copyToClipboard(shareText);
+          copyToClipboard(shareText, quote);
         });
       } else {
-        copyToClipboard(shareText);
+        copyToClipboard(shareText, quote);
       }
     };
 
-    const copyToClipboard = (text: string) => {
+    const copyToClipboard = (text: string, quote?: Saying) => {
       // Fallback method for copying text when Clipboard API is blocked
       const textarea = document.createElement('textarea');
       textarea.value = text;
@@ -441,6 +520,14 @@ useEffect(() => {
       
       try {
         document.execCommand('copy');
+        if (quote) {
+          trackEvent('share_completed', {
+            contentType: 'saying',
+            contentId: quote.id,
+            contentName: quote.author,
+            properties: { method: 'copy' },
+          });
+        }
         setShareMessage('تم النسخ إلى الحافظة');
         setTimeout(() => setShareMessage(null), 2000);
       } catch (err) {
@@ -470,25 +557,15 @@ useEffect(() => {
         const father = await fetchFatherByName(authorName, accessToken);
         if (father) {
           navigate(`/sayings/authors/${father.id}`);
-        } else {
-          const staticFather = getFatherByName(authorName);
-          if (staticFather) {
-            setSelectedFather(authorName);
-            setIsFatherModalOpen(true);
-          }
+          return;
         }
-      } catch {
-        const staticFather = getFatherByName(authorName);
-        if (staticFather) {
-          setSelectedFather(authorName);
-          setIsFatherModalOpen(true);
-        }
+      } catch {}
+      const staticFather = getFatherByName(authorName);
+      if (staticFather) {
+        navigate(`/sayings/authors/${staticFather.id}`);
+      } else {
+        navigate(`/sayings/authors/author-${encodeURIComponent(authorName)}`);
       }
-    };
-
-    const handleCloseFatherModal = () => {
-      setIsFatherModalOpen(false);
-      setSelectedFather(null);
     };
 
     // Filter sayings
@@ -513,6 +590,11 @@ useEffect(() => {
         return matchesSearch && matchesTags && matchesAuthors && matchesSources && matchesFavorites;
       });
     }, [selectedTags, selectedAuthors, selectedSources, searchQuery, showFavoritesOnly, favoritedQuotes, sayings]);
+
+    useSearchAnalytics(searchQuery, {
+      section: "sayings",
+      getResultCount: () => filteredSayings.length,
+    });
 
     const availableSayingsForTags = useMemo(
       () =>
@@ -624,19 +706,11 @@ useEffect(() => {
     return (
 
   <div className="flex flex-col h-full">
-    {/* Sticky Header Section */}
-    <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
-      
-      <div
-          className={`transition-all duration-500 ease-in-out overflow-hidden ${
-            isScrolled
-              ? "max-h-0 opacity-0 mb-0 pointer-events-none transform -translate-y-2"
-              : "max-h-[250px] opacity-100 mb-4 transform translate-y-0"
-          }`}
-        >
-          <div>
-          <div className="flex items-start justify-between gap-4 mb-2">
-            <h1 className="font-bold text-[36px]">أقوال الآباء</h1>
+    {/* Section Header - normal flow container, scrolls up naturally */}
+    <div>
+      <div>
+        <div className="flex items-start justify-between gap-4 mb-2">
+          <h1 className="font-bold text-2xl sm:text-3xl lg:text-[36px]">أقوال الآباء</h1>
             <button
               onClick={() => setShowFathersList(true)}
               className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium shrink-0"
@@ -656,9 +730,8 @@ useEffect(() => {
             <span>← شرح الاستخدام</span>
           </button>
         </div>
-      </div>
 
-          {/* Admin Toolbar - Option 1: Dedicated Row */}
+      {/* Admin Toolbar */}
           {isEditor && (
             <div className="mt-4 mb-4 px-3 py-2 bg-primary/5 border border-primary/20 rounded-lg">
               <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -716,6 +789,21 @@ useEffect(() => {
                     onChange={handleImport}
                     className="hidden"
                   />
+                  <button
+                    onClick={() => excelFileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded-lg hover:bg-muted transition-colors text-sm"
+                    title="استيراد من إكسل"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    <span>إستيراد من إكسل</span>
+                  </button>
+                  <input
+                    ref={excelFileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    onChange={handleExcelImport}
+                    className="hidden"
+                  />
                 </div>
               </div>
             </div>
@@ -745,8 +833,10 @@ useEffect(() => {
               </div>
             </div>
           )}
+        </div>
 
-          {/* Search and Filters Container */}
+        {/* Sticky Filter Toolbar - pinned at the top while scrolling */}
+        <div className="sticky z-50 isolate bg-background border-b border-border/50 shadow-[0_4px_16px_-4px_rgba(0,0,0,0.3)] py-3 sm:py-4" style={{ top: 'var(--app-header-height)' }}>
           <div className="space-y-4 sm:space-y-8">
             {/* Search Bar with Sort Button (Mobile) */}
             <div className="flex items-center gap-2">
@@ -765,7 +855,7 @@ useEffect(() => {
               <div className="relative flex-shrink-0 sm:hidden" ref={sortDropdownRef}>
                 <button
                   onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
-                  className="flex items-center justify-center w-[50px] h-[50px] bg-card border border-border rounded-xl hover:bg-muted transition-colors"
+                  className="flex items-center justify-center min-w-[44px] min-h-[44px] w-[50px] h-[50px] bg-card border border-border rounded-xl hover:bg-muted transition-colors"
                 >
                   <ArrowUpDown className="w-5 h-5 text-muted-foreground" />
                 </button>
@@ -922,9 +1012,9 @@ useEffect(() => {
         </div>
 
         {/* Scrollable Content Area */}
-        <div className="flex-1 overflow-y-auto pt-6" ref={scrollContainerRef}>
+        <div className="pt-6" ref={scrollContainerRef}>
           {sortedSayings.length > 0 ? (
-            <ResponsiveMasonry columnsCountBreakPoints={{350: 1, 750: 2}}>
+            <ResponsiveMasonry columnsCountBreakPoints={{0: 1, 350: 1, 750: 2}}>
               <Masonry gutter="16px">
                 {sortedSayings.map((item) => {
                   const isExpanded =
@@ -934,7 +1024,7 @@ useEffect(() => {
                   return (
                     <div
                       key={item.id}
-                      className={`bg-card rounded-xl border overflow-hidden transition-all hover:bg-muted group/card w-full ${
+                      className={`bg-card relative z-0 isolate rounded-xl border overflow-hidden transition-all hover:bg-muted group/card w-full ${
                         isSelected ? 'border-primary ring-2 ring-primary/30' : 'border-border'
                       }`}
                       style={{ width: '100%' }}
@@ -973,7 +1063,7 @@ useEffect(() => {
                           {/* Author Info */}
                           <div className="flex items-center gap-3">
                             <img 
-                              src={item.authorImage} 
+                              src={item.authorImage || fatherImageMap.get(item.author) || ''} 
                               alt={item.author}
                               className="w-12 h-12 rounded-full object-cover border-2 border-border"
                             />
@@ -1098,17 +1188,6 @@ useEffect(() => {
           </div>
         )}
 
-        {/* Father Profile Modal */}
-        <FatherProfileModal
-          father={selectedFather ? getFatherByName(selectedFather) || null : null}
-          sayings={sayings as any}
-          isOpen={isFatherModalOpen}
-          onClose={handleCloseFatherModal}
-          favoritedQuotes={favoritedQuotes as any}
-          onToggleFavorite={toggleFavorite as any}
-          onShare={handleShare}
-        />
-
         {/* Admin Edit Modal */}
         {isEditor && (
           <AdminEditSayingModal
@@ -1139,6 +1218,17 @@ useEffect(() => {
               <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card flex-shrink-0">
                 <h2 className="text-2xl font-bold">الآباء</h2>
                 <div className="flex items-center gap-2">
+                  {isEditor && (
+                    <button
+                      onClick={() => {
+                        setIsNewFatherModalOpen(true);
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>إضافة آب</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => setShowFathersList(false)}
                     className="p-2 hover:bg-muted rounded-lg transition-colors"
@@ -1153,13 +1243,13 @@ useEffect(() => {
                   <div className="flex flex-col items-center justify-center min-h-[30vh] gap-2 text-muted-foreground">
                     <p>جاري تحميل الآباء...</p>
                   </div>
-                ) : allFathers.length === 0 ? (
+                ) : fathersWithSayings.length === 0 ? (
                   <div className="text-center py-12 bg-card rounded-xl border border-border">
-                    <p className="text-muted-foreground">لا يوجد آباء بعد</p>
+                    <p className="text-muted-foreground">لا يوجد آباء لديهم أقوال بعد</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {allFathers.map((father) => {
+                    {fathersWithSayings.map((father) => {
                       const sayingCount = sayings.filter(s => s.author === father.name).length;
 
                       return (
@@ -1168,12 +1258,7 @@ useEffect(() => {
                           className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-all group cursor-pointer"
                           onClick={() => {
                             setShowFathersList(false);
-                            if (father.id.startsWith('static-')) {
-                              setSelectedFather(father.name);
-                              setIsFatherModalOpen(true);
-                            } else {
-                              navigate(`/sayings/authors/${father.id}`);
-                            }
+                            navigate(`/sayings/authors/${father.id}`);
                           }}
                         >
                           <div className="relative h-48 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center overflow-hidden">
@@ -1181,54 +1266,60 @@ useEffect(() => {
                               <img
                                 src={father.profileImage}
                                 alt={father.name}
-                                className="w-32 h-32 rounded-full object-cover border-4 border-background shadow-xl group-hover:scale-110 transition-transform duration-300"
+                                className="w-24 h-24 sm:w-32 sm:h-32 rounded-full object-cover border-4 border-background shadow-xl group-hover:scale-110 transition-transform duration-300"
                                 onError={(e) => {
                                   (e.target as HTMLImageElement).src = '';
                                   (e.target as HTMLImageElement).style.display = 'none';
                                 }}
                               />
                             ) : (
-                              <div className="w-32 h-32 rounded-full border-4 border-background shadow-xl bg-muted flex items-center justify-center">
+                              <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-background shadow-xl bg-muted flex items-center justify-center">
                                 <ImageIcon className="w-12 h-12 text-muted-foreground" />
-                              </div>
-                            )}
-
-                            {isEditor && father && !father.id.startsWith('static-') && (
-                              <div className="absolute top-3 left-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setEditFather(father); setIsEditFatherModalOpen(true); }}
-                                  className="p-2 bg-white/90 hover:bg-white text-black rounded-lg transition-colors shadow-lg"
-                                  title="تعديل"
-                                >
-                                  <Edit2 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    if (!confirm(`هل أنت متأكد من حذف "${father.name}"؟`)) return;
-                                    try {
-                                      const res = await apiRequest(`/api/fathers/${father.id}`, { method: 'DELETE' });
-                                      if (!res.ok) {
-                                        const err = await res.json().catch(() => ({}));
-                                        throw new Error(err.error || 'فشل الحذف');
-                                      }
-                                      setShareMessage('تم حذف الآب بنجاح');
-                                      setAllFathers(prev => prev.filter(f => f.id !== father.id));
-                                    } catch (e: any) {
-                                      setShareMessage(e.message || 'فشل حذف الآب');
-                                    }
-                                    setTimeout(() => setShareMessage(null), 2000);
-                                  }}
-                                  className="p-2 bg-red-500/90 hover:bg-red-500 text-white rounded-lg transition-colors shadow-lg"
-                                  title="حذف"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
                               </div>
                             )}
                           </div>
 
                           <div className="p-6 space-y-4">
+                            {isEditor && father && !father.id.startsWith('static-') && (
+                              <div className="flex items-center justify-center gap-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowFathersList(false);
+                                    navigate(`/sayings/authors/${father.id}`);
+                                  }}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-muted hover:bg-primary hover:text-primary-foreground rounded-lg transition-colors text-sm font-medium"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                  تعديل
+                                </button>
+                                {!father.id.startsWith('author-') && (
+                                  <button
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (!confirm(`هل أنت متأكد من حذف "${father.name}"؟`)) return;
+                                      try {
+                                        const res = await apiRequest(`/api/fathers/${father.id}`, { method: 'DELETE' });
+                                        if (!res.ok) {
+                                          const err = await res.json().catch(() => ({}));
+                                          throw new Error(err.error || 'فشل الحذف');
+                                        }
+                                        setShareMessage('تم حذف الآب بنجاح');
+                                        setAllFathers(prev => prev.filter(f => f.id !== father.id));
+                                      } catch (e: any) {
+                                        setShareMessage(e.message || 'فشل حذف الآب');
+                                      }
+                                      setTimeout(() => setShareMessage(null), 2000);
+                                    }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500 hover:text-white text-red-600 rounded-lg transition-colors text-sm font-medium"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    حذف
+                                  </button>
+                                )}
+                              </div>
+                            )}
+
                             <div className="text-center space-y-1">
                               <h3 className="text-xl font-bold">{father.name}</h3>
                               {father.title && <p className="text-primary font-medium text-sm">{father.title}</p>}
@@ -1256,28 +1347,26 @@ useEffect(() => {
           </div>
         )}
 
-        {/* Admin Edit Father Modal */}
+        {/* Admin Edit Father Modal - Create */}
         {isEditor && (
           <AdminEditFatherModal
-            isOpen={isEditFatherModalOpen}
+            isOpen={isNewFatherModalOpen}
             onClose={() => {
-              setIsEditFatherModalOpen(false);
-              setEditFather(null);
+              setIsNewFatherModalOpen(false);
             }}
             onSave={async (fatherData) => {
               try {
-                if (!editFather || !editFather.id || editFather.id.startsWith('static-')) return;
-                await updateFather(editFather.id, fatherData, accessToken);
-                setShareMessage('تم تحديث بيانات الآب بنجاح');
+                const created = await createFather(fatherData, accessToken);
+                setAllFathers(prev => [...prev, created]);
+                setShareMessage('تم إضافة الآب بنجاح');
               } catch (e: any) {
                 const isDuplicate = e.message?.includes('409') || e.message?.includes('هذا الاسم');
-                setShareMessage(isDuplicate ? 'هذا الاسم موجود مسبقاً' : 'فشل تحديث بيانات الآب');
+                setShareMessage(isDuplicate ? 'هذا الاسم موجود مسبقاً' : 'فشل إضافة الآب');
               }
               setTimeout(() => setShareMessage(null), 2000);
-              setIsEditFatherModalOpen(false);
-              setEditFather(null);
+              setIsNewFatherModalOpen(false);
             }}
-            father={editFather!}
+            isNew
           />
         )}
       </div>

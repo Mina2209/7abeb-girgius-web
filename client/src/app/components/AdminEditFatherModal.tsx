@@ -1,4 +1,4 @@
-import { X, Save } from 'lucide-react';
+import { X, Save, Upload } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { Father } from '../data/fathers';
 
@@ -6,24 +6,34 @@ interface AdminEditFatherModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (father: Father) => void;
-  father: Father;
+  father?: Father | null;
+  isNew?: boolean;
 }
+
+const emptyFather: Father = {
+  id: '',
+  name: '',
+  title: '',
+  bio: '',
+  profileImage: '',
+};
 
 export function AdminEditFatherModal({
   isOpen,
   onClose,
   onSave,
   father,
+  isNew = false,
 }: AdminEditFatherModalProps) {
-  const [formData, setFormData] = useState<Father>(father);
+  const [formData, setFormData] = useState<Father>(father || emptyFather);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
     if (isOpen) {
-      setFormData(father);
+      setFormData(father || emptyFather);
       setErrors({});
     }
-  }, [isOpen, father]);
+  }, [isOpen, father, isNew]);
 
   const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {};
@@ -50,7 +60,7 @@ export function AdminEditFatherModal({
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
           <h2 className="text-2xl font-bold">
-            تعديل بيانات الآب: {father.name}
+            {isNew ? 'إضافة آب جديد' : `تعديل بيانات الآب: ${father?.name || ''}`}
           </h2>
           <button
             onClick={onClose}
@@ -91,24 +101,45 @@ export function AdminEditFatherModal({
 
             <div>
               <label className="block text-sm font-medium mb-2">
-                صورة البروفايل (URL)
+                صورة البروفايل
               </label>
-              <input
-                type="text"
-                value={formData.profileImage}
-                onChange={(e) => setFormData({ ...formData, profileImage: e.target.value })}
-                className="w-full px-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50"
-                placeholder="https://example.com/image.jpg"
-              />
-              {formData.profileImage && (
-                <div className="mt-2 w-20 h-20 rounded-full overflow-hidden border border-border">
-                  <img
-                    src={formData.profileImage}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
+              {formData.profileImage ? (
+                <div className="space-y-2">
+                  <div className="w-20 h-20 rounded-full overflow-hidden border border-border">
+                    <img
+                      src={formData.profileImage}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, profileImage: '' })}
+                    className="text-sm text-red-500 hover:text-red-600 transition-colors"
+                  >
+                    إزالة الصورة
+                  </button>
                 </div>
+              ) : (
+                <label className="flex flex-col items-center gap-2 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-primary/50 transition-colors">
+                  <Upload className="w-8 h-8 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">اضغط لرفع صورة</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setFormData({ ...formData, profileImage: reader.result as string });
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
               )}
             </div>
 
@@ -126,7 +157,7 @@ export function AdminEditFatherModal({
           </div>
         </form>
 
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-card">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-card flex-wrap">
           <button
             type="button"
             onClick={onClose}
@@ -139,7 +170,7 @@ export function AdminEditFatherModal({
             className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors"
           >
             <Save className="w-4 h-4" />
-            حفظ
+            {isNew ? 'إضافة' : 'حفظ'}
           </button>
         </div>
       </div>

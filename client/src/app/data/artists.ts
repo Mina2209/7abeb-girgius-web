@@ -68,7 +68,4 @@ export const getArtistByName = (name: string): Artist | undefined => {
   return artists.find(artist => normalizeArabic(artist.name).toLowerCase() === normalized);
 };
 
-// Helper function to get artist by ID
-export const getArtistById = (id: number): Artist | undefined => {
-  return artists.find(artist => artist.id === id);
-};
+

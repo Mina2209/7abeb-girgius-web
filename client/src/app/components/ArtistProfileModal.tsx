@@ -104,7 +104,7 @@ export function ArtistProfileModal({
       {/* Main content - scrollable */}
       <div className="w-full max-w-7xl h-full overflow-y-auto bg-background rounded-2xl shadow-2xl">
         {/* Header Section with Artist Info */}
-        <div className="relative bg-gradient-to-b from-primary/10 to-background p-8 border-b border-border">
+        <div className="relative bg-gradient-to-b from-primary/10 to-background p-4 md:p-8 border-b border-border">
           <div className="max-w-4xl mx-auto">
             <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
               {/* Profile Image */}
@@ -200,7 +200,7 @@ export function ArtistProfileModal({
         </div>
 
         {/* Works Section */}
-        <div className="p-8">
+        <div className="p-4 md:p-8">
           <div className="max-w-7xl mx-auto">
             {/* Section Header with Selection Mode Toggle */}
             <div className="flex items-center justify-between mb-6">
@@ -234,7 +234,7 @@ export function ArtistProfileModal({
 
             {/* Images Grid */}
             {artistImages.length > 0 ? (
-              <ResponsiveMasonry columnsCountBreakPoints={{350: 1, 750: 2, 900: 3, 1200: 4}}>
+              <ResponsiveMasonry columnsCountBreakPoints={{0: 1, 350: 1, 750: 2, 900: 3, 1200: 4}}>
                 <Masonry gutter="16px">
                   {artistImages.map((image, index) => (
                     <div

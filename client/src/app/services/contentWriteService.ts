@@ -134,6 +134,16 @@ export async function deleteSaying(id: string, token?: string | null): Promise<v
   await ensureOk(res, 'Failed to delete saying');
 }
 
+export async function bulkImportSayings(rows: { content: string; author: string; source?: string; topic?: string }[], token?: string | null): Promise<{ success: boolean; count: number }> {
+  const res = await apiRequest('/api/sayings/bulk-import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...withAuth(token) },
+    body: JSON.stringify({ rows }),
+  });
+  await ensureOk(res, 'Failed to bulk import sayings');
+  return res.json();
+}
+
 async function resolveImageMetaIds(image: GalleryImage, token?: string | null) {
   const auth = withAuth(token);
   const [authors, types] = await Promise.all([

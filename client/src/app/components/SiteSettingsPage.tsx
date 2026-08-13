@@ -279,7 +279,7 @@ export function SiteSettingsPage() {
             <Settings className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold">إعدادات الموقع</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">إعدادات الموقع</h1>
           </div>
         </div>
       </div>
@@ -297,7 +297,7 @@ export function SiteSettingsPage() {
           <div className="flex items-start gap-6 flex-wrap">
             {/* Preview Image - Compact */}
             <div className="flex-shrink-0">
-              <div className="aspect-[3/4] w-[150px] rounded-lg overflow-hidden border-2 border-border">
+              <div className="aspect-[3/4] w-[120px] sm:w-[150px] rounded-lg overflow-hidden border-2 border-border">
                 <img
                   src={previewCover}
                   alt="Default book cover preview"
@@ -307,7 +307,7 @@ export function SiteSettingsPage() {
             </div>
 
             {/* Controls */}
-            <div className="flex-1 min-w-[280px] space-y-4">
+            <div className="flex-1 min-w-0 space-y-4">
               {/* Upload and Reset Buttons */}
               <div className="flex items-center gap-3 flex-wrap">
                 <label className="cursor-pointer">
@@ -359,7 +359,7 @@ export function SiteSettingsPage() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             <div className="bg-muted/30 rounded-lg p-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
@@ -602,7 +602,7 @@ export function SiteSettingsPage() {
 
       {/* Sticky notification when there are any unsaved changes */}
       {hasAnyChanges && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-6 py-3 rounded-full shadow-lg flex items-center gap-3 z-50">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-6 py-3 rounded-full shadow-lg flex items-center gap-3 z-50 max-w-[calc(100vw-2rem)] whitespace-nowrap">
           <AlertTriangle className="w-5 h-5" />
           <span className="font-semibold">لديك تغييرات غير محفوظة في هذه الصفحة</span>
         </div>

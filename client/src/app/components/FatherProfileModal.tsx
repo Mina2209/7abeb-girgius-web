@@ -53,7 +53,7 @@ export function FatherProfileModal({
       {/* Main content - scrollable */}
       <div className="w-full max-w-4xl h-full overflow-y-auto bg-background rounded-2xl shadow-2xl">
         {/* Header Section with Father Info */}
-        <div className="relative bg-gradient-to-b from-primary/10 to-background p-8 border-b border-border">
+        <div className="relative bg-gradient-to-b from-primary/10 to-background p-4 md:p-8 border-b border-border">
           <div className="max-w-3xl mx-auto">
             <div className="flex flex-col items-center text-center gap-4">
               {/* Profile Image */}
@@ -81,13 +81,13 @@ export function FatherProfileModal({
         </div>
 
         {/* Quotes Section */}
-        <div className="p-8">
+        <div className="p-4 md:p-8">
           <div className="max-w-3xl mx-auto">
             {/* Section Header */}
             <div className="mb-6">
               <h2 className="text-2xl font-bold mb-1">أقوال القديس</h2>
               <p className="text-muted-foreground">
-                {fatherSayings.length} قول مأثور
+                {fatherSayings.length} قول
               </p>
             </div>
 

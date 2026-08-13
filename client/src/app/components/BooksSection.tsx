@@ -33,7 +33,8 @@ import { useBooks } from "../hooks/useBooks";
 import { useFavorites } from "../hooks/useFavorites";
 import { normalizeArabic } from "../utils/arabicUtils";
 import { downloadFile } from "../utils/download";
-
+import { trackEvent } from "../services/analytics";
+import { useSearchAnalytics } from "../hooks/useSearchAnalytics";
 import { useTags } from "../hooks/useTags";
 
 
@@ -235,7 +236,6 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingBook, setEditingBook] = useState<Book | null>(null);
-  const [isScrolled, setIsScrolled] = useState(false);
   const [selectedBookIds, setSelectedBookIds] = useState<string[]>([]);
   const { favoriteIds: favoritedBookIds, toggleFavorite: apiToggleFavorite, count: favoritedCount } = useFavorites('BOOK');
   const favoritedBooks = Array.from(favoritedBookIds);
@@ -264,27 +264,6 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
       window.removeEventListener("defaultBookCoverChanged", handleDefaultCoverChange);
     };
   }, []);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (scrollContainerRef.current) {
-        const scrollTop = scrollContainerRef.current.scrollTop;
-        setIsScrolled(scrollTop > 20);
-      }
-    };
-
-    const scrollContainer = scrollContainerRef.current;
-    if (scrollContainer) {
-      scrollContainer.addEventListener("scroll", handleScroll);
-      handleScroll();
-    }
-
-    return () => {
-      if (scrollContainer) {
-        scrollContainer.removeEventListener("scroll", handleScroll);
-      }
-    };
-  }, [scrollContainerRef.current, books]);
 
   const { tags, isLoadingTags, tagsError } = useTags();
 
@@ -401,10 +380,19 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
   const handleViewBook = (book: Book) => {
     setSelectedBook(book);
     setShowDetailsModal(true);
+    trackEvent('book_view', {
+      contentType: 'book',
+      contentId: book.id,
+      contentName: book.title,
+    });
   };
 
   const downloadBook = (book: Book) => {
-    downloadFile(book.pdfFile, `${book.title}.pdf`);
+    downloadFile(book.pdfFile, `${book.title}.pdf`, {
+      contentType: 'book',
+      contentId: book.id,
+      contentName: book.title,
+    });
   };
 
   // مجموعات الميمو للفلاتر
@@ -446,6 +434,11 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
     return filtered;
   }, [books, searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, sortBy, showFavoritesOnly, favoritedBooks]);
 
+  useSearchAnalytics(searchQuery, {
+    section: "books",
+    getResultCount: () => filteredAndSortedBooks.length,
+  });
+
   const availableBooksForTopics = useMemo(() => getBooksForFacet(books, { searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks, excludeFacet: "topics" }), [books, searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks]);
   const availableBooksForAuthors = useMemo(() => getBooksForFacet(books, { searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks, excludeFacet: "authors" }), [books, searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks]);
   const availableBooksForPublishers = useMemo(() => getBooksForFacet(books, { searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks, excludeFacet: "publishers" }), [books, searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks]);
@@ -465,7 +458,6 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
       {/* Sticky Header Section */}
       <BooksFiltersToolbar
         isEditor={isEditor}
-        isScrolled={isScrolled}
         bulkEditMode={bulkEditMode}
         onAddNew={handleAddNew}
         onToggleBulkMode={() => {
@@ -531,7 +523,7 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
       />
 
       {/* Books Grid - Scrollable */}
-      <div className="flex-1 overflow-y-auto p-6" ref={scrollContainerRef}>
+      <div className="pt-6" ref={scrollContainerRef}>
         {filteredAndSortedBooks.length === 0 ? (
           <BooksEmptyState searchQuery={searchQuery} activeFiltersCount={activeFiltersCount} />
         ) : (

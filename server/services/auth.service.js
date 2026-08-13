@@ -71,7 +71,7 @@ export const authService = {
         username,
         email,
         password: hashedPassword,
-        role: 'EDITOR',
+        role: 'VIEWER',
         full_name,
         church_name,
         church_role,

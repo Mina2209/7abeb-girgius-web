@@ -1,4 +1,4 @@
-import { X, Save } from 'lucide-react';
+import { X, Save, Upload } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { TagMultiSelect } from './TagMultiSelect';
 import { useUniversalTopics } from '../hooks/useUniversalTopics';
@@ -197,29 +197,48 @@ export function AdminEditSayingModal({
             {errors.author && <p className="text-red-500 text-sm mt-1">{errors.author}</p>}
           </div>
 
-          {/* Author Image URL */}
+          {/* Author Image */}
           <div>
             <label className="block text-sm font-medium mb-2">
-              رابط صورة القائل
+              صورة القائل
             </label>
-            <input
-              type="url"
-              value={formData.authorImage}
-              onChange={(e) => setFormData({ ...formData, authorImage: e.target.value })}
-              className="w-full px-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50"
-              placeholder="https://..."
-            />
-            {formData.authorImage && (
-              <div className="mt-3">
-                <img 
-                  src={formData.authorImage} 
-                  alt="Preview" 
-                  className="w-20 h-20 rounded-full object-cover border-2 border-border"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1704276864429-9ed5be4cdd25?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzYWludCUyMG9ydGhvZG94JTIwaWNvbnxlbnwxfHx8fDE3NjY5MjA1NTl8MA&ixlib=rb-4.1.0&q=80&w=1080';
+            {formData.authorImage ? (
+              <div className="space-y-2">
+                <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-border">
+                  <img
+                    src={formData.authorImage}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, authorImage: '' })}
+                  className="text-sm text-red-500 hover:text-red-600 transition-colors"
+                >
+                  إزالة الصورة
+                </button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center gap-2 border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-primary/50 transition-colors">
+                <Upload className="w-8 h-8 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">اضغط لرفع صورة القائل</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setFormData({ ...formData, authorImage: reader.result as string });
+                      };
+                      reader.readAsDataURL(file);
+                    }
                   }}
                 />
-              </div>
+              </label>
             )}
           </div>
 
@@ -268,7 +287,7 @@ export function AdminEditSayingModal({
         </form>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-card">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-card flex-wrap">
           <button
             type="button"
             onClick={onClose}

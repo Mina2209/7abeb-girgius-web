@@ -98,7 +98,7 @@ export function AdminBulkEditImagesModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-x-hidden" onClick={onClose}>
       <div 
         className="bg-card rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
@@ -304,7 +304,7 @@ export function AdminBulkEditImagesModal({
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-card border-t border-border p-6 flex gap-3 justify-end">
+        <div className="sticky bottom-0 bg-card border-t border-border p-6 flex gap-3 justify-end flex-wrap">
           <button
             onClick={onClose}
             className="px-6 py-3 rounded-xl border border-border hover:bg-muted transition-colors"

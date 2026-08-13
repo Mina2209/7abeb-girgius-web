@@ -100,7 +100,7 @@ export function CopticLanguageSection() {
         }`}
       >
         <div>
-          <h1 className="mb-2 font-bold text-[36px]">لغة قبطية</h1>
+          <h1 className="mb-2 font-bold text-2xl sm:text-3xl lg:text-[36px]">لغة قبطية</h1>
           <p className="text-muted-foreground">
             موارد ومراجع لتعلم اللغة القبطية
           </p>
@@ -126,7 +126,7 @@ export function CopticLanguageSection() {
               <span>{resource.size}</span>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-wrap">
               <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity">
                 <Download className="w-4 h-4" />
                 <span>تحميل</span>

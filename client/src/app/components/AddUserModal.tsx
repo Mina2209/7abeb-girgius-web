@@ -53,7 +53,7 @@ export function AddUserModal({ isOpen, onClose, onAddUser }: AddUserModalProps) 
 
 
     try {
-      onAddUser({
+      await onAddUser({
         email,
         password,
         fullName,
@@ -105,8 +105,8 @@ export function AddUserModal({ isOpen, onClose, onAddUser }: AddUserModalProps) 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] p-4 overflow-y-auto" dir="rtl">
-      <div className="bg-background rounded-xl max-w-md w-full p-6 relative my-8">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] p-4 overflow-y-auto overflow-x-hidden" dir="rtl">
+      <div className="bg-background rounded-xl max-w-md w-full p-6 relative my-8 max-h-[85vh] overflow-y-auto">
         <button
           onClick={onClose}
           className="absolute top-4 left-4 text-muted-foreground hover:text-foreground transition-colors"

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   clearLegacyTopicStorage,
+  fetchAllSections,
   fetchAllTags,
   groupTopicsBySection,
   mapTagsToSectionsAndTopics,
@@ -13,7 +14,8 @@ import {
 export type { Topic, Section, TopicsBySection };
 
 /**
- * Loads universal topics (tags) from the API, grouped by category (section).
+ * Loads universal topics (tags) from the API, grouped by section.
+ * Sections are fetched from /api/tag-sections, tags from /api/tags.
  */
 export function useUniversalTopics() {
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -28,12 +30,20 @@ export function useUniversalTopics() {
     setError(null);
     try {
       clearLegacyTopicStorage();
-      const tags = await fetchAllTags();
-      const { sections: nextSections, topics: nextTopics } = mapTagsToSectionsAndTopics(tags);
-      setSections(nextSections);
+      const [serverSections, tags] = await Promise.all([
+        fetchAllSections(),
+        fetchAllTags(),
+      ]);
+      const sectionList: Section[] = serverSections.map((s, idx) => ({
+        id: s.id,
+        name: s.name,
+        order: s.order ?? idx,
+      }));
+      const { topics: nextTopics } = mapTagsToSectionsAndTopics(tags, sectionList);
+      setSections(sectionList);
       setTopics(nextTopics);
       setTopicNames(nextTopics.map((t) => t.name));
-      setTopicsBySection(groupTopicsBySection(nextSections, nextTopics));
+      setTopicsBySection(groupTopicsBySection(sectionList, nextTopics));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load tags');
       setSections([]);

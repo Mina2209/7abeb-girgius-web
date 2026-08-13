@@ -1,14 +1,6 @@
 import { useAuth } from '../contexts/AuthContext';
 
 /**
- * Hook to get the current user's role
- */
-export function useUserRole(): 'viewer' | 'editor' | 'admin' | null {
-  const { profile } = useAuth();
-  return profile?.role || null;
-}
-
-/**
  * Hook to check if the current user is an Editor or Admin (can edit content)
  */
 export function useIsEditor(): boolean {

@@ -367,7 +367,7 @@ export function BookEditModal({ book, topics, onSave, onClose }: BookEditModalPr
         </form>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-border">
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-border flex-wrap">
           <Button variant="outline" onClick={onClose}>
             إلغاء
           </Button>
