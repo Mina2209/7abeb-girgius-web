@@ -21,7 +21,7 @@ import {
   CheckCheck,
   Video,
 } from 'lucide-react';
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, type RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TagFilter } from './TagFilter';
 import { MultiSelectFilter } from './MultiSelectFilter';
@@ -167,8 +167,10 @@ function toThumbUrl(url: string, width = 700): string {
 
 export function ImageLibrarySection({
   isSidebarCollapsed,
+  scrollContainerRef,
 }: {
   isSidebarCollapsed: boolean;
+  scrollContainerRef: RefObject<HTMLElement | null>;
 }) {
   const navigate = useNavigate();
   const { user, profile, accessToken } = useAuth();
@@ -233,7 +235,6 @@ export function ImageLibrarySection({
 
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const filtersContainerRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -255,7 +256,7 @@ export function ImageLibrarySection({
         scrollContainer.removeEventListener('scroll', handleScroll);
       }
     };
-  }, [scrollContainerRef.current, images]);
+  }, [scrollContainerRef, images]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -1072,7 +1073,7 @@ export function ImageLibrarySection({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto pt-6" ref={scrollContainerRef}>
+      <div className="flex-1 pt-6">
         <ResponsiveMasonry
           columnsCountBreakPoints={{ 0: 1, 350: 1, 750: 2, 900: 3, 1200: 4 }}
         >

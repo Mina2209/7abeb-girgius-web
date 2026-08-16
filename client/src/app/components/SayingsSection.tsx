@@ -1,5 +1,5 @@
   import { Heart, Share2, ArrowUpDown, Search, ChevronDown, Tags, User, BookOpen, Calendar, Plus, Edit2, Trash2, Download, Upload, CheckSquare, Square, CheckCheck, Video, MessageSquareQuote, Users, X, Image as ImageIcon, FileSpreadsheet } from 'lucide-react';
-  import { useState, useMemo, useRef, useEffect } from 'react';
+  import { useState, useMemo, useRef, useEffect, type RefObject } from 'react';
   import { useNavigate } from 'react-router-dom';
   import { TagFilter } from './TagFilter';
   import { MultiSelectFilter } from './MultiSelectFilter';
@@ -132,7 +132,7 @@ import { toast } from 'sonner';
     });
   }
 
-  export function SayingsSection() {
+  export function SayingsSection({ scrollContainerRef }: { scrollContainerRef: RefObject<HTMLElement | null> }) {
     const navigate = useNavigate();
     const isEditor = useIsEditor();
     const { accessToken } = useAuth();
@@ -165,7 +165,6 @@ import { toast } from 'sonner';
     const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
     
     const sortDropdownRef = useRef<HTMLDivElement>(null);
-    const scrollContainerRef = useRef<HTMLDivElement>(null);
     const filtersContainerRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const excelFileInputRef = useRef<HTMLInputElement>(null);
@@ -189,7 +188,7 @@ import { toast } from 'sonner';
           scrollContainer.removeEventListener("scroll", handleScroll);
         }
       };
-    }, [scrollContainerRef.current, sayings]);
+    }, [scrollContainerRef, sayings]);
 
     // Load all fathers eagerly so we can resolve author images for cards
     useEffect(() => {
@@ -1040,7 +1039,7 @@ import { toast } from 'sonner';
         </div>
 
         {/* Scrollable Content Area */}
-        <div className="flex-1 overflow-y-auto pt-6" ref={scrollContainerRef}>
+        <div className="flex-1 pt-6">
           {sortedSayings.length > 0 ? (
             <ResponsiveMasonry columnsCountBreakPoints={{0: 1, 350: 1, 750: 2}}>
               <Masonry gutter="16px">

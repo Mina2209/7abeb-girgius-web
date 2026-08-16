@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, type RefObject } from "react";
 
 import {
   Search,
@@ -73,6 +73,7 @@ export interface Book {
 
 interface BooksSectionProps {
   isSidebarCollapsed?: boolean;
+  scrollContainerRef: RefObject<HTMLElement | null>;
 }
 
 type SortOption =
@@ -206,7 +207,7 @@ function getBooksForFacet(
   });
 }
 
-export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
+export function BooksSection({ isSidebarCollapsed, scrollContainerRef }: BooksSectionProps) {
   const { user, profile } = useAuth(); 
   const isEditor = useIsEditor();
 
@@ -245,7 +246,6 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
 
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const filtersContainerRef = useRef<HTMLDivElement>(null!);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isScrolled, setIsScrolled] = useState(false);
@@ -271,7 +271,7 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
         scrollContainer.removeEventListener("scroll", handleScroll);
       }
     };
-  }, [scrollContainerRef.current, books]);
+  }, [scrollContainerRef, books]);
 
   useEffect(() => {
     fetchBooks();
@@ -547,7 +547,7 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
       />
 
       {/* Books Grid - Scrollable */}
-      <div className="flex-1 overflow-y-auto pt-6" ref={scrollContainerRef}>
+      <div className="flex-1 pt-6">
         {filteredAndSortedBooks.length === 0 ? (
           <BooksEmptyState searchQuery={searchQuery} activeFiltersCount={activeFiltersCount} />
         ) : (

@@ -21,7 +21,7 @@ import {
   CheckCheck,
   Music,
 } from "lucide-react";
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, type RefObject } from "react";
 import { TagFilter } from "./TagFilter";
 import { useAuth } from "../contexts/AuthContext";
 import { LoginRequiredModal } from "./LoginRequiredModal";
@@ -239,8 +239,10 @@ function getHymnsForFacet(
 
 export function HymnsSection({
   isSidebarCollapsed,
+  scrollContainerRef,
 }: {
   isSidebarCollapsed: boolean;
+  scrollContainerRef: RefObject<HTMLElement | null>;
 }) {
   const { user, profile, accessToken } = useAuth();
   const isEditor = useIsEditor();
@@ -315,7 +317,6 @@ export function HymnsSection({
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const fileTypeDropdownRef = useRef<HTMLDivElement>(null);
   const filtersContainerRef = useRef<HTMLDivElement>(null!);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const hymnCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   // Use browser-compatible timer type to avoid NodeJS namespace issues
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -341,7 +342,7 @@ useEffect(() => {
     };
 
     // شيلنا isLoading وسيبنا الـ Ref ومصفوفة الداتا بس
-  }, [scrollContainerRef.current, hymns]);
+  }, [scrollContainerRef, hymns]);
 
 
   useEffect(() => {
@@ -1313,7 +1314,7 @@ useEffect(() => {
       </div>
 
       {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-y-auto pt-6" ref={scrollContainerRef}>
+      <div className="flex-1 pt-6">
         <div className="space-y-3">
           {filteredHymns.length > 0 ? (
             filteredHymns.map((hymn) => (

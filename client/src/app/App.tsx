@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState, useCallback, lazy } from 'react';
+import { Suspense, useEffect, useState, useCallback, useRef, lazy } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { AnalyticsRouteTracker } from './components/AnalyticsRouteTracker';
@@ -119,12 +119,12 @@ export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const activeSection = pathToSection(location.pathname);
-<<<<<<< Updated upstream
   const isCardRoute = location.pathname === '/card';
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isSignupModalOpen, setIsSignupModalOpen] = useState(false);
+  const mainScrollContainerRef = useRef<HTMLElement>(null);
   const [deferredReady, setDeferredReady] = useState(false);
 
   useEffect(() => {
@@ -151,20 +151,6 @@ export default function App() {
   const handleNavigateToActivity = useCallback(() => navigate('/admin/activity'), [navigate]);
   const handleNavigateToExport = useCallback(() => navigate('/admin/export'), [navigate]);
   const handleCollapseChange = useCallback((collapsed: boolean) => setIsSidebarCollapsed(collapsed), []);
-
-=======
-
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [isSignupModalOpen, setIsSignupModalOpen] = useState(false);
-
-  // Navigation helpers kept to match updated ChurchSidebar props
-  const handleNavigateToAnalytics = useCallback(() => navigate('/admin/analytics'), [navigate]);
-  const handleNavigateToActivity = useCallback(() => navigate('/admin/activity'), [navigate]);
-  const handleNavigateToExport = useCallback(() => navigate('/admin/export'), [navigate]);
-  const handleCollapseChange = useCallback((collapsed: boolean) => setIsSidebarCollapsed(collapsed), []);
-
->>>>>>> Stashed changes
   useEffect(() => {
     const pageTitles: Record<string, string> = {
       '/': ' خدمة الأرشيدياكون حبيب جرجس',
@@ -270,9 +256,10 @@ export default function App() {
         )}
 
         <main
-          className={`flex-1 p-4 lg:p-8 h-screen overflow-y-auto transition-[margin] duration-300 ${
+          ref={mainScrollContainerRef}
+          className={`flex-1 p-4 lg:p-8 h-screen overflow-y-auto pt-20 lg:pt-8 transition-all duration-300 ${
             isSidebarCollapsed ? 'lg:mr-20' : 'lg:mr-64'
-                    }`} style={{ paddingTop: 'var(--app-header-height)' }}
+          }`}
         >
           <div className="max-w-7xl mx-auto">
           <Suspense
@@ -287,17 +274,17 @@ export default function App() {
               <Route path="/liturgy" element={<LiturgySection />} />
               <Route
                 path="/hymns"
-                element={<HymnsSection isSidebarCollapsed={isSidebarCollapsed} />}
+                element={<HymnsSection isSidebarCollapsed={isSidebarCollapsed} scrollContainerRef={mainScrollContainerRef} />}
               />
-              <Route path="/various" element={<VariousSection />} />
+              <Route path="/various" element={<VariousSection scrollContainerRef={mainScrollContainerRef} />} />
               <Route
                 path="/images"
-                element={<ImageLibrarySection isSidebarCollapsed={isSidebarCollapsed} />}
+                element={<ImageLibrarySection isSidebarCollapsed={isSidebarCollapsed} scrollContainerRef={mainScrollContainerRef} />}
               />
               <Route path="/artists" element={<ArtistsSection />} />
               <Route path="/artists/:id" element={<ArtistDetailPage />} />
-              <Route path="/books" element={<BooksSection />} />
-              <Route path="/sayings" element={<SayingsSection />} />
+              <Route path="/books" element={<BooksSection scrollContainerRef={mainScrollContainerRef} />} />
+              <Route path="/sayings" element={<SayingsSection scrollContainerRef={mainScrollContainerRef} />} />
               <Route path="/sayings/authors/:id" element={<FatherDetailPage />} />
               <Route path="/coptic" element={<CopticLanguageSection />} />
               <Route path="/about" element={<AboutSection />} />

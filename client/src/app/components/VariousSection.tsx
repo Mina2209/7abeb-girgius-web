@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import {
   Download,
@@ -91,7 +91,7 @@ function getDownloadName(name: string, url: string): string {
   return name;
 }
 
-export function VariousSection() {
+export function VariousSection({ scrollContainerRef }: { scrollContainerRef: RefObject<HTMLElement | null> }) {
   const isEditor = useIsEditor();
   const { accessToken } = useAuth();
   const { tags: allTags, reloadTags } = useTags();
@@ -115,7 +115,6 @@ export function VariousSection() {
 
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const filtersContainerRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const debouncedCategories = useDebounce(categories, 800);
   const initialLoadDone = useRef(false);
 
@@ -138,7 +137,7 @@ export function VariousSection() {
         scrollContainer.removeEventListener("scroll", handleScroll);
       }
     };
-  }, [scrollContainerRef.current, categories]);
+  }, [scrollContainerRef, categories]);
 
   const saveToServer = useCallback(async (cats: PowerpointCategory[]) => {
     setIsSaving(true);
@@ -472,7 +471,6 @@ export function VariousSection() {
           </div>
         </div>
       )}
-      </div>
 
       {/* Search and Filters */}
       <div className="flex items-center gap-2 flex-wrap" ref={filtersContainerRef}>
@@ -528,9 +526,10 @@ export function VariousSection() {
             </div>
           )}
         </div>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto pt-6" ref={scrollContainerRef}>
+      <div className="flex-1 pt-6">
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
