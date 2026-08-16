@@ -43,16 +43,16 @@
   --sidebar-border: rgba(0, 0, 0, 0.08);
   --sidebar-ring: oklch(0.708 0 0);
 
-  /* Global header/sticky offsets - single source of truth */
-  /* Default (mobile / small screens) — matches App.tsx pt-20 (80px) */
+  /* Sticky offset for content pinned below the fixed mobile top bar.
+     Matches App.tsx main pt-20 and the 80px (h-20) mobile top bar in ChurchSidebar. */
   --app-header-height: 80px;
-  --app-sticky-offset: var(--app-header-height);
 }
 
-/* Desktop (lg and up) — matches App.tsx lg:pt-8 (32px) */
+/* Desktop (lg and up) — there is no fixed global header on desktop, so sticky
+   toolbars pin flush to the top of the scroll container (offset 0). */
 @media (min-width: 1024px) {
   :root {
-    --app-header-height: 32px;
+    --app-header-height: 0px;
   }
 }
 

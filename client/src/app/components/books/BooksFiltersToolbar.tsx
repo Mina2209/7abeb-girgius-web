@@ -39,6 +39,7 @@ const sortOptions: Array<{ value: SortOption; label: string }> = [
 
 interface BooksFiltersToolbarProps {
   isEditor: boolean;
+  isScrolled: boolean;
 
   // admin toolbar & bulk toggle
   bulkEditMode: boolean;
@@ -91,6 +92,7 @@ interface BooksFiltersToolbarProps {
 
 export function BooksFiltersToolbar({
   isEditor,
+  isScrolled,
   bulkEditMode,
   onAddNew,
   onToggleBulkMode,
@@ -134,15 +136,21 @@ export function BooksFiltersToolbar({
   );
 
   return (
-    <>
-      {/* Section Header - normal flow container, scrolls up naturally */}
-      <div>
+    <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
+      <div
+        className={`transition-all duration-500 ease-in-out overflow-hidden ${
+          isScrolled
+            ? 'max-h-0 opacity-0 mb-0 pointer-events-none transform -translate-y-2'
+            : 'max-h-[250px] opacity-100 mb-4 transform translate-y-0'
+        }`}
+      >
         <div>
           <h1 className="mb-2 font-bold text-2xl sm:text-3xl lg:text-[36px]">مكتبة الكتب</h1>
           <p className="text-muted-foreground leading-relaxed">
             مجموعة شاملة من الكتب الروحية والطقسية والتاريخية مع إمكانية البحث والفلترة والتحميل
           </p>
         </div>
+      </div>
 
       {isEditor && (
         <div className="mt-4 mb-4 px-3 py-2 bg-primary/5 border border-primary/20 rounded-lg">
@@ -192,10 +200,7 @@ export function BooksFiltersToolbar({
           </div>
         </div>
         )}
-      </div>
 
-      {/* Sticky Filter Toolbar - pinned at the top while scrolling */}
-      <div className="sticky z-50 isolate bg-background border-b border-border/50 shadow-[0_4px_16px_-4px_rgba(0,0,0,0.3)] py-3 sm:py-4" style={{ top: 'var(--app-header-height)' }}>
       {/* Search and Filters */}
       <div className="space-y-4 sm:space-y-8">
         <div className="flex items-center gap-2">
@@ -376,7 +381,6 @@ export function BooksFiltersToolbar({
         </div>
       </div>
       </div>
-    </>
   );
 }
 

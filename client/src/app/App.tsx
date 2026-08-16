@@ -119,6 +119,7 @@ export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const activeSection = pathToSection(location.pathname);
+<<<<<<< Updated upstream
   const isCardRoute = location.pathname === '/card';
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -151,6 +152,19 @@ export default function App() {
   const handleNavigateToExport = useCallback(() => navigate('/admin/export'), [navigate]);
   const handleCollapseChange = useCallback((collapsed: boolean) => setIsSidebarCollapsed(collapsed), []);
 
+=======
+
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isSignupModalOpen, setIsSignupModalOpen] = useState(false);
+
+  // Navigation helpers kept to match updated ChurchSidebar props
+  const handleNavigateToAnalytics = useCallback(() => navigate('/admin/analytics'), [navigate]);
+  const handleNavigateToActivity = useCallback(() => navigate('/admin/activity'), [navigate]);
+  const handleNavigateToExport = useCallback(() => navigate('/admin/export'), [navigate]);
+  const handleCollapseChange = useCallback((collapsed: boolean) => setIsSidebarCollapsed(collapsed), []);
+
+>>>>>>> Stashed changes
   useEffect(() => {
     const pageTitles: Record<string, string> = {
       '/': ' خدمة الأرشيدياكون حبيب جرجس',

@@ -248,7 +248,30 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [isScrolled, setIsScrolled] = useState(false);
+
   const [defaultCoverKey, setDefaultCoverKey] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (scrollContainerRef.current) {
+        const scrollTop = scrollContainerRef.current.scrollTop;
+        setIsScrolled(scrollTop > 20);
+      }
+    };
+
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer) {
+      scrollContainer.addEventListener("scroll", handleScroll);
+      handleScroll();
+    }
+
+    return () => {
+      if (scrollContainer) {
+        scrollContainer.removeEventListener("scroll", handleScroll);
+      }
+    };
+  }, [scrollContainerRef.current, books]);
 
   useEffect(() => {
     fetchBooks();
@@ -458,6 +481,7 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
       {/* Sticky Header Section */}
       <BooksFiltersToolbar
         isEditor={isEditor}
+        isScrolled={isScrolled}
         bulkEditMode={bulkEditMode}
         onAddNew={handleAddNew}
         onToggleBulkMode={() => {
@@ -523,7 +547,7 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
       />
 
       {/* Books Grid - Scrollable */}
-      <div className="pt-6" ref={scrollContainerRef}>
+      <div className="flex-1 overflow-y-auto pt-6" ref={scrollContainerRef}>
         {filteredAndSortedBooks.length === 0 ? (
           <BooksEmptyState searchQuery={searchQuery} activeFiltersCount={activeFiltersCount} />
         ) : (

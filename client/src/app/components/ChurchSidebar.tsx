@@ -216,7 +216,7 @@ export const ChurchSidebar = memo(function ChurchSidebar({
 
       {/* Mobile Top Bar */}
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-sidebar text-sidebar-foreground z-[200] border-b border-sidebar-border shadow-lg">
-          <div className="flex items-center justify-between px-3 py-3">
+          <div className="flex items-center justify-between px-3 h-20">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}

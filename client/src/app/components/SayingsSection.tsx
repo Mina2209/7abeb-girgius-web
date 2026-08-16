@@ -159,6 +159,7 @@ import { toast } from 'sonner';
     const [editingSaying, setEditingSaying] = useState<Saying | null>(null);
     const [selectedSayingIds, setSelectedSayingIds] = useState<ContentId[]>([]);
     const [bulkEditMode, setBulkEditMode] = useState(false);
+    const [isScrolled, setIsScrolled] = useState(false);
     
     // Video tutorial modal state
     const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
@@ -168,6 +169,27 @@ import { toast } from 'sonner';
     const filtersContainerRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const excelFileInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+      const handleScroll = () => {
+        if (scrollContainerRef.current) {
+          const scrollTop = scrollContainerRef.current.scrollTop;
+          setIsScrolled(scrollTop > 20);
+        }
+      };
+
+      const scrollContainer = scrollContainerRef.current;
+      if (scrollContainer) {
+        scrollContainer.addEventListener("scroll", handleScroll);
+        handleScroll();
+      }
+
+      return () => {
+        if (scrollContainer) {
+          scrollContainer.removeEventListener("scroll", handleScroll);
+        }
+      };
+    }, [scrollContainerRef.current, sayings]);
 
     // Load all fathers eagerly so we can resolve author images for cards
     useEffect(() => {
@@ -706,10 +728,17 @@ import { toast } from 'sonner';
     return (
 
   <div className="flex flex-col h-full">
-    {/* Section Header - normal flow container, scrolls up naturally */}
-    <div>
-      <div>
-        <div className="flex items-start justify-between gap-4 mb-2">
+    {/* Sticky Header Section */}
+    <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
+      <div
+        className={`transition-all duration-500 ease-in-out overflow-hidden ${
+          isScrolled
+            ? "max-h-0 opacity-0 mb-0 pointer-events-none transform -translate-y-2"
+            : "max-h-[250px] opacity-100 mb-4 transform translate-y-0"
+        }`}
+      >
+        <div>
+          <div className="flex items-start justify-between gap-4 mb-2">
           <h1 className="font-bold text-2xl sm:text-3xl lg:text-[36px]">أقوال الآباء</h1>
             <button
               onClick={() => setShowFathersList(true)}
@@ -730,6 +759,7 @@ import { toast } from 'sonner';
             <span>← شرح الاستخدام</span>
           </button>
         </div>
+      </div>
 
       {/* Admin Toolbar */}
           {isEditor && (
@@ -833,10 +863,8 @@ import { toast } from 'sonner';
               </div>
             </div>
           )}
-        </div>
 
-        {/* Sticky Filter Toolbar - pinned at the top while scrolling */}
-        <div className="sticky z-50 isolate bg-background border-b border-border/50 shadow-[0_4px_16px_-4px_rgba(0,0,0,0.3)] py-3 sm:py-4" style={{ top: 'var(--app-header-height)' }}>
+          {/* Search and Filters Container */}
           <div className="space-y-4 sm:space-y-8">
             {/* Search Bar with Sort Button (Mobile) */}
             <div className="flex items-center gap-2">
@@ -1012,7 +1040,7 @@ import { toast } from 'sonner';
         </div>
 
         {/* Scrollable Content Area */}
-        <div className="pt-6" ref={scrollContainerRef}>
+        <div className="flex-1 overflow-y-auto pt-6" ref={scrollContainerRef}>
           {sortedSayings.length > 0 ? (
             <ResponsiveMasonry columnsCountBreakPoints={{0: 1, 350: 1, 750: 2}}>
               <Masonry gutter="16px">

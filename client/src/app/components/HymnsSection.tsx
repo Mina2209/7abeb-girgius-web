@@ -22,7 +22,6 @@ import {
   Music,
 } from "lucide-react";
 import { useState, useMemo, useRef, useEffect } from "react";
-import { scrollElementIntoViewWithHeaderOffset } from "../utils/scroll";
 import { TagFilter } from "./TagFilter";
 import { useAuth } from "../contexts/AuthContext";
 import { LoginRequiredModal } from "./LoginRequiredModal";
@@ -253,6 +252,7 @@ export function HymnsSection({
   const [sortBy, setSortBy] = useState<SortOption>("alpha-asc");
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
   const [isFileTypeDropdownOpen, setIsFileTypeDropdownOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const { favoriteIds: favoritedHymnIds, toggleFavorite: apiToggleFavorite, count: favoritedCount } = useFavorites('HYMN');
   const favoritedHymns = Array.from(favoritedHymnIds);
   const [shareMessage, setShareMessage] = useState<string | null>(null);
@@ -316,27 +316,42 @@ export function HymnsSection({
   const fileTypeDropdownRef = useRef<HTMLDivElement>(null);
   const filtersContainerRef = useRef<HTMLDivElement>(null!);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const stickyToolbarRef = useRef<HTMLDivElement>(null);
   const hymnCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   // Use browser-compatible timer type to avoid NodeJS namespace issues
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+useEffect(() => {
+    const handleScroll = () => {
+      if (scrollContainerRef.current) {
+        const scrollTop = scrollContainerRef.current.scrollTop;
+        setIsScrolled(scrollTop > 20);
+      }
+    };
+
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer) {
+      scrollContainer.addEventListener("scroll", handleScroll);
+      handleScroll();
+    }
+
+    return () => {
+      if (scrollContainer) {
+        scrollContainer.removeEventListener("scroll", handleScroll);
+      }
+    };
+
+    // شيلنا isLoading وسيبنا الـ Ref ومصفوفة الداتا بس
+  }, [scrollContainerRef.current, hymns]);
+
 
   useEffect(() => {
     if (!expandedHymnId) return;
 
+    const hymnsContainer = scrollContainerRef.current;
     const hymnElement = hymnCardRefs.current[String(expandedHymnId)];
-    if (!hymnElement) return;
+    if (!hymnsContainer || !hymnElement) return;
 
-    // Prefer an explicit scroll container if available; the utility will
-    // fallback to walking up the DOM to find the correct scroll parent.
-    const scrollContainer = scrollContainerRef.current ?? null;
-
-    scrollElementIntoViewWithHeaderOffset(hymnElement, {
-      scrollContainer,
-      stickyToolbarRef: stickyToolbarRef.current ?? null,
-      behavior: 'smooth',
-    });
+    hymnElement.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
   }, [expandedHymnId]);
 
   // Get unique tags from hymns
@@ -835,9 +850,16 @@ export function HymnsSection({
 
   return (
       <div className="flex flex-col h-full">
-      {/* Section Header - normal flow container, scrolls up naturally */}
-      <div className="pb-4 sm:pb-5">
-        <div>
+      {/* Sticky Header Section */}
+      <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
+        <div
+          className={`transition-all duration-500 ease-in-out overflow-hidden ${
+            isScrolled
+              ? "max-h-0 opacity-0 mb-0 pointer-events-none transform -translate-y-2"
+              : "max-h-[250px] opacity-100 mb-4 transform translate-y-0"
+          }`}
+        >
+          <div>
             <h1 className="mb-2 font-bold text-2xl sm:text-3xl lg:text-[36px]">مكتبة الترانيم</h1>
             <p className="text-muted-foreground leading-relaxed">
               مكتبة شاملة تضم مئات الترانيم والألحان القبطية مع فيديوهات وعروض
@@ -852,6 +874,7 @@ export function HymnsSection({
               <Video className="w-4 h-4" />
               <span>← شرح الاستخدام</span>
             </button>
+          </div>
           </div>
 
         {/* Admin Toolbar - Option 1: Dedicated Row */}
@@ -945,15 +968,9 @@ export function HymnsSection({
             </div>
           </div>
         )}
-        </div>
 
-        {/* Sticky Filter Toolbar - pinned at the top while scrolling */}
-        <div
-          className="sticky z-50 isolate bg-background border-b border-border/50 shadow-[0_4px_16px_-4px_rgba(0,0,0,0.3)] py-3 sm:py-4" style={{ top: 'var(--app-header-height)' }}
-          ref={stickyToolbarRef}
-        >
         {/* Search and Filters Container */}
-        <div className="pt-0 space-y-4 sm:space-y-8">
+        <div className="space-y-4 sm:space-y-8">
           {/* Search Bar with Sort Button (Mobile) */}
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
@@ -1296,7 +1313,7 @@ export function HymnsSection({
       </div>
 
       {/* Scrollable Content Area */}
-      <div className="pt-6" ref={scrollContainerRef}>
+      <div className="flex-1 overflow-y-auto pt-6" ref={scrollContainerRef}>
         <div className="space-y-3">
           {filteredHymns.length > 0 ? (
             filteredHymns.map((hymn) => (
