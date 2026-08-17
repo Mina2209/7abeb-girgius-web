@@ -23,10 +23,17 @@ import adminActivityRoutes from './routes/adminActivity.routes.js';
 import analyticsExportRoutes from './routes/analyticsExport.routes.js';
 import { BackupScheduler } from './services/backup.scheduler.js';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
+import rateLimit from 'express-rate-limit';
 
 // Fail fast: never run in production without a real JWT secret (tokens would be forgeable).
 if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
   console.error('FATAL: JWT_SECRET is not set. Refusing to start in production.');
+  process.exit(1);
+}
+
+// Fix #3: Disable auth bypass is only allowed in non-production environments.
+if (process.env.NODE_ENV === 'production' && process.env.DISABLE_AUTH === 'true') {
+  console.error('FATAL: DISABLE_AUTH is not allowed in production. Refusing to start.');
   process.exit(1);
 }
 
@@ -76,10 +83,32 @@ app.use(
 console.log('[CORS] Allowed origins:', allowedOrigins.length ? allowedOrigins.join(', ') : '(none)');
 
 // Image create/update can send base64 in JSON; default 100kb limit causes 413 (often shown as CORS in the browser).
-const jsonLimit = process.env.JSON_BODY_LIMIT || '32mb';
+// Fix #1: In production, always cap at 16mb regardless of env var. In dev, respect JSON_BODY_LIMIT for flexibility.
+const envJsonLimit = process.env.JSON_BODY_LIMIT || '16mb';
+const jsonLimit = process.env.NODE_ENV === 'production' ? '16mb' : envJsonLimit;
 app.use(express.json({ limit: jsonLimit }));
 
 import passwordRoutes from './routes/password.routes.js';
+
+// Fix #7: Global rate limiter for all authenticated API routes.
+// Skips routes that have their own purpose-built limiters:
+//   - /auth/login and /auth/register have their own brute-force limiters
+//   - /analytics/events and /admin/activity/events have their own 120/min public write limiters
+const globalApiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 500,                  // per IP, per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) =>
+    req.path === '/auth/login'
+    || req.path === '/auth/register'
+    || req.path === '/analytics/events'
+    || req.path === '/admin/activity/events',
+  message: { error: 'Too many requests. Please try again later.' },
+});
+
+// Apply global rate limiter to all API routes.
+app.use('/api', globalApiLimiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/auth', passwordRoutes);
@@ -103,8 +132,15 @@ app.use('/api/admin/analytics/export', analyticsExportRoutes);
 // note: uploads are served from S3 via presigned URLs; no local static serving
 
 // Lightweight health endpoint for Elastic Beanstalk / load balancer
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
+// Fix #4: Verify database connectivity instead of returning a static response.
+app.get('/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.status(200).json({ status: 'ok', db: 'connected' });
+  } catch (err) {
+    console.error('[Health] DB check failed:', err.message);
+    res.status(503).json({ status: 'error', db: 'disconnected' });
+  }
 });
 
 // 404 for unmatched routes (must come after all real routes).

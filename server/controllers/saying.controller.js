@@ -93,6 +93,11 @@ export const SayingController = {
       return res.status(400).json({ error: 'Invalid or empty rows data' });
     }
 
+    // Fix #5: Cap bulk import at 1000 rows to prevent abuse.
+    if (rows.length > 1000) {
+      return res.status(400).json({ error: 'Bulk import limited to 1000 rows per request' });
+    }
+
     const importedSayings = await SayingService.bulkImport(rows);
 
     if (req.user) {

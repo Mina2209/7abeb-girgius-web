@@ -9,7 +9,7 @@ export const authService = {
   async login(username, password) {
     const user = await prisma.user.findUnique({ 
       where: { username },
-      select: { id: true, username: true, email: true, password: true, role: true, full_name: true, church_name: true, church_role: true, services: true, avatar_url: true, createdAt: true }
+      select: { id: true, username: true, email: true, password: true, role: true, full_name: true, church_name: true, church_role: true, services: true, avatar_url: true, tokenVersion: true, createdAt: true }
     });
 
     if (!user) {
@@ -22,7 +22,7 @@ export const authService = {
     }
 
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
+      { id: user.id, username: user.username, role: user.role, tokenVersion: user.tokenVersion },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRY }
     );
@@ -92,7 +92,7 @@ export const authService = {
     });
 
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
+      { id: user.id, username: user.username, role: user.role, tokenVersion: 0 },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRY }
     );
@@ -157,9 +157,12 @@ export const authService = {
 
   async updateUser(id, data) {
     const updateData = { ...data };
-    
+
     if (data.password) {
       updateData.password = await bcrypt.hash(data.password, 10);
+      // Increment tokenVersion to invalidate all outstanding JWTs when password changes.
+      // This covers both self-service (changePassword) and admin-initiated password resets.
+      updateData.tokenVersion = { increment: 1 };
     }
 
     return await prisma.user.update({

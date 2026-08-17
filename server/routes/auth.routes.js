@@ -17,7 +17,16 @@ const loginLimiter = rateLimit({
 });
 
 // Public routes - no authentication required
-router.post('/register', authController.register);
+// Fix #2: Registration rate limiter to prevent mass account creation.
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,                    // per IP, per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many registration attempts. Please try again later.' },
+});
+
+router.post('/register', registerLimiter, authController.register);
 router.post('/login', loginLimiter, authController.login);
 
 // Protected routes - require authentication and admin role

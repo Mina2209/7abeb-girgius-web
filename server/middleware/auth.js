@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { prisma } from '../services/prisma.js';
 
 // No fallback: if JWT_SECRET is unset, signing/verifying fails loudly rather than
 // silently using a guessable default. Production startup also refuses to boot without it.
@@ -19,8 +20,21 @@ export function authenticate(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded; // Attach user info to request
-    next();
+
+    // Fix #9: Verify tokenVersion matches the one stored in the database.
+    // If the user changed their password (which bumps tokenVersion), old tokens are rejected.
+    prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: { tokenVersion: true },
+    }).then((user) => {
+      if (!user || (decoded.tokenVersion !== undefined && decoded.tokenVersion !== user.tokenVersion)) {
+        return res.status(401).json({ error: 'Unauthorized - Token revoked' });
+      }
+      req.user = decoded;
+      next();
+    }).catch(() => {
+      return res.status(401).json({ error: 'Unauthorized - Token verification failed' });
+    });
   } catch (error) {
     return res.status(401).json({ error: 'Unauthorized - Invalid token' });
   }

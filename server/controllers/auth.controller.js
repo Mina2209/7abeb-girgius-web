@@ -254,7 +254,8 @@ export const authController = {
         return res.status(400).json({ error: 'Current password is incorrect' });
       }
 
-      // Update password (authService.updateUser already hashes)
+      // Update password — authService.updateUser hashes it AND increments tokenVersion,
+      // which invalidates all outstanding JWTs for this user.
       await authService.updateUser(userId, { password: newPassword });
 
       // Log action

@@ -133,21 +133,22 @@ model ImageType {
 }
 
 model User {
-  id         String   @id @default(uuid())
-  username   String   @unique
-  email      String?  @unique
-  password   String
-  role       Role     @default(EDITOR)
-  full_name  String?
-  church_name String?
-  church_role String?
-  services   String[]
-  avatar_url String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  logs       Log[]
-  favorites  Favorite[]
-  activities UserActivity[]
+  id           String   @id @default(uuid())
+  username     String   @unique
+  email        String?  @unique
+  password     String
+  role         Role     @default(EDITOR)
+  full_name    String?
+  church_name  String?
+  church_role  String?
+  services     String[]
+  avatar_url   String?
+  tokenVersion Int      @default(0) // Bump to invalidate all outstanding JWTs (e.g. on password change)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  logs         Log[]
+  favorites    Favorite[]
+  activities   UserActivity[]
 }
 
 model Log {

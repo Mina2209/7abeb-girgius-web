@@ -1,11 +1,11 @@
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 // S3 configuration
 const region = process.env.AWS_REGION;
@@ -58,11 +58,11 @@ export const BackupService = {
     // Set PGPASSWORD environment variable for pg_dump
     const env = { ...process.env, PGPASSWORD: db.password };
 
-    // Run pg_dump
-    const command = `pg_dump -h ${db.host} -p ${db.port} -U ${db.user} -d ${db.database} -F p -f "${filepath}"`;
+    // Fix #8: Use execFile (no shell) to prevent command injection.
+    const args = ['-h', db.host, '-p', db.port, '-U', db.user, '-d', db.database, '-F', 'p', '-f', filepath];
     
     try {
-      await execAsync(command, { env });
+      await execFileAsync('pg_dump', args, { env });
       
       const stats = fs.statSync(filepath);
       console.log(`Backup created: ${filename} (${(stats.size / 1024).toFixed(2)} KB)`);
@@ -223,10 +223,11 @@ export const BackupService = {
 
     // --single-transaction: the whole restore succeeds or rolls back, so a
     // failure can't leave the database half-restored.
-    const command = `psql -h ${db.host} -p ${db.port} -U ${db.user} -d ${db.database} --single-transaction -f "${filepath}"`;
+    // Fix #8: Use execFile (no shell) to prevent command injection.
+    const args = ['-h', db.host, '-p', db.port, '-U', db.user, '-d', db.database, '--single-transaction', '-f', filepath];
     
     try {
-      await execAsync(command, { env });
+      await execFileAsync('psql', args, { env });
       console.log('Database restored successfully');
     } catch (error) {
       console.error('Restore failed:', error.message);
