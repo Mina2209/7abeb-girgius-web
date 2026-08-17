@@ -1,5 +1,5 @@
   import { Heart, Share2, ArrowUpDown, Search, ChevronDown, Tags, User, BookOpen, Calendar, Plus, Edit2, Trash2, Download, Upload, CheckSquare, Square, CheckCheck, Video, MessageSquareQuote, Users, X, Image as ImageIcon, FileSpreadsheet } from 'lucide-react';
-  import { useState, useMemo, useRef, useEffect, type RefObject } from 'react';
+  import { useState, useMemo, useRef, useEffect } from 'react';
   import { useNavigate } from 'react-router-dom';
   import { TagFilter } from './TagFilter';
   import { MultiSelectFilter } from './MultiSelectFilter';
@@ -132,7 +132,7 @@ import { toast } from 'sonner';
     });
   }
 
-  export function SayingsSection({ scrollContainerRef }: { scrollContainerRef: RefObject<HTMLElement | null> }) {
+  export function SayingsSection() {
     const navigate = useNavigate();
     const isEditor = useIsEditor();
     const { accessToken } = useAuth();
@@ -159,7 +159,6 @@ import { toast } from 'sonner';
     const [editingSaying, setEditingSaying] = useState<Saying | null>(null);
     const [selectedSayingIds, setSelectedSayingIds] = useState<ContentId[]>([]);
     const [bulkEditMode, setBulkEditMode] = useState(false);
-    const [isScrolled, setIsScrolled] = useState(false);
     
     // Video tutorial modal state
     const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
@@ -168,27 +167,6 @@ import { toast } from 'sonner';
     const filtersContainerRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const excelFileInputRef = useRef<HTMLInputElement>(null);
-
-    useEffect(() => {
-      const handleScroll = () => {
-        if (scrollContainerRef.current) {
-          const scrollTop = scrollContainerRef.current.scrollTop;
-          setIsScrolled(scrollTop > 20);
-        }
-      };
-
-      const scrollContainer = scrollContainerRef.current;
-      if (scrollContainer) {
-        scrollContainer.addEventListener("scroll", handleScroll);
-        handleScroll();
-      }
-
-      return () => {
-        if (scrollContainer) {
-          scrollContainer.removeEventListener("scroll", handleScroll);
-        }
-      };
-    }, [scrollContainerRef, sayings]);
 
     // Load all fathers eagerly so we can resolve author images for cards
     useEffect(() => {
@@ -727,38 +705,32 @@ import { toast } from 'sonner';
     return (
 
   <div className="flex flex-col h-full">
+    {/* Title / Description */}
+    <div>
+      <div className="flex items-start justify-between gap-4 mb-2">
+        <h1 className="font-bold text-2xl sm:text-3xl lg:text-[36px]">أقوال الآباء</h1>
+        <button
+          onClick={() => setShowFathersList(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium shrink-0"
+        >
+          <Users className="w-4 h-4" />
+          <span>الآباء</span>
+        </button>
+      </div>
+      <p className="text-muted-foreground leading-relaxed">
+        مكتبة شاملة لحكم وأقوال آباء الكنيسة القديسين والمعلمين. استخدم البحث والفلاتر للعثور على الأقوال حسب القائل أو المصدر أو الموضوع، واضغط على اسم القديس لعرض سيرته، وأضف المفضلات لديك، وشارك الحكمة مع الآخرين.
+      </p>
+      <button
+        onClick={() => setIsVideoModalOpen(true)}
+        className="mt-2 flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors"
+      >
+        <Video className="w-4 h-4" />
+        <span>← شرح الاستخدام</span>
+      </button>
+    </div>
+
     {/* Sticky Header Section */}
     <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
-      <div
-        className={`transition-all duration-500 ease-in-out overflow-hidden ${
-          isScrolled
-            ? "max-h-0 opacity-0 mb-0 pointer-events-none transform -translate-y-2"
-            : "max-h-[250px] opacity-100 mb-4 transform translate-y-0"
-        }`}
-      >
-        <div>
-          <div className="flex items-start justify-between gap-4 mb-2">
-          <h1 className="font-bold text-2xl sm:text-3xl lg:text-[36px]">أقوال الآباء</h1>
-            <button
-              onClick={() => setShowFathersList(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium shrink-0"
-            >
-              <Users className="w-4 h-4" />
-              <span>الآباء</span>
-            </button>
-          </div>
-          <p className="text-muted-foreground leading-relaxed">
-            مكتبة شاملة لحكم وأقوال آباء الكنيسة القديسين والمعلمين. استخدم البحث والفلاتر للعثور على الأقوال حسب القائل أو المصدر أو الموضوع، واضغط على اسم القديس لعرض سيرته، وأضف المفضلات لديك، وشارك الحكمة مع الآخرين.
-          </p>
-          <button
-            onClick={() => setIsVideoModalOpen(true)}
-            className="mt-2 flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors"
-          >
-            <Video className="w-4 h-4" />
-            <span>← شرح الاستخدام</span>
-          </button>
-        </div>
-      </div>
 
       {/* Admin Toolbar */}
           {isEditor && (

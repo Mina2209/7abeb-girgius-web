@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type RefObject } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 
 import {
   Search,
@@ -73,7 +73,6 @@ export interface Book {
 
 interface BooksSectionProps {
   isSidebarCollapsed?: boolean;
-  scrollContainerRef: RefObject<HTMLElement | null>;
 }
 
 type SortOption =
@@ -207,7 +206,7 @@ function getBooksForFacet(
   });
 }
 
-export function BooksSection({ isSidebarCollapsed, scrollContainerRef }: BooksSectionProps) {
+export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
   const { user, profile } = useAuth(); 
   const isEditor = useIsEditor();
 
@@ -248,30 +247,7 @@ export function BooksSection({ isSidebarCollapsed, scrollContainerRef }: BooksSe
   const filtersContainerRef = useRef<HTMLDivElement>(null!);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [isScrolled, setIsScrolled] = useState(false);
-
   const [defaultCoverKey, setDefaultCoverKey] = useState(0);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (scrollContainerRef.current) {
-        const scrollTop = scrollContainerRef.current.scrollTop;
-        setIsScrolled(scrollTop > 20);
-      }
-    };
-
-    const scrollContainer = scrollContainerRef.current;
-    if (scrollContainer) {
-      scrollContainer.addEventListener("scroll", handleScroll);
-      handleScroll();
-    }
-
-    return () => {
-      if (scrollContainer) {
-        scrollContainer.removeEventListener("scroll", handleScroll);
-      }
-    };
-  }, [scrollContainerRef, books]);
 
   useEffect(() => {
     fetchBooks();
@@ -481,7 +457,6 @@ export function BooksSection({ isSidebarCollapsed, scrollContainerRef }: BooksSe
       {/* Sticky Header Section */}
       <BooksFiltersToolbar
         isEditor={isEditor}
-        isScrolled={isScrolled}
         bulkEditMode={bulkEditMode}
         onAddNew={handleAddNew}
         onToggleBulkMode={() => {

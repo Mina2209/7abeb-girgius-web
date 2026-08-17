@@ -215,7 +215,6 @@ export function ImageLibrarySection({
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedImages, setSelectedImages] = useState<ContentId[]>([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
 
   const [artistProfileOpen, setArtistProfileOpen] = useState(false);
   const [selectedArtistName, setSelectedArtistName] = useState<string | null>(null);
@@ -236,27 +235,6 @@ export function ImageLibrarySection({
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const filtersContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (scrollContainerRef.current) {
-        const scrollTop = scrollContainerRef.current.scrollTop;
-        setIsScrolled(scrollTop > 20);
-      }
-    };
-
-    const scrollContainer = scrollContainerRef.current;
-    if (scrollContainer) {
-      scrollContainer.addEventListener('scroll', handleScroll);
-      handleScroll();
-    }
-
-    return () => {
-      if (scrollContainer) {
-        scrollContainer.removeEventListener('scroll', handleScroll);
-      }
-    };
-  }, [scrollContainerRef, images]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -732,42 +710,36 @@ export function ImageLibrarySection({
   }
 
   return (
-      <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full">
+      {/* Title / Description */}
+      <div>
+        <div className="flex items-start justify-between gap-4 mb-2">
+          <h1 className="font-bold text-2xl sm:text-3xl lg:text-[36px]">مكتبة الصور</h1>
+          <button
+            onClick={() => navigate('/artists')}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium shrink-0"
+          >
+            <User className="w-4 h-4" />
+            <span>الفنانون</span>
+          </button>
+        </div>
+        <p className="text-muted-foreground leading-relaxed">
+          مجموعة شاملة من الصور والأيقونات الكنسية والمناظر الطبيعية. استخدم
+          البحث والفلاتر للعثور على الصور حسب النوع أو الفنان أو الموضوع،
+          واعرض معرض الصور بوضع ملء الشاشة، وأضف المفضلات لديك، وحمّل الصور
+          للاستخدام في الخدمة.
+        </p>
+        <button
+          onClick={() => setIsVideoModalOpen(true)}
+          className="mt-2 flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors"
+        >
+          <Video className="w-4 h-4" />
+          <span>← شرح الاستخدام</span>
+        </button>
+      </div>
+
       {/* Sticky Header Section */}
       <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
-        <div
-          className={`transition-all duration-500 ease-in-out overflow-hidden ${
-            isScrolled
-              ? 'max-h-0 opacity-0 mb-0 pointer-events-none transform -translate-y-2'
-              : 'max-h-[250px] opacity-100 mb-4 transform translate-y-0'
-          }`}
-        >
-          <div>
-            <div className="flex items-start justify-between gap-4 mb-2">
-              <h1 className="font-bold text-2xl sm:text-3xl lg:text-[36px]">مكتبة الصور</h1>
-              <button
-                onClick={() => navigate('/artists')}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium shrink-0"
-              >
-                <User className="w-4 h-4" />
-                <span>الفنانون</span>
-              </button>
-            </div>
-            <p className="text-muted-foreground leading-relaxed">
-              مجموعة شاملة من الصور والأيقونات الكنسية والمناظر الطبيعية. استخدم
-              البحث والفلاتر للعثور على الصور حسب النوع أو الفنان أو الموضوع،
-              واعرض معرض الصور بوضع ملء الشاشة، وأضف المفضلات لديك، وحمّل الصور
-              للاستخدام في الخدمة.
-            </p>
-            <button
-              onClick={() => setIsVideoModalOpen(true)}
-              className="mt-2 flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors"
-            >
-              <Video className="w-4 h-4" />
-              <span>← شرح الاستخدام</span>
-            </button>
-          </div>
-        </div>
 
         {isEditor && (
           <div className="mt-4 mb-4 px-3 py-2 bg-primary/5 border border-primary/20 rounded-lg">

@@ -39,7 +39,6 @@ const sortOptions: Array<{ value: SortOption; label: string }> = [
 
 interface BooksFiltersToolbarProps {
   isEditor: boolean;
-  isScrolled: boolean;
 
   // admin toolbar & bulk toggle
   bulkEditMode: boolean;
@@ -92,7 +91,6 @@ interface BooksFiltersToolbarProps {
 
 export function BooksFiltersToolbar({
   isEditor,
-  isScrolled,
   bulkEditMode,
   onAddNew,
   onToggleBulkMode,
@@ -136,22 +134,15 @@ export function BooksFiltersToolbar({
   );
 
   return (
-    <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
-      <div
-        className={`transition-all duration-500 ease-in-out overflow-hidden ${
-          isScrolled
-            ? 'max-h-0 opacity-0 mb-0 pointer-events-none transform -translate-y-2'
-            : 'max-h-[250px] opacity-100 mb-4 transform translate-y-0'
-        }`}
-      >
-        <div>
-          <h1 className="mb-2 font-bold text-2xl sm:text-3xl lg:text-[36px]">مكتبة الكتب</h1>
-          <p className="text-muted-foreground leading-relaxed">
-            مجموعة شاملة من الكتب الروحية والطقسية والتاريخية مع إمكانية البحث والفلترة والتحميل
-          </p>
-        </div>
+    <>
+      <div>
+        <h1 className="mb-2 font-bold text-2xl sm:text-3xl lg:text-[36px]">مكتبة الكتب</h1>
+        <p className="text-muted-foreground leading-relaxed">
+          مجموعة شاملة من الكتب الروحية والطقسية والتاريخية مع إمكانية البحث والفلترة والتحميل
+        </p>
       </div>
 
+      <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
       {isEditor && (
         <div className="mt-4 mb-4 px-3 py-2 bg-primary/5 border border-primary/20 rounded-lg">
           <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -381,6 +372,7 @@ export function BooksFiltersToolbar({
         </div>
       </div>
       </div>
+    </>
   );
 }
 

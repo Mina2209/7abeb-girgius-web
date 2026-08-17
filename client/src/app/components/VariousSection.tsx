@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, type RefObject } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
   Download,
@@ -91,7 +91,7 @@ function getDownloadName(name: string, url: string): string {
   return name;
 }
 
-export function VariousSection({ scrollContainerRef }: { scrollContainerRef: RefObject<HTMLElement | null> }) {
+export function VariousSection() {
   const isEditor = useIsEditor();
   const { accessToken } = useAuth();
   const { tags: allTags, reloadTags } = useTags();
@@ -111,33 +111,11 @@ export function VariousSection({ scrollContainerRef }: { scrollContainerRef: Ref
   const [tagPopoverPos, setTagPopoverPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
   const [tagSearch, setTagSearch] = useState("");
   const [creatingTag, setCreatingTag] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
 
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const filtersContainerRef = useRef<HTMLDivElement>(null);
   const debouncedCategories = useDebounce(categories, 800);
   const initialLoadDone = useRef(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (scrollContainerRef.current) {
-        const scrollTop = scrollContainerRef.current.scrollTop;
-        setIsScrolled(scrollTop > 20);
-      }
-    };
-
-    const scrollContainer = scrollContainerRef.current;
-    if (scrollContainer) {
-      scrollContainer.addEventListener("scroll", handleScroll);
-      handleScroll();
-    }
-
-    return () => {
-      if (scrollContainer) {
-        scrollContainer.removeEventListener("scroll", handleScroll);
-      }
-    };
-  }, [scrollContainerRef, categories]);
 
   const saveToServer = useCallback(async (cats: PowerpointCategory[]) => {
     setIsSaving(true);
@@ -423,17 +401,9 @@ export function VariousSection({ scrollContainerRef }: { scrollContainerRef: Ref
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-500">
-      {/* Sticky Header Section */}
-      <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
-        <div
-          className={`transition-all duration-500 ease-in-out overflow-hidden ${
-            isScrolled
-              ? "max-h-0 opacity-0 mb-0 pointer-events-none transform -translate-y-2"
-              : "max-h-[250px] opacity-100 mb-4 transform translate-y-0"
-          }`}
-        >
-          <div>
-            <div className="flex items-center gap-4 mb-2">
+      {/* Title / Description */}
+      <div>
+        <div className="flex items-center gap-4 mb-2">
           <h1 className="mb-2 font-bold text-2xl sm:text-3xl lg:text-[36px]">
             بوربوينت متنوعة
           </h1>
@@ -447,8 +417,10 @@ export function VariousSection({ scrollContainerRef }: { scrollContainerRef: Ref
         <p className="text-muted-foreground leading-relaxed">
           مكتبة العروض التقديمية المنظمة حسب التصنيفات والخدمات الكنسية
         </p>
-          </div>
-        </div>
+      </div>
+
+      {/* Sticky Header Section */}
+      <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
 
       {isEditor && (
         <div className="mt-4 mb-4 px-3 py-2 bg-primary/5 border border-primary/20 rounded-lg">

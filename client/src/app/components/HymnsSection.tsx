@@ -254,7 +254,6 @@ export function HymnsSection({
   const [sortBy, setSortBy] = useState<SortOption>("alpha-asc");
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
   const [isFileTypeDropdownOpen, setIsFileTypeDropdownOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
   const { favoriteIds: favoritedHymnIds, toggleFavorite: apiToggleFavorite, count: favoritedCount } = useFavorites('HYMN');
   const favoritedHymns = Array.from(favoritedHymnIds);
   const [shareMessage, setShareMessage] = useState<string | null>(null);
@@ -321,29 +320,6 @@ export function HymnsSection({
   // Use browser-compatible timer type to avoid NodeJS namespace issues
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-useEffect(() => {
-    const handleScroll = () => {
-      if (scrollContainerRef.current) {
-        const scrollTop = scrollContainerRef.current.scrollTop;
-        setIsScrolled(scrollTop > 20);
-      }
-    };
-
-    const scrollContainer = scrollContainerRef.current;
-    if (scrollContainer) {
-      scrollContainer.addEventListener("scroll", handleScroll);
-      handleScroll();
-    }
-
-    return () => {
-      if (scrollContainer) {
-        scrollContainer.removeEventListener("scroll", handleScroll);
-      }
-    };
-
-    // شيلنا isLoading وسيبنا الـ Ref ومصفوفة الداتا بس
-  }, [scrollContainerRef, hymns]);
-
 
   useEffect(() => {
     if (!expandedHymnId) return;
@@ -850,33 +826,27 @@ useEffect(() => {
   }
 
   return (
-      <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full">
+      {/* Title / Description */}
+      <div>
+        <h1 className="mb-2 font-bold text-2xl sm:text-3xl lg:text-[36px]">مكتبة الترانيم</h1>
+        <p className="text-muted-foreground leading-relaxed">
+          مكتبة شاملة تضم مئات الترانيم والألحان القبطية مع فيديوهات وعروض
+          PowerPoint وملفات صوتية ونصوص. استخدم البحث والفلاتر للعثور على
+          الترنيمة المطلوبة، وأضف المفضلات لديك، وحمّل الملفات للاستخدام في
+          الخدمة والصلاة.
+        </p>
+        <button
+          onClick={() => setIsVideoModalOpen(true)}
+          className="mt-2 flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors"
+        >
+          <Video className="w-4 h-4" />
+          <span>← شرح الاستخدام</span>
+        </button>
+      </div>
+
       {/* Sticky Header Section */}
       <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
-        <div
-          className={`transition-all duration-500 ease-in-out overflow-hidden ${
-            isScrolled
-              ? "max-h-0 opacity-0 mb-0 pointer-events-none transform -translate-y-2"
-              : "max-h-[250px] opacity-100 mb-4 transform translate-y-0"
-          }`}
-        >
-          <div>
-            <h1 className="mb-2 font-bold text-2xl sm:text-3xl lg:text-[36px]">مكتبة الترانيم</h1>
-            <p className="text-muted-foreground leading-relaxed">
-              مكتبة شاملة تضم مئات الترانيم والألحان القبطية مع فيديوهات وعروض
-              PowerPoint وملفات صوتية ونصوص. استخدم البحث والفلاتر للعثور على
-              الترنيمة المطلوبة، وأضف المفضلات لديك، وحمّل الملفات للاستخدام في
-              الخدمة والصلاة.
-            </p>
-            <button
-              onClick={() => setIsVideoModalOpen(true)}
-              className="mt-2 flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors"
-            >
-              <Video className="w-4 h-4" />
-              <span>← شرح الاستخدام</span>
-            </button>
-          </div>
-          </div>
 
         {/* Admin Toolbar - Option 1: Dedicated Row */}
         {isEditor && (

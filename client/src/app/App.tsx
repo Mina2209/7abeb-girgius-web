@@ -177,31 +177,6 @@ export default function App() {
     document.title = pageTitles[location.pathname] || 'لوحة التحكم';
   }, [location.pathname]);
 
-  // Initialize runtime header height measurement so --app-header-height matches the
-  // actual header element in the DOM. This complements the static values in theme.css
-  // (which serve as reasonable defaults) by measuring the real element at runtime.
-  useEffect(() => {
-    // Lazy import the runtime helper to avoid increasing initial bundle size for SSR
-    let teardown: (() => void) | undefined;
-    (async () => {
-      try {
-        const mod = await import('./utils/header');
-        if (mod && typeof mod.initRuntimeHeaderHeight === 'function') {
-          teardown = mod.initRuntimeHeaderHeight();
-        } else if (typeof (mod as any).default === 'function') {
-          teardown = (mod as any).default();
-        }
-      } catch (e) {
-        // Non-fatal: keep the CSS defaults
-        // console.warn('Failed to initialize runtime header height measurement', e);
-      }
-    })();
-
-    return () => {
-      if (typeof teardown === 'function') teardown();
-    };
-  }, []);
-
   // Standalone digital business card route — rendered without the sidebar/main shell.
   if (isCardRoute) {
     return (
@@ -257,11 +232,11 @@ export default function App() {
 
         <main
           ref={mainScrollContainerRef}
-          className={`flex-1 p-4 lg:p-8 h-screen overflow-y-auto pt-20 lg:pt-8 transition-all duration-300 ${
+          className={`flex-1 p-4 lg:p-8 h-screen overflow-y-auto pt-20 lg:pt-0 transition-all duration-300 ${
             isSidebarCollapsed ? 'lg:mr-20' : 'lg:mr-64'
           }`}
         >
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-7xl mx-auto mt-[30px]">
           <Suspense
             fallback={
               <div className="w-full flex items-center justify-center py-10 text-muted-foreground">
@@ -276,15 +251,15 @@ export default function App() {
                 path="/hymns"
                 element={<HymnsSection isSidebarCollapsed={isSidebarCollapsed} scrollContainerRef={mainScrollContainerRef} />}
               />
-              <Route path="/various" element={<VariousSection scrollContainerRef={mainScrollContainerRef} />} />
+              <Route path="/various" element={<VariousSection />} />
               <Route
                 path="/images"
                 element={<ImageLibrarySection isSidebarCollapsed={isSidebarCollapsed} scrollContainerRef={mainScrollContainerRef} />}
               />
               <Route path="/artists" element={<ArtistsSection />} />
               <Route path="/artists/:id" element={<ArtistDetailPage />} />
-              <Route path="/books" element={<BooksSection scrollContainerRef={mainScrollContainerRef} />} />
-              <Route path="/sayings" element={<SayingsSection scrollContainerRef={mainScrollContainerRef} />} />
+              <Route path="/books" element={<BooksSection />} />
+              <Route path="/sayings" element={<SayingsSection />} />
               <Route path="/sayings/authors/:id" element={<FatherDetailPage />} />
               <Route path="/coptic" element={<CopticLanguageSection />} />
               <Route path="/about" element={<AboutSection />} />

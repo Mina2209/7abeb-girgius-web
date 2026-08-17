@@ -249,10 +249,12 @@ export function HomeSection() {
       </section>
 
       {/* Horizontal Scrolling Showcase */}
-      <section className="overflow-hidden py-2">
-        <div className="inline-flex animate-marquee">
-          <div className="flex gap-4 shrink-0">{marqueeCardList}</div>
-          <div className="flex gap-4 shrink-0">{marqueeCardList}</div>
+      <section className="relative overflow-hidden py-4">
+        <div className="absolute inset-y-0 left-0 w-20 z-10 bg-gradient-to-r from-background to-transparent pointer-events-none" />
+        <div className="absolute inset-y-0 right-0 w-20 z-10 bg-gradient-to-l from-background to-transparent pointer-events-none" />
+        <div className="flex w-max animate-marquee">
+          <div className="flex gap-4 shrink-0 pr-4">{marqueeCardList}</div>
+          <div className="flex gap-4 shrink-0 pr-4">{marqueeCardList}</div>
         </div>
       </section>
 
