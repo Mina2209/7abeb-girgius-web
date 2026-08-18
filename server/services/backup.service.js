@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { logger } from './logger.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -65,7 +66,7 @@ export const BackupService = {
       await execFileAsync('pg_dump', args, { env });
       
       const stats = fs.statSync(filepath);
-      console.log(`Backup created: ${filename} (${(stats.size / 1024).toFixed(2)} KB)`);
+      logger.info('Backup created', { filename, sizeKB: (stats.size / 1024).toFixed(2) });
       
       return {
         filename,
@@ -73,7 +74,7 @@ export const BackupService = {
         size: stats.size
       };
     } catch (error) {
-      console.error('pg_dump failed:', error.message);
+      logger.error('pg_dump failed', { error: error.message });
       throw new Error(`Backup failed: ${error.message}`);
     }
   },
@@ -100,7 +101,7 @@ export const BackupService = {
     });
 
     await s3.send(command);
-    console.log(`Backup uploaded to S3: ${key}`);
+    logger.info('Backup uploaded to S3', { key });
 
     return {
       key,
@@ -123,7 +124,7 @@ export const BackupService = {
     // Clean up local file unless keepLocal is true
     if (!keepLocal) {
       fs.unlinkSync(filepath);
-      console.log(`Local backup file removed: ${filepath}`);
+      logger.info('Local backup file removed', { filepath });
     }
 
     return {
@@ -186,7 +187,7 @@ export const BackupService = {
     });
 
     await s3.send(command);
-    console.log(`Backup deleted from S3: ${key}`);
+    logger.info('Backup deleted from S3', { key });
   },
 
   /**
@@ -197,7 +198,7 @@ export const BackupService = {
     const backups = await this.listBackups();
     
     if (backups.length <= keepCount) {
-      console.log(`No backups to clean up (${backups.length} backups, keeping ${keepCount})`);
+      logger.info('No backups to clean up', { current: backups.length, keepCount });
       return [];
     }
 
@@ -209,31 +210,9 @@ export const BackupService = {
       deleted.push(backup.filename);
     }
 
-    console.log(`Cleaned up ${deleted.length} old backups`);
+    logger.info('Cleaned up old backups', { count: deleted.length });
     return deleted;
   },
-
-  /**
-   * Restore database from a backup file
-   * @param {string} filepath - Path to the backup file
-   */
-  async restoreFromFile(filepath) {
-    const db = parseDatabaseUrl();
-    const env = { ...process.env, PGPASSWORD: db.password };
-
-    // --single-transaction: the whole restore succeeds or rolls back, so a
-    // failure can't leave the database half-restored.
-    // Fix #8: Use execFile (no shell) to prevent command injection.
-    const args = ['-h', db.host, '-p', db.port, '-U', db.user, '-d', db.database, '--single-transaction', '-f', filepath];
-    
-    try {
-      await execFileAsync('psql', args, { env });
-      console.log('Database restored successfully');
-    } catch (error) {
-      console.error('Restore failed:', error.message);
-      throw new Error(`Restore failed: ${error.message}`);
-    }
-  }
 };
 
 export default BackupService;

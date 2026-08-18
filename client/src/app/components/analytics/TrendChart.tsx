@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-export interface TrendPoint {
+interface TrendPoint {
   date: string;
   count: number;
 }

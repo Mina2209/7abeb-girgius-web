@@ -148,6 +148,7 @@ export function BioLinkPage() {
             alt="شعار خدمة الأرشيدياكون حبيب جرجس"
             width={112}
             height={112}
+            loading="lazy"
             decoding="async"
             className="h-28 w-28 rounded-full border-4 border-border bg-card object-cover shadow-lg"
           />

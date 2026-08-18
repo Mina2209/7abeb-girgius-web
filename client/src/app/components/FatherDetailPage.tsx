@@ -149,6 +149,8 @@ export function FatherDetailPage() {
                 <img
                   src={father.profileImage}
                   alt={father.name}
+                  loading="lazy"
+                  decoding="async"
                   className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full object-cover border-4 border-primary/20 shadow-xl flex-shrink-0"
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = 'none';

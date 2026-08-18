@@ -163,6 +163,8 @@ export function FathersSection() {
                       <img
                         src={father.profileImage}
                         alt={father.name}
+                        loading="lazy"
+                        decoding="async"
                         className="w-24 h-24 sm:w-32 sm:h-32 rounded-full object-cover border-4 border-background shadow-xl group-hover:scale-110 transition-transform duration-300"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = '';

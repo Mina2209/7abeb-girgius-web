@@ -1,7 +1,7 @@
 import { trackEvent } from '../services/analytics';
 import type { AnalyticsContentType } from '../services/analytics';
 
-export interface DownloadAnalyticsMeta {
+interface DownloadAnalyticsMeta {
   contentType?: AnalyticsContentType | string;
   contentId?: string | number;
   contentName?: string;

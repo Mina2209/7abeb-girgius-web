@@ -16,7 +16,7 @@ export interface Artist {
   specialty: string[];
 }
 
-export const artists: Artist[] = [
+const artists: Artist[] = [
   {
     id: 1,
     name: 'أمير موريس',

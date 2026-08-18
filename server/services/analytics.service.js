@@ -55,10 +55,10 @@ export const ANALYTICS_EVENTS = new Set([
   'share_completed',
 ]);
 
-export const SOCIAL_EVENTS = ['facebook_click', 'youtube_click', 'email_click'];
-export const PAGE_VIEW_EVENTS = ['page_view', 'card_page_view'];
-export const DOWNLOAD_EVENTS = ['download_started', 'download_completed'];
-export const SHARE_EVENTS = ['share_started', 'share_completed', 'card_share'];
+const SOCIAL_EVENTS = ['facebook_click', 'youtube_click', 'email_click'];
+const PAGE_VIEW_EVENTS = ['page_view', 'card_page_view'];
+const DOWNLOAD_EVENTS = ['download_started', 'download_completed'];
+const SHARE_EVENTS = ['share_started', 'share_completed', 'card_share'];
 
 const MAX_EVENT_NAME = 64;
 const MAX_STRING = 500;
@@ -76,7 +76,7 @@ export class AnalyticsValidationError extends Error {
   }
 }
 
-export function isAnalyticsEnabled() {
+function isAnalyticsEnabled() {
   return process.env.ANALYTICS_ENABLED === 'true';
 }
 

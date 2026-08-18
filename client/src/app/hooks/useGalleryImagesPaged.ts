@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import type { GalleryImage } from '../types/content';
 import { fetchGalleryPage, type GalleryQuery } from '../services/contentLoaders';
 
-export type GalleryFilters = Omit<GalleryQuery, 'page' | 'limit'>;
+type GalleryFilters = Omit<GalleryQuery, 'page' | 'limit'>;
 
 /**
  * Server-driven, paginated gallery data.

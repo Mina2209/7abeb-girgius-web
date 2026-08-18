@@ -337,6 +337,8 @@ export function UserSection({
                 <img
                   src={profile.avatar_url}
                   alt={profile.full_name}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full rounded-full object-cover"
                 />
               ) : (
@@ -364,6 +366,8 @@ export function UserSection({
               <img
                 src={profile.avatar_url}
                 alt={profile.full_name}
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full rounded-full object-cover"
               />
             ) : (

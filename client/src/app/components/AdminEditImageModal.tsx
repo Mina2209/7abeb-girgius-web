@@ -365,7 +365,7 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                     <div key={img.id} className="bg-card border border-border rounded-xl overflow-hidden group">
                       {/* Image Preview */}
                       <div className="relative aspect-[4/3]">
-                        <img src={img.src} alt={img.title} className="w-full h-full object-cover" />
+                        <img src={img.src} alt={img.title} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                         <button
                           type="button"
                           onClick={() => handleRemovePendingImage(img.id)}
@@ -438,9 +438,11 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                   >
                     {previewImage ? (
                       <>
-                        <img 
-                          src={previewImage} 
-                          alt="Preview" 
+                        <img
+                          src={previewImage}
+                          alt="Preview"
+                          loading="lazy"
+                          decoding="async"
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">

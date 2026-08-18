@@ -36,20 +36,4 @@ export const FavoriteService = {
     });
     return { favorited: true };
   },
-
-  add: async (userId, contentType, contentId) => {
-    await prisma.favorite.upsert({
-      where: { userId_contentType_contentId: { userId, contentType, contentId } },
-      update: {},
-      create: { userId, contentType, contentId },
-    });
-    return { favorited: true };
-  },
-
-  remove: async (userId, contentType, contentId) => {
-    await prisma.favorite.deleteMany({
-      where: { userId, contentType, contentId },
-    });
-    return { favorited: false };
-  },
 };

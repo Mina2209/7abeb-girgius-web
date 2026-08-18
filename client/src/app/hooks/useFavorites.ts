@@ -6,7 +6,7 @@ import type { ContentId } from '../types/content';
 import type { ApiError } from '../services/apiClient';
 import { useAuth } from '../contexts/AuthContext';
 
-export type FavoriteContentType = 'HYMN' | 'IMAGE' | 'BOOK' | 'SAYING' | string;
+type FavoriteContentType = 'HYMN' | 'IMAGE' | 'BOOK' | 'SAYING' | string;
 
 type UseFavoritesResult = {
   // For compatibility across the app, favorites are exposed as string ids.

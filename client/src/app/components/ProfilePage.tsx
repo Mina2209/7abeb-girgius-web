@@ -110,7 +110,7 @@ export function ProfilePage({ onNavigateToFavorites }: ProfilePageProps) {
           <div className="relative group flex-shrink-0">
             <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center text-primary overflow-hidden">
               {profile.avatar_url ? (
-                <img src={profile.avatar_url} alt={profile.full_name} className="w-full h-full rounded-full object-cover" />
+                <img src={profile.avatar_url} alt={profile.full_name} loading="lazy" decoding="async" className="w-full h-full rounded-full object-cover" />
               ) : (
                 <User className="w-12 h-12" />
               )}

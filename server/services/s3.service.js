@@ -32,7 +32,7 @@ function extractOriginalFilename(key) {
 }
 
 // Factory to create an S3 service instance configured with region, bucket and prefix
-export function createS3Service({ region, bucket, prefix = 'Uploads/' } = {}) {
+function createS3Service({ region, bucket, prefix = 'Uploads/' } = {}) {
   if (!bucket) {
     console.warn('AWS_S3_BUCKET is not set. S3 operations will fail without it.');
   }

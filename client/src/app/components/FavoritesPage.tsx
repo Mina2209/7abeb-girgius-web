@@ -280,7 +280,7 @@ function FavoriteImageCard({ image, onRemove }: { image: any; onRemove: () => vo
   return (
     <div className="relative group">
       <div className="aspect-square rounded-lg overflow-hidden bg-muted">
-        <img src={image.url} alt={image.title} className="w-full h-full object-cover" />
+        <img src={image.url} alt={image.title} loading="lazy" decoding="async" className="w-full h-full object-cover" />
       </div>
       <button
         onClick={onRemove}

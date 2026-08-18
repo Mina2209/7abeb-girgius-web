@@ -1061,9 +1061,11 @@ import { toast } from 'sonner';
                         <div className="flex items-center justify-between gap-3">
                           {/* Author Info */}
                           <div className="flex items-center gap-3">
-                            <img 
-                              src={item.authorImage || fatherImageMap.get(item.author) || ''} 
+                            <img
+                              src={item.authorImage || fatherImageMap.get(item.author) || ''}
                               alt={item.author}
+                              loading="lazy"
+                              decoding="async"
                               className="w-12 h-12 rounded-full object-cover border-2 border-border"
                             />
                             <button
@@ -1265,6 +1267,8 @@ import { toast } from 'sonner';
                               <img
                                 src={father.profileImage}
                                 alt={father.name}
+                                loading="lazy"
+                                decoding="async"
                                 className="w-24 h-24 sm:w-32 sm:h-32 rounded-full object-cover border-4 border-background shadow-xl group-hover:scale-110 transition-transform duration-300"
                                 onError={(e) => {
                                   (e.target as HTMLImageElement).src = '';

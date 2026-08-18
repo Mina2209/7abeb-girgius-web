@@ -56,5 +56,3 @@ export const downloadGuard = {
     return { active, max: MAX_CONCURRENT };
   },
 };
-
-export const downloadLimits = { MAX_CONCURRENT, LOAD_THRESHOLD, MIN_FREE_MEM_RATIO };

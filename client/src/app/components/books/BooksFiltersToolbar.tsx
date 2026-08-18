@@ -20,7 +20,7 @@ import { TagFilter } from '../TagFilter';
 import { MultiSelectFilter } from '../MultiSelectFilter';
 import type { Book } from '../BooksSection';
 
-export type SortOption =
+type SortOption =
   | 'date-newest'
   | 'date-oldest'
   | 'title-asc'

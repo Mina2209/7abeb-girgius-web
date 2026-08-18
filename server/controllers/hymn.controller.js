@@ -193,6 +193,13 @@ export const HymnController = {
     // sort=alpha-asc|alpha-desc|length-asc|length-desc|date-asc|date-desc
     const sort = String(req.query.sort || 'alpha-asc');
 
+    // Pagination: default 50, max 100 per page.
+    // Applied AFTER in-memory filtering/sorting so results are deterministic.
+    const PAGE_SIZE = 50;
+    const MAX_SIZE = 100;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(MAX_SIZE, Math.max(1, parseInt(req.query.limit) || PAGE_SIZE));
+
     const normalizeTag = (t) => normalizeArabic(t || '');
 
     const matchSearch = (h) => {
@@ -272,7 +279,9 @@ export const HymnController = {
       }
     });
 
-    res.json(sorted);
+    // Paginate the sorted results (client receives a flat array — response shape unchanged).
+    const start = (page - 1) * limit;
+    res.json(sorted.slice(start, start + limit));
   },
 
   getById: async (req, res) => {

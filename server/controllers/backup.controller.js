@@ -1,5 +1,6 @@
 import { BackupService } from '../services/backup.service.js';
 import { logService } from '../services/log.service.js';
+import { logger } from '../services/logger.js';
 
 export const BackupController = {
   /**
@@ -8,7 +9,7 @@ export const BackupController = {
    */
   createBackup: async (req, res) => {
     try {
-      console.log('Manual backup requested by user:', req.user?.username);
+      logger.info('Manual backup requested', { user: req.user?.username });
       
       const result = await BackupService.createBackup();
 
@@ -254,5 +255,3 @@ function formatBytes(bytes) {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
-
-export default BackupController;

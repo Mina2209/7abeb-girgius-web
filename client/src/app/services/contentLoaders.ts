@@ -40,10 +40,34 @@ async function fetchSayingsRemote(): Promise<Saying[]> {
   return rows.map(mapServerSayingToClient);
 }
 
-const promiseCache = new Map<string, Promise<unknown>>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+interface CacheEntry {
+  promise: Promise<unknown>;
+  expiresAt: number;
+}
+
+const promiseCache = new Map<string, CacheEntry>();
 
 function cacheKey(kind: string) {
   return kind;
+}
+
+function getFromCache<T>(kind: string): Promise<T> | undefined {
+  const entry = promiseCache.get(cacheKey(kind));
+  if (!entry) return undefined;
+  if (Date.now() > entry.expiresAt) {
+    promiseCache.delete(cacheKey(kind));
+    return undefined;
+  }
+  return entry.promise as Promise<T>;
+}
+
+function setCache(kind: string, promise: Promise<unknown>) {
+  promiseCache.set(cacheKey(kind), {
+    promise,
+    expiresAt: Date.now() + CACHE_TTL_MS,
+  });
 }
 
 export function bustContentCache(kind: 'hymns' | 'sayings' | 'gallery') {
@@ -51,47 +75,41 @@ export function bustContentCache(kind: 'hymns' | 'sayings' | 'gallery') {
 }
 
 export function loadHymnsData(): Promise<Hymn[]> {
-  const k = cacheKey('hymns');
-  let p = promiseCache.get(k) as Promise<Hymn[]> | undefined;
-  if (!p) {
-    p = (async (): Promise<Hymn[]> => {
-      if (!isApiConfigured()) {
-        throw new Error('VITE_API_BASE_URL is required for hymns');
-      }
-      return fetchHymnsRemote();
-    })();
-    promiseCache.set(k, p);
-  }
+  const cached = getFromCache<Hymn[]>('hymns');
+  if (cached) return cached;
+  const p = (async (): Promise<Hymn[]> => {
+    if (!isApiConfigured()) {
+      throw new Error('VITE_API_BASE_URL is required for hymns');
+    }
+    return fetchHymnsRemote();
+  })();
+  setCache('hymns', p);
   return p;
 }
 
 export function loadSayingsData(): Promise<Saying[]> {
-  const k = cacheKey('sayings');
-  let p = promiseCache.get(k) as Promise<Saying[]> | undefined;
-  if (!p) {
-    p = (async (): Promise<Saying[]> => {
-      if (!isApiConfigured()) {
-        throw new Error('VITE_API_BASE_URL is required for sayings');
-      }
-      return fetchSayingsRemote();
-    })();
-    promiseCache.set(k, p);
-  }
+  const cached = getFromCache<Saying[]>('sayings');
+  if (cached) return cached;
+  const p = (async (): Promise<Saying[]> => {
+    if (!isApiConfigured()) {
+      throw new Error('VITE_API_BASE_URL is required for sayings');
+    }
+    return fetchSayingsRemote();
+  })();
+  setCache('sayings', p);
   return p;
 }
 
 export function loadGalleryImagesData(): Promise<GalleryImage[]> {
-  const k = cacheKey('gallery');
-  let p = promiseCache.get(k) as Promise<GalleryImage[]> | undefined;
-  if (!p) {
-    p = (async (): Promise<GalleryImage[]> => {
-      if (!isApiConfigured()) {
-        throw new Error('VITE_API_BASE_URL is required for gallery images');
-      }
-      return fetchAllGalleryRemote();
-    })();
-    promiseCache.set(k, p);
-  }
+  const cached = getFromCache<GalleryImage[]>('gallery');
+  if (cached) return cached;
+  const p = (async (): Promise<GalleryImage[]> => {
+    if (!isApiConfigured()) {
+      throw new Error('VITE_API_BASE_URL is required for gallery images');
+    }
+    return fetchAllGalleryRemote();
+  })();
+  setCache('gallery', p);
   return p;
 }
 

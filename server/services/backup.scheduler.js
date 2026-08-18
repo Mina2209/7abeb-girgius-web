@@ -1,5 +1,6 @@
 import { BackupService } from './backup.service.js';
 import { logService } from './log.service.js';
+import { logger } from './logger.js';
 
 /**
  * Simple scheduler for automatic backups
@@ -20,13 +21,13 @@ export const BackupScheduler = {
    */
   start(intervalHours = 24, keepCount = 7) {
     if (schedulerInterval) {
-      console.log('Backup scheduler is already running');
+      logger.warn('Backup scheduler is already running');
       return;
     }
 
     const intervalMs = intervalHours * 60 * 60 * 1000;
     
-    console.log(`Starting backup scheduler: every ${intervalHours} hours, keeping ${keepCount} backups`);
+    logger.info('Starting backup scheduler', { intervalHours, keepCount });
 
     // Run backup immediately on start (optional - comment out if not needed)
     // this.runBackup(keepCount);
@@ -39,7 +40,7 @@ export const BackupScheduler = {
     // Also schedule for a specific time (e.g., 3 AM daily)
     this.scheduleAtTime(3, 0, () => this.runBackup(keepCount));
 
-    console.log('Backup scheduler started');
+    logger.info('Backup scheduler started');
   },
 
   /**
@@ -67,7 +68,7 @@ export const BackupScheduler = {
 
     const msUntilScheduled = scheduledTime - now;
 
-    console.log(`Next scheduled backup at: ${scheduledTime.toISOString()}`);
+    logger.info('Next scheduled backup', { time: scheduledTime.toISOString() });
 
     setTimeout(() => {
       task();
@@ -82,7 +83,7 @@ export const BackupScheduler = {
    */
   async runBackup(keepCount = 7) {
     if (isRunning) {
-      console.log('Backup already in progress, skipping...');
+      logger.warn('Backup already in progress, skipping');
       return;
     }
 
@@ -90,37 +91,34 @@ export const BackupScheduler = {
     const startTime = Date.now();
 
     try {
-      console.log('=== Automatic backup started ===');
-      console.log(`Time: ${new Date().toISOString()}`);
+      logger.info('Automatic backup started');
 
       // Create backup
       const result = await BackupService.createBackup();
-      console.log(`Backup created: ${result.filename}`);
-      console.log(`Size: ${(result.size / 1024).toFixed(2)} KB`);
+      logger.info('Backup created', { filename: result.filename, sizeKB: (result.size / 1024).toFixed(2) });
 
       // Cleanup old backups
       const deleted = await BackupService.cleanupOldBackups(keepCount);
       if (deleted.length > 0) {
-        console.log(`Cleaned up ${deleted.length} old backups`);
+        logger.info('Cleaned up old backups', { count: deleted.length });
       }
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-      console.log(`=== Automatic backup completed in ${duration}s ===`);
+      logger.info('Automatic backup completed', { duration: `${duration}s` });
 
       return result;
     } catch (error) {
-      console.error('=== Automatic backup failed ===');
-      console.error(error.message);
+      logger.error('Automatic backup failed', { error: error.message });
       throw error;
     } finally {
       // Prune old activity logs each cycle, independent of backup success/failure.
       try {
         const removed = await logService.deleteOldLogs(LOG_RETENTION_DAYS);
         if (removed > 0) {
-          console.log(`Pruned ${removed} activity log row(s) older than ${LOG_RETENTION_DAYS} days`);
+          logger.info('Pruned old activity logs', { removed, retentionDays: LOG_RETENTION_DAYS });
         }
       } catch (e) {
-        console.error('Log retention cleanup failed:', e.message);
+        logger.error('Log retention cleanup failed', { error: e.message });
       }
       isRunning = false;
     }
@@ -133,26 +131,9 @@ export const BackupScheduler = {
     if (schedulerInterval) {
       clearInterval(schedulerInterval);
       schedulerInterval = null;
-      console.log('Backup scheduler stopped');
+      logger.info('Backup scheduler stopped');
     }
   },
-
-  /**
-   * Check if scheduler is running
-   */
-  isActive() {
-    return schedulerInterval !== null;
-  },
-
-  /**
-   * Get scheduler status
-   */
-  getStatus() {
-    return {
-      isActive: this.isActive(),
-      isBackupRunning: isRunning
-    };
-  }
 };
 
 export default BackupScheduler;

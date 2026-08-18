@@ -19,7 +19,7 @@ export function useIsAdmin(): boolean {
 /**
  * Check if an email belongs to an admin user (for backward compatibility)
  */
-export function isAdminEmail(email: string | null | undefined): boolean {
+function isAdminEmail(email: string | null | undefined): boolean {
   if (!email) return false;
   const ADMIN_EMAILS = ['admin@church.com', 'admin@example.com', 'deacon@church.com'];
   return ADMIN_EMAILS.includes(email.toLowerCase());

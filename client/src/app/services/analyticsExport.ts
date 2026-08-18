@@ -25,7 +25,7 @@ export type ExportDatasetId =
   | 'activitySummary'
   | 'full';
 
-export const EXPORT_ENDPOINTS: Record<ExportDatasetId, string> = {
+const EXPORT_ENDPOINTS: Record<ExportDatasetId, string> = {
   summary: '/api/admin/analytics/export/summary',
   pages: '/api/admin/analytics/export/pages',
   content: '/api/admin/analytics/export/content',
@@ -40,14 +40,14 @@ export const EXPORT_ENDPOINTS: Record<ExportDatasetId, string> = {
 // Full export is always a ZIP archive — enforced by the server too.
 export const FULL_EXPORT_FORMAT: ExportFormat = 'zip';
 
-export interface ExportResult {
+interface ExportResult {
   filename: string;
   rangeLabel?: string;
   rows?: string;
   truncated: boolean;
 }
 
-export interface ExportErrorShape extends Error {
+interface ExportErrorShape extends Error {
   status?: number;
 }
 

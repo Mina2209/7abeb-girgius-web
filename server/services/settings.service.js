@@ -1,4 +1,8 @@
 import { prisma } from './prisma.js';
+import { cache } from './cache.js';
+
+const SETTINGS_KEY = 'settings:singleton';
+const SETTINGS_TTL = 60_000; // 1 minute — settings change rarely
 
 const DEFAULTS = {
   default_book_cover:
@@ -9,6 +13,9 @@ const DEFAULTS = {
 
 export const settingsService = {
   async getSingleton() {
+    const cached = cache.get(SETTINGS_KEY);
+    if (cached) return cached;
+
     const row = await prisma.siteSettings.findUnique({ where: { id: 1 } });
     if (!row) {
       // create a row with defaults (singleton id=1)
@@ -23,11 +30,14 @@ export const settingsService = {
     }
 
     const created = await prisma.siteSettings.findUnique({ where: { id: 1 } });
-    return {
+    const result = {
       default_book_cover: created?.default_book_cover ?? DEFAULTS.default_book_cover,
       site_sections_visibility: created?.site_sections_visibility,
       powerpoint_data: created?.powerpoint_data,
     };
+
+    cache.set(SETTINGS_KEY, result, SETTINGS_TTL);
+    return result;
   },
 
   async upsert({ default_book_cover, site_sections_visibility, powerpoint_data }) {
@@ -49,6 +59,9 @@ export const settingsService = {
         powerpoint_data: powerpoint_data ?? DEFAULTS.powerpoint_data,
       },
     });
+
+    // Invalidate cache so next read picks up the new values.
+    cache.del(SETTINGS_KEY);
   },
 };
 

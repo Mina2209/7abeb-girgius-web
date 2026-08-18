@@ -301,6 +301,8 @@ export function SiteSettingsPage() {
                 <img
                   src={previewCover}
                   alt="Default book cover preview"
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover"
                 />
               </div>

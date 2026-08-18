@@ -106,7 +106,7 @@ function cleanupOldLogs(logs: ActivityLog[]): ActivityLog[] {
   return logs.filter((log) => new Date(log.timestamp) >= cutoffDate);
 }
 
-export function getAllLogs(): ActivityLog[] {
+function getAllLogs(): ActivityLog[] {
   const logsStr = localStorage.getItem(STORAGE_KEY);
   if (!logsStr) return [];
   try {
@@ -117,11 +117,11 @@ export function getAllLogs(): ActivityLog[] {
   }
 }
 
-export function getUserLogs(userId: string): ActivityLog[] {
+function getUserLogs(userId: string): ActivityLog[] {
   return getAllLogs().filter((log) => log.userId === userId);
 }
 
-export function logActivity(
+function logActivity(
   activityType: ActivityType,
   description: string,
   options?: {

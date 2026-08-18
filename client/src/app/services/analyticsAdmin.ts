@@ -75,7 +75,7 @@ export interface AnalyticsRecentEvent {
 }
 
 export type TimeseriesMetric = 'page_views' | 'sessions' | 'downloads' | 'events';
-export type TopContentEvent = 'download' | 'favorite' | 'view';
+type TopContentEvent = 'download' | 'favorite' | 'view';
 
 function buildQuery(
   range: AnalyticsRange,

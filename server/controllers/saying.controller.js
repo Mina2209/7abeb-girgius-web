@@ -4,10 +4,16 @@ import { logService } from '../services/log.service.js';
 
 export const SayingController = {
   getAll: async (req, res) => {
+    const PAGE_SIZE = 50;
+    const MAX_SIZE = 100;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(MAX_SIZE, Math.max(1, parseInt(req.query.limit) || PAGE_SIZE));
+
     const searchRaw = req.query.search || req.query.q || '';
     if (!searchRaw) {
       const sayings = await SayingService.getAll();
-      return res.json(sayings);
+      const start = (page - 1) * limit;
+      return res.json(sayings.slice(start, start + limit));
     }
 
     const search = normalizeArabic(searchRaw);
@@ -24,7 +30,8 @@ export const SayingController = {
       const tagMatch = Array.isArray(s.tags) && s.tags.some(t => normalizeArabic(t.name || '').includes(search));
       return tagMatch;
     });
-    res.json(filtered);
+    const start = (page - 1) * limit;
+    res.json(filtered.slice(start, start + limit));
   },
 
   getById: async (req, res) => {

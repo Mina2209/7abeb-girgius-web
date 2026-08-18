@@ -267,6 +267,8 @@ export function BookEditModal({ book, topics, onSave, onClose }: BookEditModalPr
                       <img
                         src={formData.coverImage}
                         alt="Cover preview"
+                        loading="lazy"
+                        decoding="async"
                         className="max-h-64 mx-auto rounded"
                       />
                       <Button

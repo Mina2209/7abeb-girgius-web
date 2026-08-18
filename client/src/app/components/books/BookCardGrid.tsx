@@ -59,10 +59,11 @@ export function BookCardGrid({
             <div className="relative aspect-[3/4] bg-muted overflow-hidden">
                   <img
                     src={book.coverImage || ''}
-
-                alt={book.title}
-                className="w-full h-full object-contain"
-              />
+                    alt={book.title}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-contain"
+                  />
 
               {!bulkEditMode && (
                 <>

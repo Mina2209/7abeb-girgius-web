@@ -1,4 +1,4 @@
-export type ClientRole = 'viewer' | 'editor' | 'admin';
+type ClientRole = 'viewer' | 'editor' | 'admin';
 
 export interface UserProfile {
   id: string;

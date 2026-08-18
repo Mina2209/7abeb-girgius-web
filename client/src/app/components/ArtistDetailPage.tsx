@@ -99,6 +99,8 @@ export function ArtistDetailPage() {
                 <img
                   src={artist.profileImage}
                   alt={artist.name}
+                  loading="lazy"
+                  decoding="async"
                   className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full object-cover border-4 border-primary/20 shadow-xl flex-shrink-0"
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = 'none';
@@ -205,6 +207,8 @@ export function ArtistDetailPage() {
                       <img
                         src={image.src}
                         alt={image.title}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-auto object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">

@@ -389,6 +389,7 @@ export const ChurchSidebar = memo(function ChurchSidebar({
                   alt="Church Logo"
                   width={76}
                   height={76}
+                  loading="lazy"
                   decoding="async"
                   className="w-[76px] h-[76px] object-contain rounded-lg"
                 />
@@ -404,6 +405,7 @@ export const ChurchSidebar = memo(function ChurchSidebar({
                 alt="Church Logo"
                 width={40}
                 height={40}
+                loading="lazy"
                 decoding="async"
                 className="w-10 h-10 rounded-lg object-cover"
               />

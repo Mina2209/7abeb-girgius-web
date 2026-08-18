@@ -3,7 +3,9 @@ import { logService } from '../services/log.service.js';
 
 export const FatherController = {
   getAll: async (req, res) => {
-    const fathers = await FatherService.getAll();
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+    const fathers = await FatherService.getAll({ page, limit });
     res.json(fathers);
   },
 

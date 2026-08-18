@@ -1,36 +1,58 @@
 import { prisma } from './prisma.js';
 import s3Service from './s3.service.js';
+import { cache } from './cache.js';
 
 const TAG_SELECT = { id: true, name: true };
 
-const INCLUDE_WITH_TAGS = {
+const HYMNS_LIST_KEY = 'hymns:list';
+const HYMNS_LIST_TTL = 30_000; // 30 seconds — hymn metadata is mostly static
+
+// Optimized select for the list endpoint: only the fields the controller actually
+// needs for display, filtering, sorting, and zip building. Drops `lyric` entirely
+// (unused in listings) and trims `files` to the five scalars the controller reads.
+const LIST_SELECT = {
+  id: true,
+  title: true,
+  createdAt: true,
+  updatedAt: true,
+  tags: { select: TAG_SELECT },
+  files: {
+    select: {
+      id: true,
+      type: true,
+      fileUrl: true,
+      originalName: true,
+      duration: true,
+    },
+  },
+};
+
+// Full include for the detail view — everything the client needs for a single hymn.
+const DETAIL_INCLUDE = {
   tags: { select: TAG_SELECT },
   files: true,
   lyric: true,
 };
 
-function selectTags(result) {
-  if (!result) return result;
-  return {
-    ...result,
-    tags: (result.tags || []).map(t => ({ id: t.id, name: t.name })),
-  };
-}
-
 export const HymnService = {
   getAll: async () => {
-    return prisma.hymn.findMany({ include: INCLUDE_WITH_TAGS });
+    const cached = cache.get(HYMNS_LIST_KEY);
+    if (cached) return cached;
+
+    const rows = await prisma.hymn.findMany({ select: LIST_SELECT });
+    cache.set(HYMNS_LIST_KEY, rows, HYMNS_LIST_TTL);
+    return rows;
   },
 
   getById: async (id) => {
     return prisma.hymn.findUnique({
       where: { id },
-      include: INCLUDE_WITH_TAGS,
+      include: DETAIL_INCLUDE,
     });
   },
 
   create: async (data) => {
-    return prisma.hymn.create({
+    const result = await prisma.hymn.create({
       data: {
         title: data.title,
         files: data.files && data.files.length > 0 ? { create: data.files } : undefined,
@@ -43,12 +65,14 @@ export const HymnService = {
             }
           : undefined
       },
-      include: INCLUDE_WITH_TAGS,
+      include: DETAIL_INCLUDE,
     });
+    cache.del(HYMNS_LIST_KEY);
+    return result;
   },
 
   update: async (id, data) => {
-    return prisma.hymn.update({
+    const result = await prisma.hymn.update({
       where: { id },
       data: {
         title: data.title,
@@ -68,8 +92,10 @@ export const HymnService = {
             : {})
         }
       },
-      include: INCLUDE_WITH_TAGS,
+      include: DETAIL_INCLUDE,
     });
+    cache.del(HYMNS_LIST_KEY);
+    return result;
   },
 
   delete: async (id) => {
@@ -117,6 +143,8 @@ export const HymnService = {
       // otherwise nothing else to do for this file
     }
 
-    return prisma.hymn.delete({ where: { id } });
+    const result = await prisma.hymn.delete({ where: { id } });
+    cache.del(HYMNS_LIST_KEY);
+    return result;
   }
 };

@@ -11,7 +11,7 @@ export type ServerTag = {
   _count?: { hymns: number; sayings: number; images: number };
 };
 
-export type ServerTagSection = {
+type ServerTagSection = {
   id: string;
   name: string;
   order: number;

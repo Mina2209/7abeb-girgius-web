@@ -5,7 +5,7 @@ import { apiGetJson } from './apiClient';
 // the Authorization header from localStorage, and the server enforces
 // authenticate + requireAdmin. Never call these for public users.
 
-export interface ActivityUserRef {
+interface ActivityUserRef {
   id: string;
   username: string;
   name: string;
@@ -106,6 +106,6 @@ export async function getActivityActions(from?: string, to?: string): Promise<Ac
   return apiGetJson<ActivityActionItem[]>(`/api/admin/activity/actions${buildQuery({ from, to })}`);
 }
 
-export async function getRecentActivity(limit = 25): Promise<ActivityItem[]> {
+async function getRecentActivity(limit = 25): Promise<ActivityItem[]> {
   return apiGetJson<ActivityItem[]>(`/api/admin/activity/recent${buildQuery({ limit })}`);
 }

@@ -99,6 +99,8 @@ export function BookDetailsModal({ book, onClose, onToggleFavorite, onEdit, onDe
                   <img
                     src={book.coverImage}
                     alt={book.title}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-contain"
                     key={defaultCoverKey}
                   />

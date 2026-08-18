@@ -32,10 +32,10 @@ import {
 // Bounded cap for raw per-row exports (events / activity). Exports that would
 // exceed this are truncated to the cap and flagged via X-Export-Truncated.
 // Aggregate exports (summary/pages/content/devices/social) are small by nature.
-export const MAX_EXPORT_ROWS = 100000;
+const MAX_EXPORT_ROWS = 100000;
 
 // Default date range when the client supplies no from/to: last N days (UTC).
-export const DEFAULT_RANGE_DAYS = 30;
+const DEFAULT_RANGE_DAYS = 30;
 
 // Read-side denylist â€” mirrors the write-side sanitizer in
 // userActivity.service.js. Any key matching this (case-insensitive) is dropped

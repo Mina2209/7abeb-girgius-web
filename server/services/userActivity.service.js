@@ -83,7 +83,7 @@ export class UserActivityValidationError extends Error {
   }
 }
 
-export function isUserActivityEnabled() {
+function isUserActivityEnabled() {
   // Default ON (audit trail is a security feature); explicit 'false' disables.
   return process.env.USER_ACTIVITY_ENABLED !== 'false';
 }

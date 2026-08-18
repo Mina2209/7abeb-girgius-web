@@ -118,6 +118,8 @@ export function AdminEditArtistModal({
                       <img
                         src={formData.profileImage}
                         alt="Preview"
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover"
                       />
                     </div>

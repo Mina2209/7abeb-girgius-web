@@ -17,7 +17,7 @@ import { getApiBaseUrl, isApiConfigured } from '../config/api';
 //     queue is drained with sendBeacon. Each payload is sent exactly once.
 // ---------------------------------------------------------------------------
 
-export const ANALYTICS_EVENT_NAMES = [
+const ANALYTICS_EVENT_NAMES = [
   // navigation
   'page_view',
   'route_change',
@@ -59,7 +59,7 @@ export const ANALYTICS_EVENT_NAMES = [
   'share_completed',
 ] as const;
 
-export type AnalyticsEventName = (typeof ANALYTICS_EVENT_NAMES)[number];
+type AnalyticsEventName = (typeof ANALYTICS_EVENT_NAMES)[number];
 
 export type AnalyticsContentType =
   | 'hymn'
@@ -68,9 +68,9 @@ export type AnalyticsContentType =
   | 'book'
   | 'saying';
 
-export type AnalyticsProperties = Record<string, string | number | boolean>;
+type AnalyticsProperties = Record<string, string | number | boolean>;
 
-export interface AnalyticsEventContext {
+interface AnalyticsEventContext {
   /** Path/route this event happened on. Defaults to the current pathname. */
   route?: string;
   contentType?: AnalyticsContentType | string;
@@ -99,7 +99,7 @@ interface AnalyticsPayload {
 // whitelist in server/services/userActivity.service.js (USER_ACTIVITY_EVENTS).
 // Only these meaningful actions are audited — page_view, filter_applied, etc.
 // stay analytics-only.
-export const USER_ACTIVITY_ACTIONS = new Set<string>([
+const USER_ACTIVITY_ACTIONS = new Set<string>([
   // auth
   'login_success',
   'logout',
@@ -162,7 +162,7 @@ const SESSION_KEY = 'habib_gerges_analytics_session_id';
 // Environment gate
 // ---------------------------------------------------------------------------
 
-export function isAnalyticsEnabled(): boolean {
+function isAnalyticsEnabled(): boolean {
   return import.meta.env.VITE_ANALYTICS_ENABLED === 'true' && isApiConfigured();
 }
 
@@ -211,7 +211,7 @@ let cachedVisitorId: string | null = null;
 let cachedSessionId: string | null = null;
 
 /** Anonymous, namespaced, persisted visitor id (localStorage). */
-export function getVisitorId(): string {
+function getVisitorId(): string {
   if (cachedVisitorId) return cachedVisitorId;
   const storage =
     typeof window !== 'undefined' ? window.localStorage : null;
@@ -220,7 +220,7 @@ export function getVisitorId(): string {
 }
 
 /** Per-browser-session id (sessionStorage); a fresh id per browser session. */
-export function getSessionId(): string {
+function getSessionId(): string {
   if (cachedSessionId) return cachedSessionId;
   const storage =
     typeof window !== 'undefined' ? window.sessionStorage : null;

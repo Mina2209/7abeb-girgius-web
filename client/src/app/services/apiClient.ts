@@ -1,6 +1,6 @@
 import { getApiBaseUrl } from '../config/api';
 
-export type ApiErrorCode = string | undefined;
+type ApiErrorCode = string | undefined;
 
 export class ApiError extends Error {
   status: number;

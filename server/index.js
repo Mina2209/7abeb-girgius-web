@@ -4,6 +4,36 @@ import cors from "cors";
 import compression from 'compression';
 import { prisma } from './services/prisma.js';
 
+// Lightweight request logger — logs method, URL, status, and response time (ms).
+// Skips health checks to reduce noise from load balancer probes.
+function requestLogger(req, res, next) {
+  if (req.path === '/health') return next();
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const level = res.statusCode >= 500 ? 'ERROR' : res.statusCode >= 400 ? 'WARN' : 'INFO';
+    console.log(`[${level}] ${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`);
+  });
+  next();
+}
+
+// Per-request timeout: if a handler hasn't finished within the deadline, send 504 and
+// close the connection. Skips streaming endpoints (/zip) where long durations are normal.
+// Prevents hanging DB queries or network calls from holding connections indefinitely.
+const REQUEST_TIMEOUT_MS = 30 * 1000;
+function requestTimeout(req, res, next) {
+  if (req.path === '/zip') return next();
+  const timer = setTimeout(() => {
+    if (!res.headersSent) {
+      res.status(504).json({ error: 'Gateway timeout' });
+    }
+    req.destroy();
+  }, REQUEST_TIMEOUT_MS);
+  res.on('finish', () => clearTimeout(timer));
+  res.on('close', () => clearTimeout(timer));
+  next();
+}
+
 import hymnRoutes from './routes/hymn.routes.js';
 import tagRoutes from './routes/tag.routes.js';
 import tagSectionRoutes from './routes/tagSection.routes.js';
@@ -46,6 +76,8 @@ app.set('trust proxy', 1);
 // Gzip-compress responses. Large JSON payloads (e.g. the full hymns list) shrink
 // ~85% on the wire. Responds to the client's Accept-Encoding; small bodies are skipped.
 app.use(compression());
+app.use(requestLogger);
+app.use(requestTimeout);
 
 // Allowed browser origins for CORS.
 // Production: set CORS_ORIGIN_PROD to a comma-separated list, e.g.
@@ -160,11 +192,16 @@ async function main() {
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);
       
-      // Start automatic backup scheduler (every 24 hours, keep 7 backups)
-      // Only start in production or if ENABLE_BACKUP_SCHEDULER is set
-      // if (process.env.NODE_ENV === 'production' || process.env.ENABLE_BACKUP_SCHEDULER === 'true') {
-      //   BackupScheduler.start(24, 7);
-      // }
+      // Start automatic backup scheduler (every 24 hours, keep 7 backups).
+      // Enabled in production or when ENABLE_BACKUP_SCHEDULER=true in any environment.
+      // Wrapped in try/catch so a scheduler failure never crashes the main process.
+      try {
+        if (process.env.NODE_ENV === 'production' || process.env.ENABLE_BACKUP_SCHEDULER === 'true') {
+          BackupScheduler.start(24, 7);
+        }
+      } catch (e) {
+        console.error('Failed to start backup scheduler:', e.message);
+      }
     });
   } catch (err) {
     console.error('Failed to start server due to database connection error:', err);
@@ -178,6 +215,11 @@ main();
 const shutdown = async () => {
   console.log('Shutting down...');
   try {
+    BackupScheduler.stop();
+  } catch (e) {
+    // ignore — scheduler may not have been started
+  }
+  try {
     await prisma.$disconnect();
   } catch (e) {
     console.error('Error disconnecting prisma:', e);
@@ -187,3 +229,16 @@ const shutdown = async () => {
 
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
+
+// Catch unhandled promise rejections and uncaught exceptions.
+// Log the error and shut down gracefully (disconnect Prisma) rather than
+// leaving the process in an undefined state or hanging silently.
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] Unhandled rejection:', reason);
+  shutdown().then(() => process.exit(1));
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught exception:', err);
+  shutdown().then(() => process.exit(1));
+});

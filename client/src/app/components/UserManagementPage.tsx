@@ -22,7 +22,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ActivityLogModal } from './ActivityLogModal';
 import { AddUserModal } from './AddUserModal';
 import { exportLogsToCSV, exportLogsToJSON } from '../utils/activityLogger';
-import { seedMockActivities } from '../utils/seedMockActivities';
+
 import { apiGetJson, apiRequest } from '../services/apiClient';
 
 type UserRole = 'viewer' | 'editor' | 'admin';
@@ -480,6 +480,8 @@ export function UserManagementPage() {
                               <img
                                 src={user.avatar_url}
                                 alt={user.full_name}
+                                loading="lazy"
+                                decoding="async"
                                 className="w-full h-full rounded-full object-cover"
                               />
                             ) : (
@@ -655,10 +657,7 @@ export function UserManagementPage() {
               </li>
             </ul>
           </div>
-          <Button onClick={seedMockActivities} variant="outline" size="sm" className="flex-shrink-0">
-            <DatabaseIcon />
-            إنشاء بيانات تجريبية
-          </Button>
+
         </div>
       </div>
 
@@ -698,25 +697,6 @@ function SearchIcon() {
     >
       <circle cx="11" cy="11" r="8" />
       <path d="m21 21-4.3-4.3" />
-    </svg>
-  );
-}
-
-function DatabaseIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      className="w-4 h-4 ml-2"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <ellipse cx="12" cy="5" rx="8" ry="3" />
-      <path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5" />
-      <path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" />
     </svg>
   );
 }

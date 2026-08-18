@@ -111,6 +111,8 @@ export function ArtistProfileModal({
               <img
                 src={artist.profileImage}
                 alt={artist.name}
+                loading="lazy"
+                decoding="async"
                 className="w-32 h-32 rounded-full object-cover border-4 border-primary/20 shadow-lg"
               />
 
@@ -255,6 +257,8 @@ export function ArtistProfileModal({
                       <img
                         src={image.src}
                         alt={image.title}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-auto object-cover transition-transform duration-300"
                       />
 
