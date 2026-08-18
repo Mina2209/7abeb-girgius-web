@@ -40,13 +40,30 @@ export function authenticate(req, res, next) {
   }
 }
 
-// Like authenticate, but never rejects: attaches req.user if a valid token is present,
-// otherwise just continues. Used on public endpoints that show extra data to editors.
+// Like authenticate, but never rejects: attaches req.user if a valid, current token is
+// present, otherwise just continues. Used on public endpoints that show extra data to
+// editors. Revoked tokens (after password change) are silently ignored — the request
+// proceeds anonymously rather than failing, preserving public-route semantics.
 export function optionalAuthenticate(req, res, next) {
   const authHeader = req.headers['authorization'] || req.headers['Authorization'];
   if (authHeader && authHeader.startsWith('Bearer ')) {
     try {
-      req.user = jwt.verify(authHeader.substring(7), JWT_SECRET);
+      const decoded = jwt.verify(authHeader.substring(7), JWT_SECRET);
+      // Verify tokenVersion against DB so revoked tokens (post-password-change) don't
+      // attach stale identity. On failure, continue anonymously — never reject.
+      prisma.user.findUnique({
+        where: { id: decoded.id },
+        select: { tokenVersion: true },
+      }).then((user) => {
+        if (user && (decoded.tokenVersion === undefined || decoded.tokenVersion === user.tokenVersion)) {
+          req.user = decoded;
+        }
+        next();
+      }).catch(() => {
+        // DB error — continue without attaching user.
+        next();
+      });
+      return; // next() is called inside the promise chain, not here
     } catch {
       // Invalid/expired token on a public route — ignore and continue unauthenticated.
     }
@@ -80,5 +97,3 @@ export function requireEditor(req, res, next) {
   next();
 }
 
-// Default export for backward compatibility
-export default authenticate;

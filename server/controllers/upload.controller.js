@@ -1,8 +1,17 @@
 import sharp from 'sharp';
 import defaultS3Service from '../services/s3.service.js';
 
+// Verify an S3 key is within a public-readable prefix. All prefixes must end with '/'
+// to prevent segment-collision (e.g. 'HymnsEvil/' must not match prefix 'Hymns/').
+// When prefixes is empty, all keys are allowed (legacy fallback when no folder map is set).
+export function isReadableKey(key, prefixes) {
+  if (!key || typeof key !== 'string') return false;
+  if (!prefixes || !prefixes.length) return true;
+  return prefixes.some((prefix) => key.startsWith(prefix));
+}
+
 // Controller factory that accepts an S3 service instance (for easier testing/DI)
-export function createUploadController(s3Service = defaultS3Service) {
+function createUploadController(s3Service = defaultS3Service) {
   // Load optional folder/type mapping and allowlist from environment
   // S3_FOLDER_MAP should be a JSON string like: {"hymn":"Hymns","image":"Images"}
   let folderMap = {};
@@ -16,6 +25,15 @@ export function createUploadController(s3Service = defaultS3Service) {
   const allowedFolders = process.env.S3_ALLOWED_FOLDERS
     ? process.env.S3_ALLOWED_FOLDERS.split(',').map(s => s.trim()).filter(Boolean)
     : null;
+
+  // Public read prefixes: the set of S3 key prefixes that may be signed without auth.
+  // Derived from S3_FOLDER_MAP values + thumbnails/ (for on-demand resize cache).
+  // All values are normalized to end with '/' so that prefix matching is segment-safe:
+  // 'Hymns/' will not match 'HymnsEvil/secret.mp3'.
+  const PUBLIC_READ_PREFIXES = [
+    ...Object.values(folderMap).map((v) => (v.endsWith('/') ? v : `${v}/`)),
+    'thumbnails/',
+  ].filter(Boolean);
 
   function resolveFolder(req) {
     const body = req.body || {};
@@ -51,6 +69,7 @@ export function createUploadController(s3Service = defaultS3Service) {
       url: async (req, res) => {
         const { key, name } = req.query;
         if (!key) return res.status(400).send('key required');
+        if (!isReadableKey(key, PUBLIC_READ_PREFIXES)) return res.status(403).json({ error: 'access denied' });
         const url = await s3Service.getPresignedGetUrl(key, 900, name || null);
         // redirect browser to S3 presigned URL
         return res.redirect(url);
@@ -61,6 +80,7 @@ export function createUploadController(s3Service = defaultS3Service) {
       thumb: async (req, res) => {
         const { key } = req.query;
         if (!key) return res.status(400).send('key required');
+        if (!isReadableKey(key, PUBLIC_READ_PREFIXES)) return res.status(403).json({ error: 'access denied' });
         const width = Math.min(1600, Math.max(50, parseInt(req.query.w) || 400));
         const thumbKey = `thumbnails/${width}/${key}`;
         try {

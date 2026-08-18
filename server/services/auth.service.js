@@ -156,7 +156,10 @@ export const authService = {
   },
 
   async updateUser(id, data) {
-    const updateData = { ...data };
+    // Defensive strip: tokenVersion is ONLY incremented internally (on password change),
+    // never accepted from external callers.
+    const { tokenVersion: _tv, id: _id, createdAt: _ca, updatedAt: _ua, ...rest } = data;
+    const updateData = { ...rest };
 
     if (data.password) {
       updateData.password = await bcrypt.hash(data.password, 10);

@@ -113,7 +113,18 @@ export const authController = {
   async updateUser(req, res) {
     try {
       const { id } = req.params;
-      const updates = req.body;
+
+      // Explicit allowlist: only these fields may be set by an admin via this endpoint.
+      // password is handled separately (hashes + bumps tokenVersion).
+      // role is intentionally allowed — admin role management is a product requirement.
+      // tokenVersion, id, createdAt, updatedAt, and relation fields are NEVER writable.
+      const ADMIN_UPDATE_FIELDS = ['username', 'password', 'role'];
+      const updates = {};
+      for (const field of ADMIN_UPDATE_FIELDS) {
+        if (req.body[field] !== undefined) {
+          updates[field] = req.body[field];
+        }
+      }
 
       const user = await authService.updateUser(id, updates);
       
