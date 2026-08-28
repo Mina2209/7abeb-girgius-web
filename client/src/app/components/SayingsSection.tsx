@@ -18,6 +18,7 @@ import { AdminEditFatherModal } from './AdminEditFatherModal';
 import { apiRequest } from '../services/apiClient';
 import { trackEvent } from '../services/analytics';
 import { useSearchAnalytics } from '../hooks/useSearchAnalytics';
+import { getImageUrl } from '../utils/getImageUrl';
 import { toast } from 'sonner';
   import type { Father } from '../data/fathers';
 
@@ -730,7 +731,7 @@ import { toast } from 'sonner';
     </div>
 
     {/* Sticky Header Section */}
-    <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
+    <div className="sticky top-0 bg-background z-40 pb-2 pt-2 sm:pb-4 border-b border-border/50">
 
       {/* Admin Toolbar */}
           {isEditor && (
@@ -1062,7 +1063,7 @@ import { toast } from 'sonner';
                           {/* Author Info */}
                           <div className="flex items-center gap-3">
                             <img
-                              src={item.authorImage || fatherImageMap.get(item.author) || ''}
+                              src={getImageUrl(item.authorImage || fatherImageMap.get(item.author) || '')}
                               alt={item.author}
                               loading="lazy"
                               decoding="async"
@@ -1265,7 +1266,7 @@ import { toast } from 'sonner';
                           <div className="relative h-48 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center overflow-hidden">
                             {father.profileImage ? (
                               <img
-                                src={father.profileImage}
+                                src={getImageUrl(father.profileImage)}
                                 alt={father.name}
                                 loading="lazy"
                                 decoding="async"

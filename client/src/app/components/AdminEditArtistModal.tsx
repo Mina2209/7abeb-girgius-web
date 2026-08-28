@@ -1,6 +1,7 @@
 import { X, Save, HelpCircle, Upload } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { Artist } from '../data/artists';
+import { getImageUrl } from '../utils/getImageUrl';
 
 interface AdminEditArtistModalProps {
   isOpen: boolean;
@@ -87,6 +88,8 @@ export function AdminEditArtistModal({
                 </label>
                 <input
                   type="text"
+                  id="edit-artist-name"
+                  name="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -101,6 +104,8 @@ export function AdminEditArtistModal({
                 </label>
                 <input
                   type="text"
+                  id="edit-artist-role"
+                  name="role"
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                   className="w-full px-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -116,7 +121,7 @@ export function AdminEditArtistModal({
                   <div className="space-y-2">
                     <div className="w-20 h-20 rounded-full overflow-hidden border border-border">
                       <img
-                        src={formData.profileImage}
+                        src={getImageUrl(formData.profileImage)}
                         alt="Preview"
                         loading="lazy"
                         decoding="async"
@@ -137,6 +142,8 @@ export function AdminEditArtistModal({
                     <span className="text-sm text-muted-foreground">اضغط لرفع صورة</span>
                     <input
                       type="file"
+                      id="edit-artist-profile-image"
+                      name="profileImage"
                       accept="image/*"
                       className="hidden"
                       onChange={(e) => {
@@ -159,6 +166,8 @@ export function AdminEditArtistModal({
                   السيرة الذاتية
                 </label>
                 <textarea
+                  id="edit-artist-bio"
+                  name="bio"
                   value={formData.bio}
                   onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                   className="w-full px-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[120px] resize-y"
@@ -194,6 +203,8 @@ export function AdminEditArtistModal({
                 <div className="flex gap-2">
                   <input
                     type="text"
+                    id="edit-artist-specialty"
+                    name="specialtyInput"
                     value={specialtyInput}
                     onChange={(e) => setSpecialtyInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSpecialty(); } }}
@@ -218,6 +229,8 @@ export function AdminEditArtistModal({
                     <label className="block text-xs font-medium mb-1">فيسبوك</label>
                     <input
                       type="text"
+                      id="edit-artist-facebook"
+                      name="facebook"
                       value={formData.socialMedia.facebook || ''}
                       onChange={(e) => setFormData({
                         ...formData,
@@ -232,6 +245,8 @@ export function AdminEditArtistModal({
                     <label className="block text-xs font-medium mb-1">انستغرام</label>
                     <input
                       type="text"
+                      id="edit-artist-instagram"
+                      name="instagram"
                       value={formData.socialMedia.instagram || ''}
                       onChange={(e) => setFormData({
                         ...formData,
@@ -246,6 +261,8 @@ export function AdminEditArtistModal({
                     <label className="block text-xs font-medium mb-1">الموقع الإلكتروني</label>
                     <input
                       type="text"
+                      id="edit-artist-website"
+                      name="website"
                       value={formData.socialMedia.website || ''}
                       onChange={(e) => setFormData({
                         ...formData,
@@ -260,6 +277,8 @@ export function AdminEditArtistModal({
                     <label className="block text-xs font-medium mb-1">البريد الإلكتروني</label>
                     <input
                       type="text"
+                      id="edit-artist-email"
+                      name="email"
                       value={formData.socialMedia.email || ''}
                       onChange={(e) => setFormData({
                         ...formData,

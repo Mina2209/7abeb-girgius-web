@@ -1,6 +1,7 @@
 import { X, Save, Upload } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { Father } from '../data/fathers';
+import { getImageUrl } from '../utils/getImageUrl';
 
 interface AdminEditFatherModalProps {
   isOpen: boolean;
@@ -78,6 +79,8 @@ export function AdminEditFatherModal({
               </label>
               <input
                 type="text"
+                id="edit-father-name"
+                name="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="w-full px-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -92,6 +95,8 @@ export function AdminEditFatherModal({
               </label>
               <input
                 type="text"
+                id="edit-father-title"
+                name="title"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 className="w-full px-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -107,7 +112,7 @@ export function AdminEditFatherModal({
                 <div className="space-y-2">
                   <div className="w-20 h-20 rounded-full overflow-hidden border border-border">
                     <img
-                      src={formData.profileImage}
+                      src={getImageUrl(formData.profileImage)}
                       alt="Preview"
                       loading="lazy"
                       decoding="async"
@@ -128,6 +133,8 @@ export function AdminEditFatherModal({
                   <span className="text-sm text-muted-foreground">اضغط لرفع صورة</span>
                   <input
                     type="file"
+                    id="edit-father-profile-image"
+                    name="profileImage"
                     accept="image/*"
                     className="hidden"
                     onChange={(e) => {
@@ -150,6 +157,8 @@ export function AdminEditFatherModal({
                 السيرة الذاتية
               </label>
               <textarea
+                id="edit-father-bio"
+                name="bio"
                 value={formData.bio}
                 onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                 className="w-full px-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[200px] resize-y"

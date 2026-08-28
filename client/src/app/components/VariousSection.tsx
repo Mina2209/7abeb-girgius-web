@@ -28,14 +28,15 @@ import {
 } from "./ui/accordion";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { toast } from "sonner";
 import { TagFilter } from "./TagFilter";
 import { useTags } from "../hooks/useTags";
 import { useAuth } from "../contexts/AuthContext";
 import { useIsEditor } from "../utils/adminUtils";
-import { apiRequest, apiGetJson } from "../services/apiClient";
+import { apiGetJson, apiPutJson } from "../services/apiClient";
 import { createTag, notifyTagsUpdated } from "../services/tagsService";
+import { presignAndUpload, getPreviewUrl } from "../services/s3Upload";
 import { downloadFile } from "../utils/download";
 import { trackEvent } from "../services/analytics";
 import { useSearchAnalytics } from "../hooks/useSearchAnalytics";
@@ -84,10 +85,10 @@ function sortCategories(cats: PowerpointCategory[], sort: SortOption): Powerpoin
 // "عرض القداس.pptx"), so recover the real extension from the S3 key embedded in the proxy
 // URL before downloading — otherwise the file saves with no extension at all.
 function getDownloadName(name: string, url: string): string {
-  if (/\.(ppt|pptx|pdf)$/i.test(name)) return name;
+  if (/\.(ppt|pptx|ppsx|pdf)$/i.test(name)) return name;
   const key = decodeURIComponent(url.match(/[?&]key=([^&]+)/)?.[1] ?? "");
   const ext = key.match(/\.[^./]+$/)?.[0] ?? "";
-  if (/^\.(ppt|pptx|pdf)$/i.test(ext)) return `${name}${ext}`;
+  if (/^\.(ppt|pptx|ppsx|pdf)$/i.test(ext)) return `${name}${ext}`;
   return name;
 }
 
@@ -120,11 +121,7 @@ export function VariousSection() {
   const saveToServer = useCallback(async (cats: PowerpointCategory[]) => {
     setIsSaving(true);
     try {
-      await apiRequest("/api/auth/settings/powerpoint", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ settings: { powerpoint_data: cats } }),
-      });
+      await apiPutJson("/api/auth/settings/powerpoint", { settings: { powerpoint_data: cats } });
     } catch {
       toast.error("فشل حفظ البيانات");
     } finally {
@@ -135,8 +132,9 @@ export function VariousSection() {
   useEffect(() => {
     if (!initialLoadDone.current) return;
     if (debouncedCategories.length === 0 && categories.length === 0) return;
+    if (!accessToken) return;
     saveToServer(debouncedCategories);
-  }, [debouncedCategories, saveToServer, categories.length]);
+  }, [debouncedCategories, saveToServer, categories.length, accessToken]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -176,24 +174,9 @@ export function VariousSection() {
 
   const uploadToS3 = async (file: File): Promise<string | null> => {
     try {
-      const presignRes = await apiGetJson<{ url: string; key: string }>(
-        "/api/uploads/presign",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            filename: file.name,
-            contentType: file.type || "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            folder: "PowerPoints",
-          }),
-        }
-      );
-      await fetch(presignRes.url, {
-        method: "PUT",
-        headers: { "Content-Type": file.type || "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
-        body: file,
-      });
-      return `/api/uploads/url?key=${encodeURIComponent(presignRes.key)}`;
+      const contentType = file.type || "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+      const result = await presignAndUpload(file, contentType, "PowerPoints");
+      return result.url;
     } catch {
       toast.error("فشل رفع الملف");
       return null;
@@ -235,7 +218,7 @@ export function VariousSection() {
   const addFile = async (catId: string) => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = ".ppt,.pptx,.pdf";
+    input.accept = ".ppt,.pptx,.ppsx,.pdf";
     input.onchange = async (e: any) => {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -261,7 +244,7 @@ export function VariousSection() {
   const updateFileSource = async (catId: string, fileId: string) => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = ".ppt,.pptx,.pdf";
+    input.accept = ".ppt,.pptx,.ppsx,.pdf";
     input.onchange = async (e: any) => {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -342,8 +325,9 @@ export function VariousSection() {
 
   const availableTagNames = allTags.map((t) => t.name);
 
-  const handlePreview = (name: string, url: string) => {
-    setPreviewFile({ name, url });
+  const handlePreview = async (name: string, url: string) => {
+    const resolved = await getPreviewUrl(url);
+    setPreviewFile({ name, url: resolved });
     trackEvent('powerpoint_view', { contentType: 'powerpoint', contentName: name });
   };
 
@@ -462,6 +446,8 @@ export function VariousSection() {
         <div className="relative flex-1">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
+            id="various-search"
+            name="search"
             placeholder="بحث في الملفات..."
             className="pr-10 bg-card border-border"
             value={searchQuery}
@@ -544,6 +530,8 @@ export function VariousSection() {
                     {editingId === category.id ? (
                       <div className="flex items-center gap-2 flex-1 py-4">
                         <Input
+                          id={`various-category-title-${category.id}`}
+                          name="category_title"
                           value={tempName}
                           onChange={(e) => setTempName(e.target.value)}
                           className="h-9 py-1 bg-background"
@@ -641,6 +629,8 @@ export function VariousSection() {
                           {editingId === file.id ? (
                             <div className="flex items-center gap-2 flex-1">
                               <Input
+                                id={`various-file-name-${file.id}`}
+                                name="file_name"
                                 value={tempName}
                                 onChange={(e) => setTempName(e.target.value)}
                                 className="h-8 py-0.5 text-sm bg-background"
@@ -741,6 +731,8 @@ export function VariousSection() {
                                           <div className="relative">
                                             <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
                                             <Input
+                                              id="various-tag-search"
+                                              name="tag_search"
                                               placeholder="بحث في المواضيع..."
                                               className="h-8 text-xs pr-8"
                                               autoFocus
@@ -914,11 +906,12 @@ export function VariousSection() {
 
       {previewFile && (
         <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
-          <DialogContent className="max-w-4xl w-[95vw] sm:w-[90vw] h-[85vh] max-h-[85vh] flex flex-col p-4 bg-background border-border">
+          <DialogContent className="mt-5 max-w-4xl w-[95vw] sm:w-[90vw] h-[85vh] max-h-[85vh] flex flex-col p-4 bg-background border-border">
             <DialogHeader className="flex flex-row items-center justify-between border-b pb-2">
               <DialogTitle className="text-lg sm:text-xl font-bold truncate max-w-[80%] text-right">
                 معاينة: {previewFile.name}
               </DialogTitle>
+              <DialogDescription className="sr-only">معاينة ملف بوربوينت</DialogDescription>
             </DialogHeader>
             <div className="flex-1 w-full h-full rounded-lg overflow-hidden border border-border bg-black mt-4">
               {previewFile.url ? (

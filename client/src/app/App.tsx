@@ -119,7 +119,7 @@ export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const activeSection = pathToSection(location.pathname);
-  const isCardRoute = location.pathname === '/card';
+  const isQrCodeRoute = location.pathname === '/qrcode';
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -142,6 +142,12 @@ export default function App() {
   }, [navigate]);
 
   const handleOpenLogin = useCallback(() => setIsLoginModalOpen(true), []);
+
+  useEffect(() => {
+    const handler = () => setIsLoginModalOpen(true);
+    window.addEventListener('openLoginModal', handler);
+    return () => window.removeEventListener('openLoginModal', handler);
+  }, []);
   const handleNavigateToProfile = useCallback(() => navigate('/profile'), [navigate]);
   const handleNavigateToFavorites = useCallback(() => navigate('/favorites'), [navigate]);
   const handleNavigateToUserManagement = useCallback(() => navigate('/admin/users'), [navigate]);
@@ -171,14 +177,14 @@ export default function App() {
       '/admin/analytics': 'الإحصائيات والتحليلات',
       '/admin/activity': 'سجل نشاط المستخدمين',
       '/admin/export': 'تصدير البيانات',
-      '/card': 'بطاقة خدمة الأرشيدياكون حبيب جرجس',
+       '/qrcode': 'بطاقة خدمة الأرشيدياكون حبيب جرجس',
     };
 
     document.title = pageTitles[location.pathname] || 'لوحة التحكم';
   }, [location.pathname]);
 
   // Standalone digital business card route — rendered without the sidebar/main shell.
-  if (isCardRoute) {
+  if (isQrCodeRoute) {
     return (
       <AuthProvider>
         <AnalyticsRouteTracker />
@@ -189,7 +195,7 @@ export default function App() {
         )}
         <Suspense fallback={null}>
           <Routes>
-            <Route path="/card" element={<BioLinkPage />} />
+            <Route path="/qrcode" element={<BioLinkPage />} />
           </Routes>
         </Suspense>
       </AuthProvider>

@@ -125,7 +125,7 @@ const ROUTE_LABELS: Record<string, string> = {
   '/about': 'عن الخدمة',
   '/profile': 'الملف الشخصي',
   '/favorites': 'المفضلة',
-  '/card': 'البطاقة الرقمية',
+  '/qrcode': 'البطاقة الرقمية',
 };
 
 function eventLabel(name: string): string {

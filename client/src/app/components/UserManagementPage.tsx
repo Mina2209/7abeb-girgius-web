@@ -24,6 +24,7 @@ import { AddUserModal } from './AddUserModal';
 import { exportLogsToCSV, exportLogsToJSON } from '../utils/activityLogger';
 
 import { apiGetJson, apiRequest } from '../services/apiClient';
+import { getImageUrl } from '../utils/getImageUrl';
 
 type UserRole = 'viewer' | 'editor' | 'admin';
 
@@ -384,6 +385,8 @@ export function UserManagementPage() {
           <div className="relative md:col-span-2">
             <SearchIcon />
             <Input
+              id="user-management-search"
+              name="search"
               type="text"
               placeholder="بحث بالاسم أو البريد الإلكتروني..."
               value={searchQuery}
@@ -394,6 +397,8 @@ export function UserManagementPage() {
 
           <div>
             <select
+              id="user-management-role-filter"
+              name="role_filter"
               value={filterRole}
               onChange={(e) => setFilterRole(e.target.value as 'all' | UserRole)}
               className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
@@ -478,7 +483,7 @@ export function UserManagementPage() {
                           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                             {user.avatar_url ? (
                               <img
-                                src={user.avatar_url}
+                                src={getImageUrl(user.avatar_url)}
                                 alt={user.full_name}
                                 loading="lazy"
                                 decoding="async"
@@ -517,6 +522,8 @@ export function UserManagementPage() {
                             </span>
                           ) : (
                             <select
+                              id={`user-role-${user.id}`}
+                              name="user_role"
                               value={user.role}
                               onChange={(e) => void handleRoleChange(user.id, e.target.value as UserRole)}
                               className={`px-3 py-1 rounded-full text-sm font-medium border-0 cursor-pointer ${getRoleBadgeColor(

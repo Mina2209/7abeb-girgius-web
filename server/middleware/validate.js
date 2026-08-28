@@ -64,8 +64,11 @@ export function validate(schema) {
     const errors = [];
     const sanitized = {};
 
-    for (const [field, type] of Object.entries(schema)) {
-      const result = validateField(req.body?.[field], type);
+    for (const [rawField, type] of Object.entries(schema)) {
+      const fieldOptional = rawField.endsWith('?');
+      const field = fieldOptional ? rawField.slice(0, -1) : rawField;
+      const effectiveType = fieldOptional && !type.endsWith('?') ? type + '?' : type;
+      const result = validateField(req.body?.[field], effectiveType);
       if (!result.ok) {
         errors.push(`${field} ${result.error}`);
       } else if (result.value !== undefined) {
@@ -74,6 +77,7 @@ export function validate(schema) {
     }
 
     if (errors.length > 0) {
+      console.warn('[VALIDATE] 400:', errors.join('; '), 'body keys:', Object.keys(req.body || {}));
       return res.status(400).json({ error: errors.join('; ') });
     }
 

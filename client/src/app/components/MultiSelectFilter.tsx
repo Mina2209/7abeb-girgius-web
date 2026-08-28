@@ -112,6 +112,8 @@ export function MultiSelectFilter({
             <div className="relative">
               <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <input
+                id="multi-select-search"
+                name="search"
                 type="text"
                 placeholder="بحث..."
                 value={searchQuery}
@@ -131,6 +133,8 @@ export function MultiSelectFilter({
                     className="flex items-center gap-3 px-3 py-2 hover:bg-muted rounded-lg cursor-pointer transition-colors"
                   >
                     <input
+                      id={`multi-select-option-${option.replace(/\s+/g, '-')}`}
+                      name="option"
                       type="checkbox"
                       checked={selectedOptions.includes(option)}
                       onChange={() => toggleOption(option)}

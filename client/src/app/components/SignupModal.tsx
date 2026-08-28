@@ -75,6 +75,8 @@ export function SignupModal({ isOpen, onClose, onSwitchToLogin }: SignupModalPro
               <User className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
                 type="text"
+                id="signup-full-name"
+                name="full_name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
@@ -90,6 +92,8 @@ export function SignupModal({ isOpen, onClose, onSwitchToLogin }: SignupModalPro
               <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
                 type="email"
+                id="signup-email"
+                name="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -105,6 +109,8 @@ export function SignupModal({ isOpen, onClose, onSwitchToLogin }: SignupModalPro
               <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
                 type="password"
+                id="signup-password"
+                name="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -120,6 +126,8 @@ export function SignupModal({ isOpen, onClose, onSwitchToLogin }: SignupModalPro
               <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
                 type="password"
+                id="signup-confirm-password"
+                name="confirm_password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
@@ -135,6 +143,8 @@ export function SignupModal({ isOpen, onClose, onSwitchToLogin }: SignupModalPro
               <Church className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
                 type="text"
+                id="signup-church-name"
+                name="church_name"
                 value={churchName}
                 onChange={(e) => setChurchName(e.target.value)}
                 required
@@ -170,6 +180,7 @@ export function SignupModal({ isOpen, onClose, onSwitchToLogin }: SignupModalPro
                 accept="image/*"
                 className="hidden"
                 id="avatar-upload"
+                name="avatar"
               />
               <label
                 htmlFor="avatar-upload"

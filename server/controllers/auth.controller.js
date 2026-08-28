@@ -11,11 +11,55 @@ export const authController = {
         return res.status(400).json({ error: 'Username and password are required' });
       }
 
-      if (password.length < 6) {
-        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      if (typeof username !== 'string' || username.trim().length < 3 || username.trim().length > 50) {
+        return res.status(400).json({ error: 'Username must be a string between 3 and 50 characters' });
       }
 
-      const result = await authService.register(username, email, password, full_name, church_name, church_role, services);
+      if (password.length < 6 || password.length > 128) {
+        return res.status(400).json({ error: 'Password must be between 6 and 128 characters' });
+      }
+
+      if (email !== undefined && email !== null) {
+        if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) || email.trim().length > 254) {
+          return res.status(400).json({ error: 'Invalid email format' });
+        }
+      }
+
+      const PROFILE_FIELDS = ['full_name', 'church_name', 'church_role'];
+      for (const field of PROFILE_FIELDS) {
+        const val = req.body[field];
+        if (val !== undefined && val !== null) {
+          if (typeof val !== 'string') {
+            return res.status(400).json({ error: `${field} must be a string` });
+          }
+          if (val.trim().length > 200) {
+            return res.status(400).json({ error: `${field} must not exceed 200 characters` });
+          }
+        }
+      }
+
+      if (services !== undefined && services !== null) {
+        if (!Array.isArray(services)) {
+          return res.status(400).json({ error: 'services must be an array' });
+        }
+        if (services.length > 50) {
+          return res.status(400).json({ error: 'services must not exceed 50 items' });
+        }
+        for (let i = 0; i < services.length; i++) {
+          if (typeof services[i] !== 'string') {
+            return res.status(400).json({ error: `services[${i}] must be a string` });
+          }
+          if (services[i].trim().length > 100) {
+            return res.status(400).json({ error: `services[${i}] must not exceed 100 characters` });
+          }
+        }
+      }
+
+      const result = await authService.register(
+        username.trim(), email?.trim() || null, password,
+        full_name?.trim() || null, church_name?.trim() || null,
+        church_role?.trim() || null, services || []
+      );
 
       await logService.createLog(
         result.user.id,
@@ -66,7 +110,21 @@ export const authController = {
         return res.status(400).json({ error: 'Username and password are required' });
       }
 
-      const user = await authService.createUser(username, password, role);
+      const ALLOWED_ROLES = ['ADMIN', 'EDITOR', 'VIEWER'];
+      const roleValue = role || 'EDITOR';
+      if (!ALLOWED_ROLES.includes(roleValue)) {
+        return res.status(400).json({ error: `Invalid role. Allowed: ${ALLOWED_ROLES.join(', ')}` });
+      }
+
+      if (typeof username !== 'string' || username.trim().length < 3 || username.trim().length > 50) {
+        return res.status(400).json({ error: 'Username must be a string between 3 and 50 characters' });
+      }
+
+      if (password.length < 6 || password.length > 128) {
+        return res.status(400).json({ error: 'Password must be between 6 and 128 characters' });
+      }
+
+      const user = await authService.createUser(username.trim(), password, roleValue);
       
       // Log user creation by admin
       await logService.createLog(
@@ -126,7 +184,14 @@ export const authController = {
         }
       }
 
-      const user = await authService.updateUser(id, updates);
+      if (updates.role !== undefined) {
+        const ALLOWED_ROLES = ['ADMIN', 'EDITOR', 'VIEWER'];
+        if (!ALLOWED_ROLES.includes(updates.role)) {
+          return res.status(400).json({ error: `Invalid role. Allowed: ${ALLOWED_ROLES.join(', ')}` });
+        }
+      }
+
+      const user = await authService.updateUser(id, updates, { requestingUserId: req.user.id });
       
       // Log user update by admin
       await logService.createLog(
@@ -148,9 +213,25 @@ export const authController = {
     try {
       const { id } = req.params;
 
+      // Prevent admin from deleting themselves
+      if (req.user.id === id) {
+        return res.status(400).json({ error: 'Cannot delete your own account' });
+      }
+
       // Get user details before deletion for logging
       const user = await authService.getUserById(id);
-      
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Prevent deleting the last admin
+      if (user.role === 'ADMIN') {
+        const admins = await authService.getAdminCount();
+        if (admins <= 1) {
+          return res.status(400).json({ error: 'Cannot delete the last admin account' });
+        }
+      }
+
       await authService.deleteUser(id);
       
       // Log user deletion by admin
@@ -213,15 +294,40 @@ export const authController = {
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-      const { full_name, church_name, church_role, services, avatar_url } = req.body;
+      const ALLOWED_PROFILE_FIELDS = ['full_name', 'church_name', 'church_role', 'avatar_url'];
+      const updateData = {};
 
-      const updateData = {
-        ...(full_name !== undefined ? { full_name } : {}),
-        ...(church_name !== undefined ? { church_name } : {}),
-        ...(church_role !== undefined ? { church_role } : {}),
-        ...(avatar_url !== undefined ? { avatar_url } : {}),
-        ...(services !== undefined ? { services } : {}),
-      };
+      for (const field of ALLOWED_PROFILE_FIELDS) {
+        const val = req.body[field];
+        if (val !== undefined) {
+          if (typeof val !== 'string') {
+            return res.status(400).json({ error: `${field} must be a string` });
+          }
+          if (val.trim().length > 200) {
+            return res.status(400).json({ error: `${field} must not exceed 200 characters` });
+          }
+          updateData[field] = val.trim() || null;
+        }
+      }
+
+      const { services } = req.body;
+      if (services !== undefined) {
+        if (!Array.isArray(services)) {
+          return res.status(400).json({ error: 'services must be an array' });
+        }
+        if (services.length > 50) {
+          return res.status(400).json({ error: 'services must not exceed 50 items' });
+        }
+        for (let i = 0; i < services.length; i++) {
+          if (typeof services[i] !== 'string') {
+            return res.status(400).json({ error: `services[${i}] must be a string` });
+          }
+          if (services[i].trim().length > 100) {
+            return res.status(400).json({ error: `services[${i}] must not exceed 100 characters` });
+          }
+        }
+        updateData.services = services.map(s => s.trim());
+      }
 
       const updated = await authService.updateProfile(userId, updateData);
 

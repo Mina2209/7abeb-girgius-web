@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { ChangePasswordModal } from './ChangePasswordModal';
 import { ChurchRoleDropdown } from './ChurchRoleDropdown';
 import { ServicesDropdown } from './ServicesDropdown';
+import { getImageUrl } from '../utils/getImageUrl';
 
 interface ProfilePageProps {
   onNavigateToFavorites?: () => void;
@@ -110,7 +111,7 @@ export function ProfilePage({ onNavigateToFavorites }: ProfilePageProps) {
           <div className="relative group flex-shrink-0">
             <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center text-primary overflow-hidden">
               {profile.avatar_url ? (
-                <img src={profile.avatar_url} alt={profile.full_name} loading="lazy" decoding="async" className="w-full h-full rounded-full object-cover" />
+                <img src={getImageUrl(profile.avatar_url)} alt={profile.full_name} loading="lazy" decoding="async" className="w-full h-full rounded-full object-cover" />
               ) : (
                 <User className="w-12 h-12" />
               )}
@@ -125,6 +126,7 @@ export function ProfilePage({ onNavigateToFavorites }: ProfilePageProps) {
             </label>
             <input
               id="avatar-upload"
+              name="avatar"
               type="file"
               accept="image/*"
               onChange={handleImageUpload}
@@ -167,6 +169,8 @@ export function ProfilePage({ onNavigateToFavorites }: ProfilePageProps) {
                 <div className="relative">
                   <User className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <input
+                    id="profile-full-name"
+                    name="full_name"
                     type="text"
                     value={editedProfile.fullName}
                     onChange={(e) => setEditedProfile({ ...editedProfile, fullName: e.target.value })}
@@ -179,6 +183,8 @@ export function ProfilePage({ onNavigateToFavorites }: ProfilePageProps) {
                 <div className="relative">
                   <Church className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <input
+                    id="profile-church-name"
+                    name="church_name"
                     type="text"
                     value={editedProfile.churchName}
                     onChange={(e) => setEditedProfile({ ...editedProfile, churchName: e.target.value })}

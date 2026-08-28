@@ -1,22 +1,17 @@
+import { useRef, useEffect } from 'react';
 import { 
   Presentation, 
   Music, 
   Images, 
   MessageSquareQuote, 
   PenTool, 
-  FileText,
   Church,
   Heart,
-  Star,
-  Target,
   Search,
   RefreshCw,
   Monitor,
   ArrowRight,
-  Sparkles,
-  TrendingUp,
   FolderOpen,
-  CheckCircle2,
   Download,
   BookOpen,
   GraduationCap,
@@ -32,27 +27,133 @@ const marqueeItems = [
   { icon: Images, title: 'الصور', desc: 'مكتبة صور قبطية عالية الجودة', color: 'from-emerald-500/15 to-emerald-600/5', iconColor: 'text-emerald-600', border: 'border-emerald-500/20' },
   { icon: MessageSquareQuote, title: 'أقوال الآباء', desc: 'حكم وأقوال روحية', color: 'from-sky-500/15 to-sky-600/5', iconColor: 'text-sky-600', border: 'border-sky-500/20' },
   { icon: PenTool, title: 'القبطي', desc: 'كتابة وتعلم اللغة القبطية', color: 'from-orange-500/15 to-orange-600/5', iconColor: 'text-orange-600', border: 'border-orange-500/20' },
-  { icon: BookOpen, title: 'المراجع', desc: 'كتب ومراجع دينية', color: 'from-teal-500/15 to-teal-600/5', iconColor: 'text-teal-600', border: 'border-teal-500/20' },
-  { icon: GraduationCap, title: 'التعليم', desc: 'مواد تعليمية للخدمة', color: 'from-indigo-500/15 to-indigo-600/5', iconColor: 'text-indigo-600', border: 'border-indigo-500/20' },
-  { icon: Mic2, title: 'التسجيلات', desc: 'تسجيلات صوتية للترانيم', color: 'from-pink-500/15 to-pink-600/5', iconColor: 'text-pink-600', border: 'border-pink-500/20' },
-  { icon: Cross, title: 'الأعياد', desc: 'محتوى مناسب لأعياد الكنيسة', color: 'from-yellow-500/15 to-yellow-600/5', iconColor: 'text-yellow-600', border: 'border-yellow-500/20' },
+  // { icon: BookOpen, title: 'المراجع', desc: 'كتب ومراجع دينية', color: 'from-teal-500/15 to-teal-600/5', iconColor: 'text-teal-600', border: 'border-teal-500/20' },
+  // { icon: GraduationCap, title: 'التعليم', desc: 'مواد تعليمية للخدمة', color: 'from-indigo-500/15 to-indigo-600/5', iconColor: 'text-indigo-600', border: 'border-indigo-500/20' },
+  // { icon: Mic2, title: 'التسجيلات', desc: 'تسجيلات صوتية للترانيم', color: 'from-pink-500/15 to-pink-600/5', iconColor: 'text-pink-600', border: 'border-pink-500/20' },
+  // { icon: Cross, title: 'الرموز', desc: 'رموز مسيحية متنوعة', color: 'from-gray-500/15 to-gray-600/5', iconColor: 'text-gray-600', border: 'border-gray-500/20' },
 ];
 
-const marqueeCardList = marqueeItems.map((item, i) => (
-  <div
-    key={`card-${i}`}
-    className={`flex-shrink-0 w-56 bg-gradient-to-br ${item.color} rounded-2xl p-5 border ${item.border} hover:scale-105 hover:shadow-lg transition-all duration-300 cursor-default`}
-  >
-    <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-3 bg-background/60 backdrop-blur-sm">
-      <item.icon className={`w-6 h-6 ${item.iconColor}`} />
-    </div>
-    <h4 className="font-bold text-base mb-1">{item.title}</h4>
-    <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
-  </div>
-));
+const CARD_WIDTH = 224;
+const CARD_GAP = 16;
+const CARD_TOTAL = CARD_WIDTH + CARD_GAP;
+const SPEED = 40;
+
+function useMarqueeScroll(
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  innerRef: React.RefObject<HTMLDivElement | null>,
+) {
+  const offsetRef = useRef(0);
+  const isDragging = useRef(false);
+  const lastClientX = useRef(0);
+  const dragVelocity = useRef(0);
+  const lastDragTime = useRef(0);
+
+  useEffect(() => {
+    const inner = innerRef.current;
+    if (!inner) return;
+
+    const setWidth = marqueeItems.length * CARD_TOTAL;
+    inner.style.width = `${setWidth * 4}px`;
+
+    let rafId: number;
+    let lastTime = performance.now();
+
+    const tick = (now: number) => {
+      const dt = now - lastTime;
+      lastTime = now;
+
+      if (!isDragging.current) {
+        const pxPerMs = setWidth / (SPEED * 1000);
+        offsetRef.current += dt * pxPerMs;
+
+        if (offsetRef.current >= setWidth) {
+          offsetRef.current -= setWidth;
+        }
+      }
+
+      inner.style.transform = `translate3d(-${offsetRef.current}px, 0, 0)`;
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+
+    return () => cancelAnimationFrame(rafId);
+  }, [innerRef]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const inner = innerRef.current;
+    if (!container || !inner) return;
+
+    const setWidth = marqueeItems.length * CARD_TOTAL;
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.button !== 0) return;
+      isDragging.current = true;
+      lastClientX.current = e.clientX;
+      lastDragTime.current = performance.now();
+      dragVelocity.current = 0;
+      container.setPointerCapture(e.pointerId);
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!isDragging.current) return;
+      const now = performance.now();
+      const dt = now - lastDragTime.current;
+      const deltaX = e.clientX - lastClientX.current;
+      lastClientX.current = e.clientX;
+
+      if (dt > 0) {
+        dragVelocity.current = deltaX / dt;
+      }
+      lastDragTime.current = now;
+
+      offsetRef.current -= deltaX;
+      if (offsetRef.current < 0) offsetRef.current += setWidth;
+      if (offsetRef.current >= setWidth) offsetRef.current -= setWidth;
+
+      inner.style.transform = `translate3d(-${offsetRef.current}px, 0, 0)`;
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      if (!isDragging.current) return;
+      isDragging.current = false;
+      container.releasePointerCapture(e.pointerId);
+    };
+
+    container.addEventListener('pointerdown', onPointerDown);
+    container.addEventListener('pointermove', onPointerMove);
+    container.addEventListener('pointerup', onPointerUp);
+
+    return () => {
+      container.removeEventListener('pointerdown', onPointerDown);
+      container.removeEventListener('pointermove', onPointerMove);
+      container.removeEventListener('pointerup', onPointerUp);
+    };
+  }, [containerRef, innerRef]);
+}
 
 export function HomeSection() {
   const navigate = useNavigate();
+  const marqueeContainerRef = useRef<HTMLDivElement>(null);
+  const marqueeInnerRef = useRef<HTMLDivElement>(null);
+  useMarqueeScroll(marqueeContainerRef, marqueeInnerRef);
+
+  const renderCards = (batchId: number) =>
+    marqueeItems.map((item, i) => (
+      <div
+        key={`card-${batchId}-${i}`}
+        dir="rtl"
+        className={`flex-shrink-0 w-56 bg-gradient-to-br ${item.color} rounded-2xl p-5 border ${item.border} hover:scale-105 hover:shadow-lg transition-all duration-300 cursor-default`}
+        style={{ width: CARD_WIDTH }}
+      >
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-3 bg-background/60 backdrop-blur-sm">
+          <item.icon className={`w-6 h-6 ${item.iconColor}`} />
+        </div>
+        <h4 className="font-bold text-base mb-1">{item.title}</h4>
+        <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
+      </div>
+    ));
 
   return (
     <div className="space-y-16 pb-8">
@@ -126,7 +227,6 @@ export function HomeSection() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Service 1 - Liturgy PowerPoints */}
           <div
             className="bg-card rounded-2xl p-6 md:p-8 border border-border shadow-sm hover:shadow-xl hover:border-primary/50 transition-all group cursor-pointer"
             onClick={() => navigate('/liturgy')}
@@ -144,7 +244,6 @@ export function HomeSection() {
             </div>
           </div>
 
-          {/* Service 2 - Hymns */}
           <div
             className="bg-card rounded-2xl p-6 md:p-8 border border-border shadow-sm hover:shadow-xl hover:border-primary/50 transition-all group cursor-pointer"
             onClick={() => navigate('/hymns')}
@@ -162,7 +261,6 @@ export function HomeSection() {
             </div>
           </div>
 
-          {/* Service 3 - Various PowerPoints */}
           <div
             className="bg-card rounded-2xl p-6 md:p-8 border border-border shadow-sm hover:shadow-xl hover:border-primary/50 transition-all group cursor-pointer"
             onClick={() => navigate('/various')}
@@ -180,7 +278,6 @@ export function HomeSection() {
             </div>
           </div>
 
-          {/* Service 4 - Images */}
           <div
             className="bg-card rounded-2xl p-6 md:p-8 border border-border shadow-sm hover:shadow-xl hover:border-primary/50 transition-all group cursor-pointer"
             onClick={() => navigate('/images')}
@@ -198,7 +295,6 @@ export function HomeSection() {
             </div>
           </div>
 
-          {/* Service 5 - Sayings */}
           <div
             className="bg-card rounded-2xl p-6 md:p-8 border border-border shadow-sm hover:shadow-xl hover:border-primary/50 transition-all group cursor-pointer"
             onClick={() => navigate('/sayings')}
@@ -216,7 +312,6 @@ export function HomeSection() {
             </div>
           </div>
 
-          {/* Service 6 - Coptic */}
           <div
             className="bg-card rounded-2xl p-6 md:p-8 border border-border shadow-sm hover:shadow-xl hover:border-primary/50 transition-all group cursor-pointer"
             onClick={() => navigate('/coptic')}
@@ -249,12 +344,19 @@ export function HomeSection() {
       </section>
 
       {/* Horizontal Scrolling Showcase */}
-      <section className="relative overflow-hidden py-4">
+      <section className="relative py-4" dir="ltr">
         <div className="absolute inset-y-0 left-0 w-20 z-10 bg-gradient-to-r from-background to-transparent pointer-events-none" />
         <div className="absolute inset-y-0 right-0 w-20 z-10 bg-gradient-to-l from-background to-transparent pointer-events-none" />
-        <div className="flex w-max animate-marquee">
-          <div className="flex gap-4 shrink-0 pr-4">{marqueeCardList}</div>
-          <div className="flex gap-4 shrink-0 pr-4">{marqueeCardList}</div>
+        <div
+          ref={marqueeContainerRef}
+          className="overflow-hidden cursor-grab active:cursor-grabbing select-none touch-none"
+        >
+          <div ref={marqueeInnerRef} className="flex gap-4 w-max">
+            {renderCards(1)}
+            {renderCards(2)}
+            {renderCards(3)}
+            {renderCards(4)}
+          </div>
         </div>
       </section>
 
@@ -316,7 +418,6 @@ export function HomeSection() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Step 1 */}
           <div className="relative bg-gradient-to-br from-blue-500/10 to-blue-500/5 rounded-2xl p-8 border border-blue-500/20 text-center hover:scale-105 transition-transform">
             <div className="absolute -top-4 right-1/2 transform translate-x-1/2 w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-lg shadow-lg">
               1
@@ -330,7 +431,6 @@ export function HomeSection() {
             </p>
           </div>
 
-          {/* Step 2 */}
           <div className="relative bg-gradient-to-br from-purple-500/10 to-purple-500/5 rounded-2xl p-8 border border-purple-500/20 text-center hover:scale-105 transition-transform">
             <div className="absolute -top-4 right-1/2 transform translate-x-1/2 w-10 h-10 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold text-lg shadow-lg">
               2
@@ -344,7 +444,6 @@ export function HomeSection() {
             </p>
           </div>
 
-          {/* Step 3 */}
           <div className="relative bg-gradient-to-br from-green-500/10 to-green-500/5 rounded-2xl p-8 border border-green-500/20 text-center hover:scale-105 transition-transform">
             <div className="absolute -top-4 right-1/2 transform translate-x-1/2 w-10 h-10 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-lg shadow-lg">
               3

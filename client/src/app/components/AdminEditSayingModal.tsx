@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { TagMultiSelect } from './TagMultiSelect';
 import { useUniversalTopics } from '../hooks/useUniversalTopics';
 import type { Saying } from '../types/content';
+import { getImageUrl } from '../utils/getImageUrl';
 
 interface AdminEditSayingModalProps {
   isOpen: boolean;
@@ -162,6 +163,8 @@ export function AdminEditSayingModal({
               القول <span className="text-red-500">*</span>
             </label>
               <textarea
+              id="edit-saying-quote"
+              name="quote"
               value={formData.quote}
               onChange={(e) => setFormData({ ...formData, quote: e.target.value })}
               className="w-full px-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[120px] resize-y"
@@ -183,6 +186,8 @@ export function AdminEditSayingModal({
             </label>
             <input
               type="text"
+              id="edit-saying-author"
+              name="author"
               value={formData.author}
               onChange={(e) => setFormData({ ...formData, author: e.target.value })}
               list="authors-list"
@@ -206,7 +211,7 @@ export function AdminEditSayingModal({
               <div className="space-y-2">
                 <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-border">
                   <img
-                    src={formData.authorImage}
+                    src={getImageUrl(formData.authorImage)}
                     alt="Preview"
                     loading="lazy"
                     decoding="async"
@@ -227,6 +232,8 @@ export function AdminEditSayingModal({
                 <span className="text-sm text-muted-foreground">اضغط لرفع صورة القائل</span>
                 <input
                   type="file"
+                  id="edit-saying-author-image"
+                  name="authorImage"
                   accept="image/*"
                   className="hidden"
                   onChange={(e) => {
@@ -251,6 +258,8 @@ export function AdminEditSayingModal({
             </label>
             <input
               type="text"
+              id="edit-saying-source"
+              name="source"
               value={formData.source}
               onChange={(e) => setFormData({ ...formData, source: e.target.value })}
               list="sources-list"
@@ -280,6 +289,8 @@ export function AdminEditSayingModal({
             </label>
             <input
               type="date"
+              id="edit-saying-date-added"
+              name="dateAdded"
               value={formData.dateAdded}
               disabled
               className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-muted-foreground cursor-not-allowed opacity-80"

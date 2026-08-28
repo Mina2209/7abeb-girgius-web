@@ -61,10 +61,71 @@ if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
   process.exit(1);
 }
 
+// Validate JWT secret strength in production
+if (process.env.NODE_ENV === 'production' && process.env.JWT_SECRET) {
+  const secret = process.env.JWT_SECRET;
+  const issues = [];
+
+  // Minimum length check
+  if (secret.length < 32) {
+    issues.push('must be at least 32 characters');
+  }
+
+  // Check for common weak patterns
+  const weakPatterns = [
+    /^(secret|password|key|jwt)/i,
+    /change[_-]?me/i,
+    /your[_-]?secret/i,
+    /test[_-]?secret/i,
+    /dev[_-]?secret/i,
+    /\d{4,}$/, // ends with only numbers
+    /^[a-z]+$/i, // only letters
+    /^[0-9]+$/i, // only numbers
+  ];
+
+  for (const pattern of weakPatterns) {
+    if (pattern.test(secret)) {
+      issues.push('contains a common weak pattern');
+      break;
+    }
+  }
+
+  // Check for low entropy (too many repeated characters)
+  const uniqueChars = new Set(secret).size;
+  if (uniqueChars < 10) {
+    issues.push('has too few unique characters (low entropy)');
+  }
+
+  if (issues.length > 0) {
+    console.error('FATAL: JWT_SECRET is too weak:');
+    issues.forEach(issue => console.error(`  - ${issue}`));
+    console.error('Please use a cryptographically random secret of at least 32 characters.');
+    console.error('Example: openssl rand -base64 48');
+    process.exit(1);
+  }
+}
+
 // Fix #3: Disable auth bypass is only allowed in non-production environments.
 if (process.env.NODE_ENV === 'production' && process.env.DISABLE_AUTH === 'true') {
   console.error('FATAL: DISABLE_AUTH is not allowed in production. Refusing to start.');
   process.exit(1);
+}
+
+// Security headers middleware - adds standard security headers to all responses
+function securityHeaders(req, res, next) {
+  // Prevent MIME-type sniffing
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  // Prevent clickjacking
+  res.setHeader('X-Frame-Options', 'DENY');
+  // Control referrer information
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  // Disable browser features we don't need
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), interest-cohort=()');
+  // HSTS - enforce HTTPS for 1 year
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
 }
 
 const app = express();
@@ -72,6 +133,9 @@ const app = express();
 // Behind nginx / a load balancer, trust the first proxy hop so req.ip (used by the
 // login rate limiter) reflects the real client IP rather than the proxy's address.
 app.set('trust proxy', 1);
+
+// Apply security headers to all responses
+app.use(securityHeaders);
 
 // Gzip-compress responses. Large JSON payloads (e.g. the full hymns list) shrink
 // ~85% on the wire. Responds to the client's Accept-Encoding; small bodies are skipped.

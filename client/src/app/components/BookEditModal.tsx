@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Upload, Image as ImageIcon } from 'lucide-react';
 import { Button } from './ui/button';
 import { Book } from './BooksSection';
+import { getImageUrl } from '../utils/getImageUrl';
 
 interface BookEditModalProps {
   book: Book | null;
@@ -146,6 +147,8 @@ export function BookEditModal({ book, topics, onSave, onClose }: BookEditModalPr
                 </label>
                 <input
                   type="text"
+                  id="edit-book-title"
+                  name="title"
                   value={formData.title}
                   onChange={(e) => handleInputChange('title', e.target.value)}
                   className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background ${
@@ -163,6 +166,8 @@ export function BookEditModal({ book, topics, onSave, onClose }: BookEditModalPr
                 </label>
                 <input
                   type="text"
+                  id="edit-book-author"
+                  name="author"
                   value={formData.author}
                   onChange={(e) => handleInputChange('author', e.target.value)}
                   className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background ${
@@ -179,6 +184,8 @@ export function BookEditModal({ book, topics, onSave, onClose }: BookEditModalPr
                   نوع الكتاب <span className="text-red-500">*</span>
                 </label>
                 <select
+                  id="edit-book-type"
+                  name="bookType"
                   value={formData.bookType}
                   onChange={(e) => handleInputChange('bookType', e.target.value)}
                   className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background ${
@@ -200,6 +207,8 @@ export function BookEditModal({ book, topics, onSave, onClose }: BookEditModalPr
                 </label>
                 <input
                   type="text"
+                  id="edit-book-date-added"
+                  name="dateAdded"
                   value={formattedDate}
                   disabled
                   className="w-full px-4 py-2 border border-border rounded-lg bg-muted text-muted-foreground cursor-not-allowed opacity-80"
@@ -211,6 +220,8 @@ export function BookEditModal({ book, topics, onSave, onClose }: BookEditModalPr
                 <label className="block text-sm font-medium mb-2">الناشر</label>
                 <input
                   type="text"
+                  id="edit-book-publisher"
+                  name="publisher"
                   value={formData.publisher}
                   onChange={(e) => handleInputChange('publisher', e.target.value)}
                   className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background"
@@ -223,6 +234,8 @@ export function BookEditModal({ book, topics, onSave, onClose }: BookEditModalPr
                 <label className="block text-sm font-medium mb-2">السلسلة</label>
                 <input
                   type="text"
+                  id="edit-book-series"
+                  name="series"
                   value={formData.series}
                   onChange={(e) => handleInputChange('series', e.target.value)}
                   className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background"
@@ -235,6 +248,8 @@ export function BookEditModal({ book, topics, onSave, onClose }: BookEditModalPr
                 <label className="block text-sm font-medium mb-2">سنة النشر</label>
                 <input
                   type="text"
+                  id="edit-book-year"
+                  name="year"
                   value={formData.year}
                   onChange={(e) => handleInputChange('year', e.target.value)}
                   className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background"
@@ -246,6 +261,8 @@ export function BookEditModal({ book, topics, onSave, onClose }: BookEditModalPr
               <div>
                 <label className="block text-sm font-medium mb-2">نبذة عن الكتاب</label>
                 <textarea
+                  id="edit-book-description"
+                  name="description"
                   value={formData.description}
                   onChange={(e) => handleInputChange('description', e.target.value)}
                   className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background min-h-[120px]"
@@ -265,7 +282,7 @@ export function BookEditModal({ book, topics, onSave, onClose }: BookEditModalPr
                   {formData.coverImage ? (
                     <div className="space-y-2">
                       <img
-                        src={formData.coverImage}
+                        src={getImageUrl(formData.coverImage)}
                         alt="Cover preview"
                         loading="lazy"
                         decoding="async"
@@ -291,6 +308,8 @@ export function BookEditModal({ book, topics, onSave, onClose }: BookEditModalPr
                       </p>
                       <input
                         type="file"
+                        id="edit-book-cover-image"
+                        name="coverImage"
                         accept="image/*"
                         onChange={handleCoverImageUpload}
                         className="hidden"
@@ -324,6 +343,8 @@ export function BookEditModal({ book, topics, onSave, onClose }: BookEditModalPr
                       </p>
                       <input
                         type="file"
+                        id="edit-book-pdf-file"
+                        name="pdfFile"
                         accept=".pdf"
                         onChange={handlePdfUpload}
                         className="hidden"
@@ -350,6 +371,8 @@ export function BookEditModal({ book, topics, onSave, onClose }: BookEditModalPr
                         >
                           <input
                             type="checkbox"
+                            id={`edit-book-topic-${topic.id}`}
+                            name={`topic_${topic.name}`}
                             checked={formData.topics.includes(topic.name)}
                             onChange={() => handleTopicToggle(topic.name)}
                             className="rounded border-border"

@@ -6,6 +6,7 @@ import { useHymnsData } from '../hooks/useHymnsData';
 import { useGalleryImagesData } from '../hooks/useGalleryImagesData';
 import { useSayingsData } from '../hooks/useSayingsData';
 import { useFavorites } from '../hooks/useFavorites';
+import { getImageUrl } from '../utils/getImageUrl';
 
 // Icon wrapper components for Flaticon (matching navigation icons)
 const MusicIcon = (props: any) => <Music {...props} />;
@@ -280,7 +281,7 @@ function FavoriteImageCard({ image, onRemove }: { image: any; onRemove: () => vo
   return (
     <div className="relative group">
       <div className="aspect-square rounded-lg overflow-hidden bg-muted">
-        <img src={image.url} alt={image.title} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+        <img src={getImageUrl(image.url)} alt={image.title} loading="lazy" decoding="async" className="w-full h-full object-cover" />
       </div>
       <button
         onClick={onRemove}

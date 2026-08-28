@@ -7,6 +7,7 @@ export interface HymnFile {
   name: string;
   url: string;
   size?: number;
+  uid?: string;
 }
 
 export interface Hymn {

@@ -137,6 +137,8 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
               <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
                 type={showCurrentPassword ? 'text' : 'password'}
+                id="change-password-current"
+                name="current_password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 required
@@ -163,6 +165,8 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
               <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
                 type={showNewPassword ? 'text' : 'password'}
+                id="change-password-new"
+                name="new_password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
@@ -190,6 +194,8 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
               <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
                 type={showConfirmPassword ? 'text' : 'password'}
+                id="change-password-confirm"
+                name="confirm_password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required

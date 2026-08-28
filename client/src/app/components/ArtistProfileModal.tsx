@@ -3,6 +3,7 @@ import { Artist } from '../data/artists';
 import { useState, useMemo } from 'react';
 import Masonry, { ResponsiveMasonry } from 'react-responsive-masonry';
 import { useAuth } from '../contexts/AuthContext';
+import { getImageUrl } from '../utils/getImageUrl';
 
 interface GalleryImage {
   id: number;
@@ -109,7 +110,7 @@ export function ArtistProfileModal({
             <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
               {/* Profile Image */}
               <img
-                src={artist.profileImage}
+                src={getImageUrl(artist.profileImage)}
                 alt={artist.name}
                 loading="lazy"
                 decoding="async"
@@ -255,7 +256,7 @@ export function ArtistProfileModal({
                       }}
                     >
                       <img
-                        src={image.src}
+                        src={getImageUrl(image.src)}
                         alt={image.title}
                         loading="lazy"
                         decoding="async"

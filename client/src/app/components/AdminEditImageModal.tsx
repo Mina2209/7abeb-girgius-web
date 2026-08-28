@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { TagMultiSelect } from './TagMultiSelect';
 import { useUniversalTopics } from '../hooks/useUniversalTopics';
 import type { GalleryImage } from '../types/content';
+import { getImageUrl } from '../utils/getImageUrl';
 
 interface AdminEditImageModalProps {
   isOpen: boolean;
@@ -131,28 +132,41 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
   const files = e.target.files;
   if (!files || files.length === 0) return;
 
+  // Helper: read a File as a data URL (base64) so the preview is a stable
+  // string that won't disappear during React re-renders (unlike blob URLs).
+  const readAsDataURL = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
   // إذا قام المستخدم بتحديد أكثر من صورة
   if (files.length > 1) {
     setIsMultipleMode(true); // تحويل النموذج فوراً لوضع الصور المتعددة
 
-    const newPendingImages = Array.from(files).map((file, index) => {
+    Promise.all(Array.from(files).map(async (file, index) => {
+      const src = await readAsDataURL(file);
       return {
         id: Date.now() + index,
         file,
-        src: URL.createObjectURL(file),
+        src,
         title: file.name.split('.').slice(0, -1).join('.'), // اسم الملف الافتراضي كعنوان
         tags: [],
         artist: commonArtist || '',
         type: commonType || '',
         aiGenerated: commonAiGenerated || false
       };
+    })).then((newPendingImages) => {
+      setPendingImages((prev) => [...prev, ...newPendingImages]);
     });
-
-    setPendingImages((prev) => [...prev, ...newPendingImages]);
   } else {
     // إذا اختار صورة واحدة فقط وهو في وضع السينجل
     const file = files[0];
-    setPreviewImage(URL.createObjectURL(file));
+    readAsDataURL(file).then((src) => {
+      setPreviewImage(src);
+    });
     setFormData((prev) => ({ ...prev, image: file, title: file.name.split('.').slice(0, -1).join('.') }));
   }
 };
@@ -259,6 +273,8 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                     <label className="block text-sm font-medium mb-2">الفنان المشترك</label>
                     <div className="relative">
                       <select
+                        id="edit-image-common-artist"
+                        name="commonArtist"
                         value={showNewArtistInput ? '__new__' : commonArtist}
                         onChange={(e) => {
                           if (e.target.value === '__new__') {
@@ -282,6 +298,8 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                     {showNewArtistInput && (
                       <input
                         type="text"
+                        id="edit-image-common-new-artist"
+                        name="newArtistValue"
                         value={newArtistValue}
                         onChange={(e) => {
                           setNewArtistValue(e.target.value);
@@ -298,6 +316,8 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                     <label className="block text-sm font-medium mb-2">النوع المشترك</label>
                     <div className="relative">
                       <select
+                        id="edit-image-common-type"
+                        name="commonType"
                         value={showNewTypeInput ? '__new__' : commonType}
                         onChange={(e) => {
                           if (e.target.value === '__new__') {
@@ -321,6 +341,8 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                     {showNewTypeInput && (
                       <input
                         type="text"
+                        id="edit-image-common-new-type"
+                        name="newTypeValue"
                         value={newTypeValue}
                         onChange={(e) => {
                           setNewTypeValue(e.target.value);
@@ -347,6 +369,7 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                   <input
                     type="checkbox"
                     id="commonAiGenerated"
+                    name="commonAiGenerated"
                     checked={commonAiGenerated}
                     onChange={(e) => setCommonAiGenerated(e.target.checked)}
                     className="w-5 h-5 rounded border-border"
@@ -365,7 +388,7 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                     <div key={img.id} className="bg-card border border-border rounded-xl overflow-hidden group">
                       {/* Image Preview */}
                       <div className="relative aspect-[4/3]">
-                        <img src={img.src} alt={img.title} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                        <img src={getImageUrl(img.src)} alt={img.title} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                         <button
                           type="button"
                           onClick={() => handleRemovePendingImage(img.id)}
@@ -379,6 +402,8 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                       <div className="p-3 space-y-2">
                         <input
                           type="text"
+                          id={`edit-image-pending-title-${img.id}`}
+                          name="pendingTitle"
                           value={img.title}
                           onChange={(e) => updatePendingImage(img.id, { title: e.target.value })}
                           placeholder="عنوان الصورة..."
@@ -388,6 +413,8 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                         {/* Artist for this image */}
                         <input
                           type="text"
+                          id={`edit-image-pending-artist-${img.id}`}
+                          name="pendingArtist"
                           value={img.artist}
                           onChange={(e) => updatePendingImage(img.id, { artist: e.target.value })}
                           placeholder={`الفنان (افتراضي: ${commonArtist || 'غير محدد'})`}
@@ -397,6 +424,8 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                         {/* Type for this image */}
                         <input
                           type="text"
+                          id={`edit-image-pending-type-${img.id}`}
+                          name="pendingType"
                           value={img.type}
                           onChange={(e) => updatePendingImage(img.id, { type: e.target.value })}
                           placeholder={`النوع (افتراضي: ${commonType || 'غير محدد'})`}
@@ -407,6 +436,7 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                           <input
                             type="checkbox"
                             id={`ai-${img.id}`}
+                            name="pendingAiGenerated"
                             checked={img.aiGenerated}
                             onChange={(e) => updatePendingImage(img.id, { aiGenerated: e.target.checked })}
                             className="w-4 h-4 rounded border-border"
@@ -439,7 +469,7 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                     {previewImage ? (
                       <>
                         <img
-                          src={previewImage}
+                          src={getImageUrl(previewImage)}
                           alt="Preview"
                           loading="lazy"
                           decoding="async"
@@ -464,6 +494,8 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                   <input
                     ref={fileInputRef}
                     type="file"
+                    id="edit-image-file"
+                    name="imageFile"
                     accept="image/jpeg,image/jpg,image/png"
                     multiple
                     onChange={handleImageUpload}
@@ -477,6 +509,7 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                   <input
                     type="checkbox"
                     id="aiGenerated"
+                    name="aiGenerated"
                     checked={formData.aiGenerated}
                     onChange={(e) => setFormData({ ...formData, aiGenerated: e.target.checked })}
                     className="w-5 h-5 rounded border-border"
@@ -491,6 +524,7 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                   <input
                     type="checkbox"
                     id="published"
+                    name="published"
                     checked={formData.published}
                     onChange={(e) => setFormData({ ...formData, published: e.target.checked })}
                     className="w-5 h-5 rounded border-border"
@@ -510,6 +544,8 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                   </label>
                   <input
                     type="text"
+                    id="edit-image-title"
+                    name="title"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     className="w-full px-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -525,6 +561,8 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                   </label>
                   <div className="relative">
                     <select
+                      id="edit-image-artist"
+                      name="artist"
                       value={showNewArtistInput ? '__new__' : formData.artist}
                       onChange={(e) => {
                         if (e.target.value === '__new__') {
@@ -548,6 +586,8 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                   {showNewArtistInput && (
                     <input
                       type="text"
+                      id="edit-image-new-artist"
+                      name="artist"
                       value={formData.artist}
                       onChange={(e) => setFormData({ ...formData, artist: e.target.value })}
                       placeholder="اسم الفنان الجديد..."
@@ -564,6 +604,8 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                   </label>
                   <div className="relative">
                     <select
+                      id="edit-image-type"
+                      name="type"
                       value={showNewTypeInput ? '__new__' : formData.type}
                       onChange={(e) => {
                         if (e.target.value === '__new__') {
@@ -587,6 +629,8 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                   {showNewTypeInput && (
                     <input
                       type="text"
+                      id="edit-image-new-type"
+                      name="type"
                       value={formData.type}
                       onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                       placeholder="النوع الجديد..."
@@ -603,6 +647,8 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                   </label>
                   <input
                     type="date"
+                    id="edit-image-upload-date"
+                    name="uploadDate"
                     disabled // يمنع المستخدم من تعديل تاريخ الرفع يدوياً نهائياً
                     value={formData.uploadDate}
                     className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-muted-foreground cursor-not-allowed focus:outline-none"

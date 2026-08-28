@@ -8,6 +8,7 @@ import { fetchFatherById, updateFather, createFather, fetchFatherByName } from '
 import { loadSayingsData } from '../services/contentLoaders';
 import { getFatherById as getStaticFatherById } from '../data/fathers';
 import type { Father } from '../data/fathers';
+import { getImageUrl } from '../utils/getImageUrl';
 import type { Saying } from '../types/content';
 
 export function FatherDetailPage() {
@@ -147,7 +148,7 @@ export function FatherDetailPage() {
             <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
               {father.profileImage ? (
                 <img
-                  src={father.profileImage}
+                  src={getImageUrl(father.profileImage)}
                   alt={father.name}
                   loading="lazy"
                   decoding="async"

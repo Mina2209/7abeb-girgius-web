@@ -8,6 +8,8 @@ const router = Router();
 // bind controller methods to routes
 router.post('/presign', authenticate, requireEditor, UploadController.presign);
 router.get('/url', UploadController.url); // Public - for viewing files
+router.get('/preview', UploadController.preview); // Public - direct presigned URL for Office viewer
+router.get('/proxy', UploadController.proxy); // Public - proxy file through server for Office viewer
 router.get('/thumb', UploadController.thumb); // Public - resized thumbnails for the gallery grid
 router.delete('/:key', authenticate, requireEditor, UploadController.remove);
 

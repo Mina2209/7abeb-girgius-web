@@ -285,6 +285,8 @@ export function ActivityLogModal({ isOpen, onClose, userId, username, userRole }
             <div className="relative flex-1">
               <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <input
+                id="activity-log-search"
+                name="search"
                 type="text"
                 placeholder="ابحث في الأنشطة..."
                 value={searchQuery}
@@ -314,6 +316,8 @@ export function ActivityLogModal({ isOpen, onClose, userId, username, userRole }
                     <div>
                       <label className="text-xs font-medium text-muted-foreground mb-2 block">نوع النشاط</label>
                       <select
+                        id="activity-log-type-filter"
+                        name="activity_type"
                         value={selectedActivityType}
                         onChange={(e) => setSelectedActivityType(e.target.value as ActivityType | 'all')}
                         className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -329,6 +333,8 @@ export function ActivityLogModal({ isOpen, onClose, userId, username, userRole }
                     <div>
                       <label className="text-xs font-medium text-muted-foreground mb-2 block">نوع المحتوى</label>
                       <select
+                        id="activity-log-content-filter"
+                        name="content_type"
                         value={selectedContentType}
                         onChange={(e) => setSelectedContentType(e.target.value as ContentType | 'all')}
                         className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -349,6 +355,8 @@ export function ActivityLogModal({ isOpen, onClose, userId, username, userRole }
                     <div>
                       <label className="text-xs font-medium text-muted-foreground mb-2 block">الفترة الزمنية</label>
                       <select
+                        id="activity-log-duration-filter"
+                        name="duration"
                         value={selectedDuration}
                         onChange={(e) => setSelectedDuration(e.target.value as 'all' | '7' | '30' | '90' | '180')}
                         className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"

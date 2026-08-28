@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   House,
@@ -13,6 +13,8 @@ import {
   Share2,
   Copy,
   ChevronLeft,
+  Sun,
+  MoonStar,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import logoImg512 from '../../assets/church-logo-512.webp';
@@ -44,6 +46,31 @@ const focusRingClass =
 
 export function BioLinkPage() {
   const siteUrl = typeof window !== 'undefined' ? window.location.origin : '';
+
+  const [isDark, setIsDark] = useState(() => {
+    try {
+      const saved = localStorage.getItem('theme');
+      return saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDark);
+  }, [isDark]);
+
+  const toggleTheme = useCallback(() => {
+    setIsDark((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('theme', next ? 'dark' : 'light');
+      } catch {
+        // ignore storage errors (e.g. private mode)
+      }
+      return next;
+    });
+  }, []);
 
   // Per-route metadata: reuse the existing meta description tag and restore it on leave.
   useEffect(() => {
@@ -92,15 +119,15 @@ export function BioLinkPage() {
   }, []);
 
   const handleShare = useCallback(async () => {
-    const url = window.location.href;
+    const url = siteUrl;
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
-          title: document.title,
+          title: 'خدمة الأرشيدياكون حبيب جرجس للداتا شو',
           text: 'خدمة الأرشيدياكون حبيب جرجس للداتا شو',
           url,
         });
-        trackEvent('card_share', { route: '/card', properties: { method: 'native' } });
+        trackEvent('card_share', { route: '/qrcode', properties: { method: 'native' } });
         toast.success('تمت مشاركة الصفحة');
         return;
       } catch (error) {
@@ -111,17 +138,17 @@ export function BioLinkPage() {
     }
     try {
       await copyToClipboard(url);
-      trackEvent('card_copy_url', { route: '/card', properties: { method: 'share-fallback' } });
+        trackEvent('card_copy_url', { route: '/qrcode', properties: { method: 'share-fallback' } });
       toast.success('تم نسخ رابط الصفحة');
     } catch {
       toast.error('تعذر نسخ الرابط');
     }
-  }, [copyToClipboard]);
+  }, [copyToClipboard, siteUrl]);
 
   const handleCopyUrl = useCallback(async () => {
     try {
       await copyToClipboard(siteUrl);
-      trackEvent('card_copy_url', { route: '/card' });
+      trackEvent('card_copy_url', { route: '/qrcode' });
       toast.success('تم نسخ الرابط');
     } catch {
       toast.error('تعذر نسخ الرابط');
@@ -139,6 +166,20 @@ export function BioLinkPage() {
         <div className="absolute -left-24 top-1/3 h-64 w-64 rounded-full bg-accent/10 blur-3xl" />
         <div className="absolute -right-16 bottom-0 h-56 w-56 rounded-full bg-primary/5 blur-3xl" />
       </div>
+
+      {/* Theme toggle */}
+      <button
+        type="button"
+        onClick={toggleTheme}
+        aria-label={isDark ? 'تبديل إلى الوضع النهاري' : 'تبديل إلى الوضع الليلي'}
+        title={isDark ? 'تبديل إلى الوضع النهاري' : 'تبديل إلى الوضع الليلي'}
+        className={cn(
+          'fixed top-4 left-4 z-50 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-sm transition-all duration-300 hover:border-primary/40 hover:shadow-lg',
+          focusRingClass,
+        )}
+      >
+        {isDark ? <MoonStar className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+      </button>
 
       <div className="relative mx-auto max-w-md px-5 py-10 sm:py-14">
         {/* Header */}
@@ -175,7 +216,7 @@ export function BioLinkPage() {
                       to={item.to}
                       onClick={() =>
                         trackEvent('card_link_click', {
-                          route: '/card',
+                          route: '/qrcode',
                           properties: { target: item.to },
                         })
                       }
@@ -221,7 +262,7 @@ export function BioLinkPage() {
                     title={item.label}
                     onClick={() =>
                       trackEvent('card_social_click', {
-                        route: '/card',
+                        route: '/qrcode',
                         properties: { platform: item.label },
                       })
                     }
@@ -248,24 +289,6 @@ export function BioLinkPage() {
                 <Share2 className="h-5 w-5" />
                 مشاركة الصفحة
               </button>
-
-              <div className="flex min-h-[52px] items-center gap-2 rounded-xl border border-border bg-card p-2 ps-4 shadow-sm">
-                <span className="flex-1 truncate text-left text-sm text-muted-foreground" dir="ltr">
-                  {siteUrl}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleCopyUrl}
-                  aria-label="نسخ الرابط"
-                  title="نسخ الرابط"
-                  className={cn(
-                    'flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors hover:bg-primary hover:text-primary-foreground',
-                    focusRingClass,
-                  )}
-                >
-                  <Copy className="h-4 w-4" />
-                </button>
-              </div>
             </div>
           </section>
         </main>

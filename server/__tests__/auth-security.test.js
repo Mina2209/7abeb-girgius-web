@@ -30,7 +30,7 @@ describe('auth.controller – updateUser allowlist', () => {
       username: 'alice',
       password: 'new',
       role: 'EDITOR',
-    });
+    }, { requestingUserId: 'admin' });
   });
 
   it('rejects tokenVersion, id, createdAt, updatedAt – they never reach the service', async () => {
@@ -38,7 +38,7 @@ describe('auth.controller – updateUser allowlist', () => {
       { params: { id: 'u1' }, body: { tokenVersion: 99, id: 'x', createdAt: 'y', updatedAt: 'z', role: 'EDITOR' }, user: { id: 'admin' } },
       fakeRes(),
     );
-    expect(authServiceMock.updateUser).toHaveBeenCalledWith('u1', { role: 'EDITOR' });
+    expect(authServiceMock.updateUser).toHaveBeenCalledWith('u1', { role: 'EDITOR' }, { requestingUserId: 'admin' });
   });
 
   it('allows partial updates (only username)', async () => {
@@ -46,7 +46,7 @@ describe('auth.controller – updateUser allowlist', () => {
       { params: { id: 'u1' }, body: { username: 'bob' }, user: { id: 'admin' } },
       fakeRes(),
     );
-    expect(authServiceMock.updateUser).toHaveBeenCalledWith('u1', { username: 'bob' });
+    expect(authServiceMock.updateUser).toHaveBeenCalledWith('u1', { username: 'bob' }, { requestingUserId: 'admin' });
   });
 
   it('allows role updates (admin role management)', async () => {
@@ -54,7 +54,7 @@ describe('auth.controller – updateUser allowlist', () => {
       { params: { id: 'u1' }, body: { role: 'ADMIN' }, user: { id: 'admin' } },
       fakeRes(),
     );
-    expect(authServiceMock.updateUser).toHaveBeenCalledWith('u1', { role: 'ADMIN' });
+    expect(authServiceMock.updateUser).toHaveBeenCalledWith('u1', { role: 'ADMIN' }, { requestingUserId: 'admin' });
   });
 
   it('returns allowlisted fields even on empty body', async () => {
@@ -62,7 +62,7 @@ describe('auth.controller – updateUser allowlist', () => {
       { params: { id: 'u1' }, body: {}, user: { id: 'admin' } },
       fakeRes(),
     );
-    expect(authServiceMock.updateUser).toHaveBeenCalledWith('u1', {});
+    expect(authServiceMock.updateUser).toHaveBeenCalledWith('u1', {}, { requestingUserId: 'admin' });
   });
 
   it('strips non-allowlisted fields even when injected through body spread', async () => {
@@ -77,6 +77,6 @@ describe('auth.controller – updateUser allowlist', () => {
     expect(authServiceMock.updateUser).toHaveBeenCalledWith('u1', {
       username: 'ok',
       password: 'safe',
-    });
+    }, { requestingUserId: 'admin' });
   });
 });

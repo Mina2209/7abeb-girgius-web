@@ -2,6 +2,7 @@ import type { GalleryImage, Hymn, HymnFileType, Saying } from '../types/content'
 import type { Artist } from '../data/artists';
 import type { Father } from '../data/fathers';
 import { apiGetJson, apiRequest } from './apiClient';
+import { uploadFileToS3, getFileContentType } from './s3Upload';
 import {
   mapServerAuthorToClient,
   mapServerFatherToClient,
@@ -34,16 +35,45 @@ function mapFileTypeToServer(t: HymnFileType): string {
   return 'MUSIC_AUDIO';
 }
 
+function isBase64DataUrl(url: string): boolean {
+  return url.startsWith('data:');
+}
+
+function base64DataUrlToFile(dataUrl: string, name: string, fileType: string): File {
+  const [header, data] = dataUrl.split(',');
+  const mimeMatch = header.match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : getFileContentType(fileType);
+  const binary = atob(data);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new File([bytes], name, { type: mime });
+}
+
+async function ensureFilesUploadedToS3(
+  files: { type: string; fileUrl: string; originalName: string; size: number | null }[],
+): Promise<{ type: string; fileUrl: string; originalName: string; size: number | null }[]> {
+  return Promise.all(
+    files.map(async (f) => {
+      if (!isBase64DataUrl(f.fileUrl)) return f;
+      const file = base64DataUrlToFile(f.fileUrl, f.originalName || 'file', f.type);
+      const s3Url = await uploadFileToS3(file, f.type);
+      return { ...f, fileUrl: s3Url || f.fileUrl };
+    }),
+  );
+}
+
 export async function createHymn(input: Hymn, token?: string | null): Promise<Hymn> {
+  const rawFiles = (input.files ?? []).map((f) => ({
+    type: mapFileTypeToServer(f.type),
+    fileUrl: f.url,
+    originalName: f.name,
+    size: f.size ?? null,
+  }));
+  const files = await ensureFilesUploadedToS3(rawFiles);
   const body = {
     title: input.title,
     tags: input.tags,
-    files: (input.files ?? []).map((f) => ({
-      type: mapFileTypeToServer(f.type),
-      fileUrl: f.url,
-      originalName: f.name,
-      size: f.size ?? null,
-    })),
+    files,
   };
   const row = await apiGetJson<ServerHymn>('/api/hymns', {
     method: 'POST',
@@ -62,15 +92,17 @@ export async function createHymn(input: Hymn, token?: string | null): Promise<Hy
 }
 
 export async function updateHymn(id: string, input: Hymn, token?: string | null): Promise<Hymn> {
+  const rawFiles = (input.files ?? []).map((f) => ({
+    type: mapFileTypeToServer(f.type),
+    fileUrl: f.url,
+    originalName: f.name,
+    size: f.size ?? null,
+  }));
+  const files = await ensureFilesUploadedToS3(rawFiles);
   const body = {
     title: input.title,
     tags: input.tags,
-    files: (input.files ?? []).map((f) => ({
-      type: mapFileTypeToServer(f.type),
-      fileUrl: f.url,
-      originalName: f.name,
-      size: f.size ?? null,
-    })),
+    files,
   };
   const row = await apiGetJson<ServerHymn>(`/api/hymns/${id}`, {
     method: 'PUT',

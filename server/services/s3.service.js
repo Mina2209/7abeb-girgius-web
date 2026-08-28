@@ -65,15 +65,16 @@ function createS3Service({ region, bucket, prefix = 'Uploads/' } = {}) {
       return { url, key, expiresIn };
     },
 
-    async getPresignedGetUrl(key, expiresIn = 900, originalFilename = null) {
+    async getPresignedGetUrl(key, expiresIn = 900, originalFilename = null, { forceDownload = true } = {}) {
       // If no original filename provided, try to extract it from the key
       const downloadFilename = originalFilename || extractOriginalFilename(key);
 
       const commandOptions = { Bucket: bucket, Key: key };
 
-      // Set Content-Disposition to force the correct filename on download
-      // Use RFC 5987 encoding for Unicode filenames (Arabic, etc.)
-      if (downloadFilename) {
+      // Set Content-Disposition: attachment forces a download (good for the download button).
+      // When forceDownload is false (preview mode), skip this so the Office viewer can render
+      // the file inline in the iframe.
+      if (downloadFilename && forceDownload) {
         // Encode filename for Content-Disposition header (handles Unicode)
         const encodedFilename = encodeURIComponent(downloadFilename).replace(/'/g, '%27');
         // Use both filename (ASCII fallback) and filename* (UTF-8) for compatibility
@@ -101,6 +102,17 @@ function createS3Service({ region, bucket, prefix = 'Uploads/' } = {}) {
     async getObjectStream(key) {
       const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
       return res.Body; // Node.js Readable in a server runtime
+    },
+
+    // Fetch an object and return metadata + stream for proxying responses.
+    // Returns { contentType, contentLength, body } where body is a Node Readable.
+    async getObjectForProxy(key) {
+      const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+      return {
+        contentType: res.ContentType || 'application/octet-stream',
+        contentLength: res.ContentLength || null,
+        body: res.Body,
+      };
     },
 
     // Write bytes to a key (used to cache generated thumbnails).

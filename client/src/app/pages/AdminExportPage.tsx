@@ -326,6 +326,8 @@ export function AdminExportPage() {
                 <CalendarRange className="h-4 w-4" aria-hidden="true" />
                 <span className="sr-only">من</span>
                 <Input
+                  id="export-date-from"
+                  name="date_from"
                   type="date"
                   value={customFrom}
                   max={customTo || todayUtc()}
@@ -335,6 +337,8 @@ export function AdminExportPage() {
               </label>
               <span className="text-sm text-muted-foreground">إلى</span>
               <Input
+                id="export-date-to"
+                name="date_to"
                 type="date"
                 value={customTo}
                 min={customFrom || undefined}

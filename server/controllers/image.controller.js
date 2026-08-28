@@ -174,7 +174,22 @@ export const ImageController = {
 
   updateAuthor: async (req, res) => {
     try {
-      const author = await ImageService.updateAuthor(req.params.id, req.body);
+      const AUTHOR_UPDATE_FIELDS = ['name'];
+      const updates = {};
+      for (const field of AUTHOR_UPDATE_FIELDS) {
+        if (req.body[field] !== undefined) {
+          updates[field] = req.body[field];
+        }
+      }
+      if (!updates.name || typeof updates.name !== 'string' || !updates.name.trim()) {
+        return res.status(400).json({ error: 'Author name is required' });
+      }
+      updates.name = updates.name.trim();
+      if (updates.name.length > 200) {
+        return res.status(400).json({ error: 'Author name must not exceed 200 characters' });
+      }
+
+      const author = await ImageService.updateAuthor(req.params.id, updates);
 
       if (req.user) {
         const { logService } = await import('../services/log.service.js');

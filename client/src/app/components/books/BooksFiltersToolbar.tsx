@@ -198,6 +198,8 @@ export function BooksFiltersToolbar({
           <div className="relative flex-1">
             <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
             <input
+              id="books-search"
+              name="search"
               type="text"
               placeholder="ابحث في الكتب..."
               value={searchQuery}

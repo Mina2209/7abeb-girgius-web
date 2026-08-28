@@ -2,6 +2,7 @@ import { X, Heart, Download, Edit, Trash2, BookOpen, User, Building2, Library, C
 import { Button } from './ui/button';
 import { Book, getDefaultBookCover } from './BooksSection';
 import { useState, useEffect } from 'react';
+import { getImageUrl } from '../utils/getImageUrl';
 
 interface BookDetailsModalProps {
   book: Book;
@@ -97,7 +98,7 @@ export function BookDetailsModal({ book, onClose, onToggleFavorite, onEdit, onDe
               {book.coverImage && (
                 <div className="aspect-[3/4] rounded-lg overflow-hidden border border-border">
                   <img
-                    src={book.coverImage}
+                    src={getImageUrl(book.coverImage)}
                     alt={book.title}
                     loading="lazy"
                     decoding="async"

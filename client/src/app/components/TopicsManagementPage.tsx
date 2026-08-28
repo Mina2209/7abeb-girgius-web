@@ -548,6 +548,8 @@ export function TopicsManagementPage() {
         {/* Add New Section */}
         <div className="flex gap-3 mb-6 flex-wrap">
           <Input
+            id="topics-new-section-name"
+            name="section_name"
             type="text"
             placeholder="اسم القسم الجديد"
             value={newSectionName}
@@ -571,6 +573,8 @@ export function TopicsManagementPage() {
               {editingSectionId === section.id ? (
                 <>
                   <Input
+                    id="topics-edit-section-name"
+                    name="section_name"
                     type="text"
                     value={editingSectionName}
                     onChange={(e) => setEditingSectionName(e.target.value)}
@@ -639,6 +643,8 @@ export function TopicsManagementPage() {
         <h2 className="text-lg font-semibold mb-4">إضافة موضوع جديد</h2>
         <div className="flex gap-3 flex-wrap">
           <Input
+            id="topics-new-topic-name"
+            name="topic_name"
             type="text"
             placeholder="اسم الموضوع الجديد"
             value={newTopicName}
@@ -647,6 +653,8 @@ export function TopicsManagementPage() {
             className="flex-1"
           />
           <select
+            id="topics-new-topic-section"
+            name="topic_section"
             value={newTopicSection}
             onChange={(e) => setNewTopicSection(e.target.value)}
             className="px-4 py-2 border border-border rounded-md bg-background"
@@ -668,6 +676,8 @@ export function TopicsManagementPage() {
         <div className="relative">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
           <Input
+            id="topics-search"
+            name="search"
             type="text"
             placeholder="بحث عن موضوع..."
             value={searchQuery}
@@ -741,6 +751,8 @@ export function TopicsManagementPage() {
                               <td className="px-4 py-3">
                                 {editingTopicId === topic.id ? (
                                   <Input
+                                    id={`topics-edit-topic-name-${topic.id}`}
+                                    name="topic_name"
                                     type="text"
                                     value={editingTopicName}
                                     onChange={(e) => setEditingTopicName(e.target.value)}
@@ -755,6 +767,8 @@ export function TopicsManagementPage() {
                               <td className="px-3 py-3 text-center">
                                 {editingTopicId === topic.id ? (
                                   <select
+                                    id={`topics-edit-topic-section-${topic.id}`}
+                                    name="topic_section"
                                     value={editingTopicSection}
                                     onChange={(e) => setEditingTopicSection(e.target.value)}
                                     className="px-3 py-1 border border-border rounded-md bg-background text-sm"

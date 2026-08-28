@@ -109,6 +109,7 @@ export function AdminEditHymnModal({
           name: file.name,
           url: base64String,
           size: file.size,
+          uid: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         };
         
         // Add file to the list
@@ -150,8 +151,8 @@ export function AdminEditHymnModal({
     }
   };
 
-  const handleRemoveFile = (fileName: string) => {
-    setFormData({ ...formData, files: formData.files?.filter(file => file.name !== fileName) });
+  const handleRemoveFile = (uid: string) => {
+    setFormData({ ...formData, files: formData.files?.filter(file => file.uid !== uid) });
   };
 
   const formatFileSize = (bytes?: number): string => {
@@ -209,6 +210,8 @@ export function AdminEditHymnModal({
             </label>
             <input
               type="text"
+              id="edit-hymn-title"
+              name="title"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               className="w-full px-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -223,6 +226,8 @@ export function AdminEditHymnModal({
               الكلمات <span className="text-red-500">*</span>
             </label>
             <textarea
+              id="edit-hymn-lyrics"
+              name="lyrics"
               value={formData.lyrics}
               onChange={(e) => setFormData({ ...formData, lyrics: e.target.value })}
               className="w-full px-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[200px] resize-y font-mono"
@@ -273,6 +278,8 @@ export function AdminEditHymnModal({
               )}
               <input
                 type="file"
+                id="edit-hymn-video-montage"
+                name="videoMontage"
                 ref={videoMontageInputRef}
                 onChange={(e) => handleFileUpload(e, 'Video montage')}
                 className="hidden"
@@ -296,6 +303,8 @@ export function AdminEditHymnModal({
               )}
               <input
                 type="file"
+                id="edit-hymn-video-powerpoint"
+                name="videoPowerPoint"
                 ref={videoPowerPointInputRef}
                 onChange={(e) => handleFileUpload(e, 'Video PowerPoint')}
                 className="hidden"
@@ -312,17 +321,19 @@ export function AdminEditHymnModal({
                   <Presentation className="w-5 h-5 text-muted-foreground flex-shrink-0" />
                   <div className="flex-1 text-right">
                     <p className="text-sm font-medium">رفع بوربوينت</p>
-                    <p className="text-xs text-muted-foreground">PPT, PPTX</p>
+                    <p className="text-xs text-muted-foreground">PPT, PPTX, PPSX</p>
                   </div>
                   <Upload className="w-4 h-4 text-muted-foreground" />
                 </button>
               )}
               <input
                 type="file"
+                id="edit-hymn-powerpoint"
+                name="powerPoint"
                 ref={powerPointInputRef}
                 onChange={(e) => handleFileUpload(e, 'PowerPoint file')}
                 className="hidden"
-                accept=".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                accept=".ppt,.pptx,.ppsx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.presentationml.slideshow"
               />
 
               {/* Music */}
@@ -342,6 +353,8 @@ export function AdminEditHymnModal({
               )}
               <input
                 type="file"
+                id="edit-hymn-music"
+                name="music"
                 ref={musicInputRef}
                 onChange={(e) => handleFileUpload(e, 'Music')}
                 className="hidden"
@@ -358,7 +371,7 @@ export function AdminEditHymnModal({
                     const FileIcon = getFileTypeIcon(file.type);
                     return (
                       <div
-                        key={file.name}
+                        key={file.uid || `${file.name}-${file.type}`}
                         className="flex items-center gap-3 p-3 bg-card border border-border rounded-xl hover:bg-muted transition-colors group"
                       >
                         {/* File Icon */}
@@ -387,7 +400,7 @@ export function AdminEditHymnModal({
                         {/* Delete Button */}
                         <button
                           type="button"
-                          onClick={() => handleRemoveFile(file.name)}
+                          onClick={() => handleRemoveFile(file.uid!)}
                           className="flex-shrink-0 p-2 hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                           title="حذف الملف"
                         >
@@ -418,6 +431,8 @@ export function AdminEditHymnModal({
               </label>
               <input
                 type="date"
+                id="edit-hymn-created-at"
+                name="createdAt"
                 value={formData.createdAt}
                 disabled
                 className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-muted-foreground cursor-not-allowed opacity-80"
@@ -430,6 +445,8 @@ export function AdminEditHymnModal({
               </label>
               <input
                 type="date"
+                id="edit-hymn-updated-at"
+                name="updatedAt"
                 value={formData.updatedAt}
                 disabled
                 className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-muted-foreground cursor-not-allowed opacity-80"

@@ -16,6 +16,7 @@ const LIST_SELECT = {
   createdAt: true,
   updatedAt: true,
   tags: { select: TAG_SELECT },
+  lyric: true,
   files: {
     select: {
       id: true,

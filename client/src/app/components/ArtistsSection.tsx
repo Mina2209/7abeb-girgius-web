@@ -8,6 +8,7 @@ import { apiGetJson, apiRequest } from '../services/apiClient';
 import { createArtist, updateArtist } from '../services/contentWriteService';
 import { mapServerAuthorToClient, type ServerAuthorRow } from '../services/contentMappers';
 import type { Artist } from '../data/artists';
+import { getImageUrl } from '../utils/getImageUrl';
 
 export function ArtistsSection() {
   const navigate = useNavigate();
@@ -171,7 +172,7 @@ export function ArtistsSection() {
                   <div className="relative h-48 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center overflow-hidden">
                     {artist.profileImage ? (
                       <img
-                        src={artist.profileImage}
+                        src={getImageUrl(artist.profileImage)}
                         alt={artist.name}
                         loading="lazy"
                         decoding="async"

@@ -10,6 +10,7 @@ import { updateArtist } from '../services/contentWriteService';
 import { mapServerAuthorToClient, mapServerImageToClient, type ServerAuthorRow, type ServerImageRow } from '../services/contentMappers';
 import type { Artist } from '../data/artists';
 import type { GalleryImage } from '../types/content';
+import { getImageUrl } from '../utils/getImageUrl';
 
 export function ArtistDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -97,7 +98,7 @@ export function ArtistDetailPage() {
             <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
               {artist.profileImage ? (
                 <img
-                  src={artist.profileImage}
+                  src={getImageUrl(artist.profileImage)}
                   alt={artist.name}
                   loading="lazy"
                   decoding="async"
@@ -205,7 +206,7 @@ export function ArtistDetailPage() {
                       className="group relative overflow-hidden rounded-xl bg-card border border-border cursor-pointer transition-all hover:shadow-lg"
                     >
                       <img
-                        src={image.src}
+                        src={getImageUrl(image.src)}
                         alt={image.title}
                         loading="lazy"
                         decoding="async"

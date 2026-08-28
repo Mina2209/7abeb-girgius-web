@@ -95,6 +95,8 @@ export function TagFilter({
         <div className="relative">
           <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
           <input
+            id="tag-filter-search"
+            name="search"
             type="text"
             placeholder="ابحث في المحتوى..."
             value={searchQuery}
@@ -137,6 +139,8 @@ export function TagFilter({
                 <div className="relative">
                   <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                   <input
+                    id="tag-filter-dropdown-search"
+                    name="tag_search"
                     type="text"
                     placeholder="ابحث في المواضيع..."
                     value={tagSearch}
@@ -158,17 +162,19 @@ export function TagFilter({
                           className="flex items-center gap-3 px-3 py-2 hover:bg-muted rounded-lg cursor-pointer transition-colors"
                         >
                           <input
+                            id={`tag-filter-${tag.replace(/\s+/g, '-')}`}
+                            name="tag"
                             type="checkbox"
                             checked={selectedTags.includes(tag)}
                             onChange={() => toggleTag(tag)}
                             className="w-4 h-4 rounded border-border text-primary focus:ring-primary/50 cursor-pointer"
                           />
-                          <span className="text-sm flex-1">{tag}</span>
+                          <span className="text-xs flex-1">{tag}</span>
                         </label>
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8 text-sm text-muted-foreground">
+                    <div className="text-center py-8 text-xs text-muted-foreground">
                       لا توجد مواضيع مطابقة
                     </div>
                   )
@@ -190,12 +196,14 @@ export function TagFilter({
                                 className="flex items-center gap-3 px-3 py-2 hover:bg-muted rounded-lg cursor-pointer transition-colors"
                               >
                                 <input
+                                  id={`tag-filter-${tag.replace(/\s+/g, '-')}`}
+                                  name="tag"
                                   type="checkbox"
                                   checked={selectedTags.includes(tag)}
                                   onChange={() => toggleTag(tag)}
                                   className="w-4 h-4 rounded border-border text-primary focus:ring-primary/50 cursor-pointer"
                                 />
-                                <span className="text-sm flex-1">{tag}</span>
+                                <span className="text-xs flex-1">{tag}</span>
                               </label>
                             ))}
                           </div>

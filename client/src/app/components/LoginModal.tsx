@@ -58,6 +58,8 @@ export function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginModalProp
               <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
                 type="text"
+                id="login-email"
+                name="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -73,6 +75,8 @@ export function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginModalProp
               <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
                 type="password"
+                id="login-password"
+                name="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -86,6 +90,8 @@ export function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginModalProp
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
+                id="login-remember-me"
+                name="remember_me"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
                 className="w-4 h-4 rounded border-border"

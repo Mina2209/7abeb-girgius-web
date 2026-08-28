@@ -1,18 +1,31 @@
 import { PrismaClient, FileType } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 const prisma = new PrismaClient();
 
+// SECURITY: Seed script should NEVER run in production.
+// It creates default accounts with development-only credentials.
+if (process.env.NODE_ENV === 'production') {
+  console.error('FATAL: Seed script cannot run in production. Use the admin API to create users.');
+  process.exit(1);
+}
+
+// Generate cryptographically random passwords for development
+function generatePassword() {
+  return crypto.randomBytes(24).toString('base64url');
+}
+
 async function main() {
-  // Create default admin user
-  const adminPassword = await bcrypt.hash('@dmin123$', 10);
-  const editorPassword = await bcrypt.hash('@dmin123$', 10);
-  
+  // Generate random passwords - never use hardcoded credentials
+  const adminPassword = generatePassword();
+  const editorPassword = generatePassword();
+
   await prisma.user.upsert({
     where: { username: 'admin' },
     update: {},
     create: {
       username: 'admin',
-      password: adminPassword,
+      password: await bcrypt.hash(adminPassword, 10),
       role: 'ADMIN'
     }
   });
@@ -22,12 +35,17 @@ async function main() {
     update: {},
     create: {
       username: 'editor',
-      password: editorPassword,
+      password: await bcrypt.hash(editorPassword, 10),
       role: 'EDITOR'
     }
   });
 
-  console.log('Default users created: admin/TEmPpasSWordFoRaDMin12e4## and editor/TEmPpasSWordFoRaDMin12e4##');
+  // SECURITY: Do NOT print passwords to console/log files
+  console.log('Development seed complete. Default users created:');
+  console.log('  - admin (ADMIN role)');
+  console.log('  - editor (EDITOR role)');
+  console.log('Passwords have been randomly generated and are NOT displayed.');
+  console.log('Use the admin API to reset passwords if needed.');
 
   const hymns = [
     {

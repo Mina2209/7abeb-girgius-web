@@ -48,6 +48,7 @@ import { fetchAllTags } from '../services/tagsService';
 import type { ContentId, GalleryImage } from '../types/content';
 import { createImage, deleteImage, updateImage, updateArtist } from '../services/contentWriteService';
 import { getApiBaseUrl } from '../config/api';
+import { getImageUrl } from '../utils/getImageUrl';
 import { normalizeArabic } from '../utils/arabicUtils';
 import { downloadFile } from '../utils/download';
 import { trackEvent } from '../services/analytics';
@@ -514,7 +515,8 @@ export function ImageLibrarySection({
         setImages((prev) => [...prev, created]);
         setShareMessage('تمت الإضافة بنجاح');
       }
-    } catch {
+    } catch (err: any) {
+      console.error('[ImageLibrary] Save failed:', err?.message || err);
       setShareMessage('فشل الحفظ على الخادم');
     } finally {
       setTimeout(() => setShareMessage(''), 2000);
@@ -739,7 +741,7 @@ export function ImageLibrarySection({
       </div>
 
       {/* Sticky Header Section */}
-      <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
+      <div className="sticky top-0 bg-background z-40 pb-2 pt-2 sm:pb-4 border-b border-border/50">
 
         {isEditor && (
           <div className="mt-4 mb-4 px-3 py-2 bg-primary/5 border border-primary/20 rounded-lg">
@@ -1069,11 +1071,8 @@ export function ImageLibrarySection({
                   }}
                 >
                   {(() => {
-                    const baseUrl = getApiBaseUrl();
-                    const fullImageUrl =
-                      image.src.startsWith('http') || image.src.startsWith('data:')
-                        ? image.src
-                        : `${baseUrl}${image.src.startsWith('/') ? '' : '/'}${image.src}`;
+                    if (image.src.startsWith('blob:')) return null;
+                    const fullImageUrl = getImageUrl(image.src);
 
                     return (
                       <img
@@ -1082,6 +1081,7 @@ export function ImageLibrarySection({
                         loading="lazy"
                         decoding="async"
                         className="w-full h-auto object-cover transition-transform duration-300 bg-muted min-h-[200px]"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                       />
                     );
                   })()}
@@ -1120,7 +1120,7 @@ export function ImageLibrarySection({
                   {!isSelectionMode && !bulkEditMode && (
                     <>
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center gap-2">
                           {isEditor ? (
                             <>
                               <button
@@ -1340,12 +1340,9 @@ export function ImageLibrarySection({
             onTouchEnd={onTouchEnd}
           >
             {(() => {
-              const baseUrl = getApiBaseUrl();
               const currentSrc = sortedImages[currentImageIndex].src;
-              const fullLightboxUrl =
-                currentSrc.startsWith('http') || currentSrc.startsWith('data:')
-                  ? currentSrc
-                  : `${baseUrl}${currentSrc.startsWith('/') ? '' : '/'}${currentSrc}`;
+              if (currentSrc.startsWith('blob:')) return null;
+              const fullLightboxUrl = getImageUrl(currentSrc);
 
               return (
                 <img

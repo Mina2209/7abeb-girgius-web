@@ -37,7 +37,7 @@ export function RankBars({
         const pct = total > 0 ? (it.value / total) * 100 : 0;
         return (
           <li key={it.key}>
-            <div className="mb-1 flex items-center justify-between gap-3 text-sm">
+            <div className="mb-1 flex items-center justify-between gap-2 text-sm">
               <span className="flex min-w-0 items-center gap-2">
                 {it.icon && <span className="shrink-0 text-muted-foreground">{it.icon}</span>}
                 <span className="min-w-0">

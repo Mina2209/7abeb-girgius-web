@@ -11,7 +11,7 @@ export function LiturgySection() {
       {/* Header Section */}
       <div className="border-b border-border pb-6">
         <h1 className="mb-2 font-bold text-2xl sm:text-3xl lg:text-[36px] text-foreground tracking-tight">بوربوينت الليتورجية</h1>
-        <p className="text-muted-foreground text-lg">
+        <p className="text-muted-foreground" style={{ fontSize: "1.09rem" }}>
           عروض تقديمية شاملة للطقوس والقداسات الكنسية
         </p>
       </div>

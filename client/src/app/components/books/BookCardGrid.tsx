@@ -1,5 +1,6 @@
 import { BookOpen, Download, Edit2, Trash2, Heart } from 'lucide-react';
 import type { Book } from '../BooksSection';
+import { getImageUrl } from '../../utils/getImageUrl';
 
 interface BookCardGridProps {
   isEditor: boolean;
@@ -58,7 +59,7 @@ export function BookCardGrid({
 
             <div className="relative aspect-[3/4] bg-muted overflow-hidden">
                   <img
-                    src={book.coverImage || ''}
+                    src={getImageUrl(book.coverImage || '')}
                     alt={book.title}
                     loading="lazy"
                     decoding="async"

@@ -72,6 +72,8 @@ export function ServicesDropdown({ value, onChange, required }: ServicesDropdown
       
       {/* Hidden input for form validation */}
       <input
+        id="services-hidden-input"
+        name="services"
         type="text"
         value={value.join(',')}
         onChange={() => {}}
@@ -92,6 +94,8 @@ export function ServicesDropdown({ value, onChange, required }: ServicesDropdown
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted cursor-pointer transition-colors"
               >
                 <input
+                  id={`service-${service.value.replace(/\s+/g, '-')}`}
+                  name="service"
                   type="checkbox"
                   checked={value.includes(service.value)}
                   onChange={() => handleToggle(service.value)}

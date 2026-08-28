@@ -53,6 +53,8 @@ export function ChurchRoleDropdown({ value, onChange, required }: ChurchRoleDrop
       
       {/* Hidden input for form validation */}
       <input
+        id="church-role-hidden-input"
+        name="church_role"
         type="text"
         value={value}
         onChange={() => {}}

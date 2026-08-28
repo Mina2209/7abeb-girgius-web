@@ -129,6 +129,8 @@ export function AddUserModal({ isOpen, onClose, onAddUser }: AddUserModalProps) 
               <User className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
                 type="text"
+                id="add-user-full-name"
+                name="full_name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
@@ -144,6 +146,8 @@ export function AddUserModal({ isOpen, onClose, onAddUser }: AddUserModalProps) 
               <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
                 type="email"
+                id="add-user-email"
+                name="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -159,6 +163,8 @@ export function AddUserModal({ isOpen, onClose, onAddUser }: AddUserModalProps) 
               <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
                 type="password"
+                id="add-user-password"
+                name="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -174,6 +180,8 @@ export function AddUserModal({ isOpen, onClose, onAddUser }: AddUserModalProps) 
               <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
                 type="password"
+                id="add-user-confirm-password"
+                name="confirm_password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
@@ -189,6 +197,8 @@ export function AddUserModal({ isOpen, onClose, onAddUser }: AddUserModalProps) 
               <Church className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
                 type="text"
+                id="add-user-church-name"
+                name="church_name"
                 value={churchName}
                 onChange={(e) => setChurchName(e.target.value)}
                 required
@@ -221,6 +231,8 @@ export function AddUserModal({ isOpen, onClose, onAddUser }: AddUserModalProps) 
             <div className="relative">
               <Shield className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <select
+                id="add-user-role"
+                name="role"
                 value={role}
                 onChange={(e) => setRole(e.target.value as UserRole)}
                 className={`w-full pr-11 pl-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer ${getRoleBadgeColor(role)}`}

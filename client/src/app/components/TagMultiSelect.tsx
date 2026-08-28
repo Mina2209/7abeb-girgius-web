@@ -140,6 +140,8 @@ export function TagMultiSelect({
                 <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                 <input
                   ref={searchInputRef}
+                  id="tag-multi-select-search"
+                  name="search"
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}

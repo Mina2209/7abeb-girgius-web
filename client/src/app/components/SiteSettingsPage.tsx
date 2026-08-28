@@ -5,6 +5,7 @@ import { getDefaultBookCover } from './BooksSection';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { apiRequest } from '../services/apiClient';
+import { getImageUrl } from '../utils/getImageUrl';
 
 const FALLBACK_BOOK_COVER = 'https://images.unsplash.com/photo-1569690484582-58b478f46805?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxib29rJTIwY292ZXIlMjBwbGFjZWhvbGRlcnxlbnwxfHx8fDE3Njg1NzEyMTd8MA&ixlib=rb-4.1.0&q=80&w=1080';
 
@@ -299,7 +300,7 @@ export function SiteSettingsPage() {
             <div className="flex-shrink-0">
               <div className="aspect-[3/4] w-[120px] sm:w-[150px] rounded-lg overflow-hidden border-2 border-border">
                 <img
-                  src={previewCover}
+                  src={getImageUrl(previewCover)}
                   alt="Default book cover preview"
                   loading="lazy"
                   decoding="async"
@@ -318,6 +319,8 @@ export function SiteSettingsPage() {
                     <span className="text-sm">رفع صورة جديدة</span>
                   </div>
                   <input
+                    id="settings-book-cover"
+                    name="book_cover"
                     type="file"
                     accept="image/*"
                     onChange={handleImageUpload}

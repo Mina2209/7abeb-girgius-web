@@ -44,27 +44,6 @@ const copticResources = [
     type: 'مستند',
     size: '4.7 MB',
   },
-  {
-    id: 6,
-    title: 'تمارين وتدريبات',
-    description: 'تمارين عملية لتعلم اللغة القبطية',
-    type: 'مستند',
-    size: '4.7 MB',
-  },
-  {
-    id: 6,
-    title: 'تمارين وتدريبات',
-    description: 'تمارين عملية لتعلم اللغة القبطية',
-    type: 'مستند',
-    size: '4.7 MB',
-  },
-  {
-    id: 6,
-    title: 'تمارين وتدريبات',
-    description: 'تمارين عملية لتعلم اللغة القبطية',
-    type: 'مستند',
-    size: '4.7 MB',
-  },  
 ];
 
 export function CopticLanguageSection() {

@@ -16,6 +16,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useIsAdmin } from '../utils/adminUtils';
 import { CompactThemeToggle } from './CompactThemeToggle';
+import { getImageUrl } from '../utils/getImageUrl';
 
 interface UserSectionProps {
   isCollapsed: boolean;
@@ -335,7 +336,7 @@ export function UserSection({
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
               {profile.avatar_url ? (
                 <img
-                  src={profile.avatar_url}
+                  src={getImageUrl(profile.avatar_url)}
                   alt={profile.full_name}
                   loading="lazy"
                   decoding="async"
@@ -364,7 +365,7 @@ export function UserSection({
           <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
             {profile.avatar_url ? (
               <img
-                src={profile.avatar_url}
+                src={getImageUrl(profile.avatar_url)}
                 alt={profile.full_name}
                 loading="lazy"
                 decoding="async"

@@ -44,6 +44,7 @@ import {
 } from "../services/contentWriteService";
 import { downloadFile, downloadViaUrl } from "../utils/download";
 import { trackEvent } from "../services/analytics";
+import { getPreviewUrl } from "../services/s3Upload";
 import { useSearchAnalytics } from "../hooks/useSearchAnalytics";
 import { getApiBaseUrl } from "../config/api";
 import { toast } from 'sonner';
@@ -288,30 +289,32 @@ export function HymnsSection({
   const [previewType, setPreviewType] = useState<FileType | null>(null);
   // The file being previewed, so the modal's download button can use its real name.
   const [previewFile, setPreviewFile] = useState<HymnFile | null>(null);
-  const handleOpenPreview = (
+  const handleOpenPreview = async (
     url: string,
     type: FileType,
     title: string,
     file?: HymnFile | null,
   ) => {
-    setPreviewUrl(url);
-    setPreviewType(type);
-    setPreviewTitle(title);
-    setPreviewFile(file ?? null);
-    setIsPreviewOpen(true);
     if (type === "PowerPoint file") {
       trackEvent("powerpoint_view", {
         contentType: "hymn",
         contentName: title,
         properties: { fileType: type },
       });
+      const resolved = await getPreviewUrl(url);
+      setPreviewUrl(resolved);
     } else {
       trackEvent("hymn_view", {
         contentType: "hymn",
         contentName: title,
         properties: { fileType: type },
       });
+      setPreviewUrl(url);
     }
+    setPreviewType(type);
+    setPreviewTitle(title);
+    setPreviewFile(file ?? null);
+    setIsPreviewOpen(true);
   };
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const fileTypeDropdownRef = useRef<HTMLDivElement>(null);
@@ -328,7 +331,21 @@ export function HymnsSection({
     const hymnElement = hymnCardRefs.current[String(expandedHymnId)];
     if (!hymnsContainer || !hymnElement) return;
 
-    hymnElement.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+    const header = hymnsContainer.querySelector('[data-sticky-header]');
+    if (!header) return;
+
+    const timer = setTimeout(() => {
+      const headerBottom = (header as HTMLElement).getBoundingClientRect().bottom;
+      const elTop = hymnElement.getBoundingClientRect().top;
+      const GAP = 8;
+      const delta = elTop - headerBottom - GAP;
+
+      if (Math.abs(delta) > 1) {
+        hymnsContainer.scrollTo({ top: hymnsContainer.scrollTop + delta, behavior: "smooth" });
+      }
+    }, 520);
+
+    return () => clearTimeout(timer);
   }, [expandedHymnId]);
 
   // Get unique tags from hymns
@@ -846,7 +863,7 @@ export function HymnsSection({
       </div>
 
       {/* Sticky Header Section */}
-      <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
+      <div data-sticky-header className="sticky top-0 bg-background z-40 pb-2 pt-2 sm:pb-4 border-b border-border/50">
 
         {/* Admin Toolbar - Option 1: Dedicated Row */}
         {isEditor && (
@@ -1063,7 +1080,7 @@ export function HymnsSection({
               </div>
 
               {/* File Type Filter */}
-              <div className="relative flex-1 sm:flex-initial sm:flex-shrink-0">
+              <div className="relative flex-1 sm:flex-initial sm:flex-shrink-0" ref={fileTypeDropdownRef}>
                 <button
                   onClick={() =>
                     setIsFileTypeDropdownOpen(!isFileTypeDropdownOpen)
@@ -1718,7 +1735,7 @@ export function HymnsSection({
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm text-muted-foreground">
+                          <div className="grid grid-cols-3 gap-4 text-sm text-muted-foreground">
                             <div className="rounded-lg bg-muted/20 p-3">
                               <div className="text-xs font-semibold text-muted-foreground/80">
                                 المدة
@@ -1768,7 +1785,7 @@ export function HymnsSection({
                               // لو ملقتش ملف حقيقي، بنعمل Fallback على بورت السيرفر اللوكل أو مسار افتراضي عشان الداتا التجريبية تشغل معاك علطول
                               const fileUrl =
                                 actualFile?.url ||
-                                `http://localhost:8080/uploads/${hymn.id}_${fileType}`;
+                                `${getApiBaseUrl()}/uploads/${hymn.id}_${fileType}`;
 
                               return (
                                 <div
