@@ -73,9 +73,15 @@ export const LyricService = {
     const normalizedQuery = normalizeArabic(query);
     
     try {
-      // Use raw SQL for full-text search with the GIN index
+      // Use raw SQL for full-text search with the GIN index.
+      // Columns are listed explicitly rather than `l.*` on purpose: `l.*` pulls in the
+      // generated `search_vector` tsvector, which $queryRaw cannot deserialize. That
+      // threw on every call and sent the query down the ILIKE fallback below, which
+      // matches against the UN-normalized content and so never matched any term whose
+      // normalized form differs from what is stored (e.g. أسلمله -> اسلمله).
       const results = await prisma.$queryRaw`
-        SELECT l.*, h.title as "hymnTitle"
+        SELECT l."id", l."hymnId", l."content", l."createdAt", l."updatedAt",
+               h.title as "hymnTitle"
         FROM "Lyric" l
         JOIN "Hymn" h ON l."hymnId" = h.id
         WHERE l.search_vector @@ plainto_tsquery('simple', ${normalizedQuery})

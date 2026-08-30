@@ -27,6 +27,7 @@ COPY controllers ./controllers/
 COPY middleware ./middleware/
 COPY routes ./routes/
 COPY services ./services/
+COPY utils ./utils/
 
 ENV NODE_ENV=production
 ENV PORT=8080

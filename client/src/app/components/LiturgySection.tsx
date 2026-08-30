@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { apiGetJson } from '../services/apiClient';
+import { getApiBaseUrl } from '../config/api';
 import { getImageUrl } from '../utils/getImageUrl';
 import { useIsAdmin } from '../utils/adminUtils';
 import { LiturgyEditModal, type LiturgyData, type LiturgyReleaseItem } from './LiturgyEditModal';
@@ -138,7 +139,11 @@ export function LiturgySection() {
             size="lg"
             className="w-full sm:w-auto gap-3 text-xl font-bold shadow-lg px-8 py-6 rounded-xl hover:scale-105 transition-transform cursor-pointer"
           >
-            <a href="/api/liturgy/download" target="_blank" rel="noopener noreferrer">
+            <a
+              href={`${getApiBaseUrl()}/api/liturgy/download`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               <Download className="w-7 h-7" />
               إضغط للتنزيل
             </a>

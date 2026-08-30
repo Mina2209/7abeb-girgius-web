@@ -57,7 +57,10 @@ export async function presignAndUpload(
     throw new Error(`S3 upload failed with status ${putRes.status}`);
   }
 
-  return { url: `/api/uploads/url?key=${encodeURIComponent(key)}`, key };
+  // Stored absolute, matching every row the previous site wrote. The value is
+  // persisted in the database and read back by a frontend served from a different
+  // origin (the S3 website bucket), where a relative path would not resolve.
+  return { url: `${getApiBaseUrl()}/api/uploads/url?key=${encodeURIComponent(key)}`, key };
 }
 
 export async function uploadFileToS3(

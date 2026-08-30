@@ -1,0 +1,4 @@
+# Migration files are checksummed by Prisma against what was applied to the
+# database. A CRLF checkout changes those bytes and breaks the checksum, so pin
+# them (and all SQL) to LF regardless of platform.
+*.sql text eol=lf

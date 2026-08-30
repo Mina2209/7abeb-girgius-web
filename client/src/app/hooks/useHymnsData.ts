@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Hymn } from '../types/content';
 import { bustContentCache, loadHymnsData } from '../services/contentLoaders';
+import { apiGetJson } from '../services/apiClient';
 
 // Phase 1 (Server sync): only ensure hymns are loaded from the API.
 // Keep the existing client-side filtering/sorting behavior inside HymnsSection.
@@ -34,13 +35,10 @@ export function useHymnsData(query?: {
         const qs = params.toString();
         const url = `/api/hymns${qs ? `?${qs}` : ''}`;
 
-        // Reuse existing apiClient via loadHymnsData path is not possible here,
-        // so we fetch directly.
-        const res = await fetch(url, {
-          headers: { Accept: 'application/json' },
-        });
-        if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`);
-        const rows = (await res.json()) as any[];
+        // Go through apiClient so the request is resolved against the API base URL.
+        // A bare fetch() here would be relative to the page origin, which is the S3
+        // website bucket in production — not the API server.
+        const rows = await apiGetJson<any[]>(url);
 
         // The client-side mapper expects server rows already in the Hymn shape.
         // In this project hymns from loadHymnsData are already mapped, so keep it consistent:

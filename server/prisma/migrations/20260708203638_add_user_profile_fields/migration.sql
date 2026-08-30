@@ -1,4 +1,4 @@
-﻿-- Add profile fields to User model
+-- Add profile fields to User model
 ALTER TABLE "public"."User" ADD COLUMN IF NOT EXISTS "email" TEXT;
 ALTER TABLE "public"."User" ADD COLUMN IF NOT EXISTS "full_name" TEXT;
 ALTER TABLE "public"."User" ADD COLUMN IF NOT EXISTS "church_name" TEXT;

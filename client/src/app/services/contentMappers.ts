@@ -1,4 +1,5 @@
 import type { GalleryImage, Hymn, HymnFile, HymnFileType, Saying } from '../types/content';
+import { getApiBaseUrl } from '../config/api';
 import type { Artist } from '../data/artists';
 import type { Father } from '../data/fathers';
 
@@ -86,11 +87,27 @@ function formatDurationSeconds(sec: number | null | undefined): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+/**
+ * Resolve a stored file URL to something the browser can actually fetch.
+ *
+ * Rows written by the old site hold an absolute URL; rows written by newer code hold a
+ * relative `/api/uploads/url?key=…`. The frontend is served from an S3 website bucket,
+ * a different origin to the API with no proxy in front of it, so a relative path would
+ * resolve against the bucket. Normalising here covers every consumer of `file.url` —
+ * preview, download and the anchor hrefs — regardless of which form was stored.
+ */
+function resolveFileUrl(fileUrl: string): string {
+  if (!fileUrl) return fileUrl;
+  if (/^(https?:|data:|blob:)/.test(fileUrl)) return fileUrl;
+  if (fileUrl.startsWith('/api/')) return `${getApiBaseUrl()}${fileUrl}`;
+  return fileUrl;
+}
+
 export function mapServerHymnToClient(row: ServerHymn): Hymn {
   const files: HymnFile[] = (row.files ?? []).map((f) => ({
     type: mapFileType(f.type),
     name: f.originalName?.trim() || f.fileUrl || 'ملف',
-    url: f.fileUrl,
+    url: resolveFileUrl(f.fileUrl),
     size: f.size ?? undefined,
   }));
   const fileTypes = [...new Set(files.map((f) => f.type))] as HymnFileType[];
