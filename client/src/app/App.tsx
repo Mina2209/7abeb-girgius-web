@@ -1,6 +1,7 @@
-import { Suspense, useEffect, useState, useCallback, useRef, lazy } from 'react';
+import { Suspense, useEffect, useState, useCallback, useRef, lazy, type ReactNode } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { SectionsVisibilityProvider, useSectionsVisibility } from './contexts/SectionsVisibilityContext';
 import { AnalyticsRouteTracker } from './components/AnalyticsRouteTracker';
 import { HomeSection } from './components/HomeSection';
 
@@ -187,30 +188,33 @@ export default function App() {
   if (isQrCodeRoute) {
     return (
       <AuthProvider>
-        <AnalyticsRouteTracker />
-        {deferredReady && (
+        <SectionsVisibilityProvider>
+          <AnalyticsRouteTracker />
+          {deferredReady && (
+            <Suspense fallback={null}>
+              <LazyToaster />
+            </Suspense>
+          )}
           <Suspense fallback={null}>
-            <LazyToaster />
+            <Routes>
+              <Route path="/qrcode" element={<BioLinkPage />} />
+            </Routes>
           </Suspense>
-        )}
-        <Suspense fallback={null}>
-          <Routes>
-            <Route path="/qrcode" element={<BioLinkPage />} />
-          </Routes>
-        </Suspense>
+        </SectionsVisibilityProvider>
       </AuthProvider>
     );
   }
 
   return (
     <AuthProvider>
-      <AnalyticsRouteTracker />
-      {deferredReady && (
-        <Suspense fallback={null}>
-          <LazyToaster />
-        </Suspense>
-      )}
-      <div className="flex h-screen bg-background overflow-x-hidden" dir="rtl">
+      <SectionsVisibilityProvider>
+        <AnalyticsRouteTracker />
+        {deferredReady && (
+          <Suspense fallback={null}>
+            <LazyToaster />
+          </Suspense>
+        )}
+        <div className="flex h-screen bg-background overflow-x-hidden" dir="rtl">
         {deferredReady ? (
           <Suspense
             fallback={
@@ -264,7 +268,10 @@ export default function App() {
               />
               <Route path="/artists" element={<ArtistsSection />} />
               <Route path="/artists/:id" element={<ArtistDetailPage />} />
-              <Route path="/books" element={<BooksSection />} />
+              <Route
+                path="/books"
+                element={<SectionVisibilityGuard sectionId="books" fallback={<HomeSection />}><BooksSection /></SectionVisibilityGuard>}
+              />
               <Route path="/sayings" element={<SayingsSection />} />
               <Route path="/sayings/authors/:id" element={<FatherDetailPage />} />
               <Route path="/coptic" element={<CopticLanguageSection />} />
@@ -312,8 +319,38 @@ export default function App() {
           </Suspense>
         )}
       </div>
+      </SectionsVisibilityProvider>
     </AuthProvider>
   );
+}
+
+// ---------------------------------------------------------------------------
+// SectionVisibilityGuard
+// Redirects visitors away from a section that an admin has hidden from the
+// public site. Admins/editors always see every section (role-aware hook).
+// ---------------------------------------------------------------------------
+
+function SectionVisibilityGuard({
+  sectionId,
+  children,
+  fallback,
+}: {
+  sectionId: string;
+  children: ReactNode;
+  fallback?: ReactNode;
+}) {
+  const { isSectionVisible, loaded } = useSectionsVisibility();
+  const { loading: authLoading } = useAuth();
+
+  if (authLoading || !loaded) {
+    return null;
+  }
+
+  if (!isSectionVisible(sectionId)) {
+    return <>{fallback ?? <HomeSection />}</>;
+  }
+
+  return <>{children}</>;
 }
 
 

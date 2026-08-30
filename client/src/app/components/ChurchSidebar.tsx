@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo } from 'react';
+import { useState, memo } from 'react';
 import {
   ChevronRight,
   Menu,
@@ -14,7 +14,8 @@ import { CopticIcon } from './icons/CopticIcon';
 import { FlatIcon } from './icons/FlatIcon';
 import { CompactThemeToggle } from './CompactThemeToggle';
 import { UserSection } from './UserSection';
-import { apiGetJson } from '../services/apiClient';
+import { useSectionsVisibility } from '../contexts/SectionsVisibilityContext';
+import { useAuth } from '../contexts/AuthContext';
 
 
 interface SidebarProps {
@@ -77,17 +78,6 @@ const menuItems = [
   { id: 'coptic', label: 'لغة قبطية', icon: CopticIcon },
 ];
 
-function getInitialUserRole(): string {
-  try {
-    const currentProfile = localStorage.getItem('profile');
-    if (currentProfile) {
-      const user = JSON.parse(currentProfile);
-      return user.role || 'viewer';
-    }
-  } catch {}
-  return 'viewer';
-}
-
 export const ChurchSidebar = memo(function ChurchSidebar({
   activeSection,
   onSectionChange,
@@ -104,95 +94,14 @@ export const ChurchSidebar = memo(function ChurchSidebar({
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [sectionsVisibility, setSectionsVisibility] = useState<
-    Record<string, boolean>
-  >({});
-  const [userRole, setUserRole] = useState<string>(getInitialUserRole);
+  const { profile } = useAuth();
+  const { isSectionVisible, isSectionHidden } = useSectionsVisibility();
+  const userRole = profile?.role ?? 'viewer';
+  const isStaff = userRole === 'admin' || userRole === 'editor';
 
-  // Load visibility settings after initial paint (non-blocking)
-  useEffect(() => {
-    let cancelled = false;
+  const visibleMenuItems = isStaff ? menuItems : menuItems.filter((item) => isSectionVisible(item.id));
 
-    const load = async () => {
-      try {
-        const data = await apiGetJson<{ settings?: any }>(
-          '/api/auth/settings/site',
-          { method: 'GET' },
-        );
-        if (!cancelled && data?.settings?.site_sections_visibility) {
-          setSectionsVisibility(data.settings.site_sections_visibility);
-        }
-      } catch {
-        // Non-blocking: keep defaults.
-      }
-    };
-
-    const scheduleLoad = typeof requestIdleCallback === 'function'
-      ? () => requestIdleCallback(() => { if (!cancelled) load(); })
-      : () => setTimeout(() => { if (!cancelled) load(); }, 0);
-
-    scheduleLoad();
-
-    const handleVisibilityChange = () => {
-      load();
-    };
-
-    const handleUserChange = () => {
-      const currentProfile = localStorage.getItem('profile');
-      if (currentProfile) {
-        try {
-          const user = JSON.parse(currentProfile);
-          setUserRole(user.role || 'viewer');
-        } catch {
-          setUserRole('viewer');
-        }
-      } else {
-        setUserRole('viewer');
-      }
-    };
-
-    window.addEventListener('sectionsVisibilityChanged', handleVisibilityChange);
-    window.addEventListener('storage', handleUserChange);
-    window.addEventListener('userChanged', handleUserChange);
-
-    return () => {
-      cancelled = true;
-      window.removeEventListener('sectionsVisibilityChanged', handleVisibilityChange);
-      window.removeEventListener('storage', handleUserChange);
-      window.removeEventListener('userChanged', handleUserChange);
-    };
-  }, []);
-
-  // Check if a section should be visible to the current user
-  const isSectionVisible = (sectionId: string): boolean => {
-    const isPubliclyVisible = sectionsVisibility[sectionId] ?? true;
-
-    // Editors and Admins see everything
-    if (userRole === 'editor' || userRole === 'admin') {
-      return true;
-    }
-
-    // Viewers only see publicly visible sections
-    return isPubliclyVisible;
-  };
-
-  // Check if a section is hidden (for styling purposes)
-  const isSectionHidden = (sectionId: string): boolean => {
-    return !(sectionsVisibility[sectionId] ?? true);
-  };
-
-  // Filter menu items based on visibility
-  // Admins and Editors see ALL sections, Viewers only see visible ones
-  const visibleMenuItems =
-    userRole === 'admin' || userRole === 'editor'
-      ? menuItems
-      : menuItems.filter((item) => isSectionVisible(item.id));
-
-  // For "about" section - admins/editors always see it, viewers only if it's visible
-  const isAboutVisible =
-    userRole === 'admin' || userRole === 'editor'
-      ? true
-      : isSectionVisible('about');
+  const isAboutVisible = isStaff ? true : isSectionVisible('about');
 
   const handleSectionChange = (section: string) => {
     onSectionChange(section);
@@ -268,8 +177,7 @@ export const ChurchSidebar = memo(function ChurchSidebar({
               {visibleMenuItems.map((item) => {
                 const Icon = item.icon;
                 const isHidden = isSectionHidden(item.id);
-                const canSeeHidden =
-                  userRole === 'editor' || userRole === 'admin';
+                const canSeeHidden = isStaff;
 
                 return (
                   <li key={item.id}>
@@ -302,13 +210,13 @@ export const ChurchSidebar = memo(function ChurchSidebar({
                     activeSection === 'about'
                       ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                       : 'text-sidebar-foreground hover:bg-sidebar-hover hover:text-sidebar-foreground'
-                  } ${isSectionHidden('about') && (userRole === 'editor' || userRole === 'admin') ? 'opacity-60' : ''}`}
+                  } ${isSectionHidden('about') && (isStaff) ? 'opacity-60' : ''}`}
                   title="عن الخدمة"
                 >
                   <InfoIcon className="w-5 h-5 flex-shrink-0" />
                   <span className="text-right flex-1">عن الخدمة</span>
                   {isSectionHidden('about') &&
-                    (userRole === 'editor' || userRole === 'admin') && (
+                    (isStaff) && (
                       <EyeOff className="w-4 h-4 flex-shrink-0 text-orange-500" />
                     )}
                 </button>
@@ -426,7 +334,7 @@ export const ChurchSidebar = memo(function ChurchSidebar({
             {visibleMenuItems.map((item) => {
               const Icon = item.icon;
               const isHidden = isSectionHidden(item.id);
-              const canSeeHidden = userRole === 'editor' || userRole === 'admin';
+              const canSeeHidden = isStaff;
 
               const buttonClasses = [
                 'w-full flex items-center justify-center gap-2.5 p-2.5 rounded-lg transition-colors',
@@ -473,7 +381,7 @@ export const ChurchSidebar = memo(function ChurchSidebar({
                   activeSection === 'about'
                     ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                     : 'hover:bg-sidebar-hover text-sidebar-foreground/80 hover:text-sidebar-foreground'
-                } ${isSectionHidden('about') && (userRole === 'editor' || userRole === 'admin') ? 'opacity-70' : ''}`}
+                } ${isSectionHidden('about') && (isStaff) ? 'opacity-70' : ''}`}
                 title="عن الخدمة"
               >
                 <InfoIcon className="w-5 h-5 flex-shrink-0" />
@@ -481,7 +389,7 @@ export const ChurchSidebar = memo(function ChurchSidebar({
                   <>
                     <span className="text-right flex-1">عن الخدمة</span>
                     {isSectionHidden('about') &&
-                      (userRole === 'editor' || userRole === 'admin') && (
+                      (isStaff) && (
                         <EyeOff className="w-4 h-4 flex-shrink-0 text-orange-500" />
                       )}
                   </>

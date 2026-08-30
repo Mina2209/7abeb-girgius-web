@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Heart, Trash2, Music } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useSectionsVisibility } from '../contexts/SectionsVisibilityContext';
 import { FlatIcon } from './icons/FlatIcon';
 import { useHymnsData } from '../hooks/useHymnsData';
 import { useGalleryImagesData } from '../hooks/useGalleryImagesData';
@@ -18,6 +19,7 @@ type FavoriteTab = 'hymns' | 'images' | 'books' | 'sayings';
 
 export function FavoritesPage() {
   const { profile } = useAuth();
+  const { isSectionVisible } = useSectionsVisibility();
   const [activeTab, setActiveTab] = useState<FavoriteTab>('hymns');
   const { hymns, loading: hymnsLoading } = useHymnsData();
   const { images, loading: imagesLoading } = useGalleryImagesData();
@@ -88,12 +90,19 @@ export function FavoritesPage() {
     total: favorites.hymns.length + favorites.images.length + favorites.books.length + favorites.sayings.length,
   };
 
+  const booksVisible = isSectionVisible('books');
+
   const tabs = [
     { id: 'hymns' as FavoriteTab, label: 'الترانيم', icon: MusicIcon, count: stats.hymns },
     { id: 'images' as FavoriteTab, label: 'الصور', icon: PictureIcon, count: stats.images },
-    { id: 'books' as FavoriteTab, label: 'الكتب', icon: BookOpenIcon, count: stats.books },
+    ...(booksVisible
+      ? [{ id: 'books' as FavoriteTab, label: 'الكتب', icon: BookOpenIcon, count: stats.books }]
+      : []),
     { id: 'sayings' as FavoriteTab, label: 'الأقوال', icon: QuoteIcon, count: stats.sayings },
   ];
+
+  const effectiveTab: FavoriteTab =
+    activeTab === 'books' && !booksVisible ? 'hymns' : activeTab;
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
@@ -123,10 +132,12 @@ export function FavoritesPage() {
             <p className="text-2xl font-bold">{stats.images}</p>
             <p className="text-sm text-muted-foreground">صور</p>
           </div>
-          <div className="bg-muted/50 rounded-lg p-4 text-center">
-            <p className="text-2xl font-bold">{stats.books}</p>
-            <p className="text-sm text-muted-foreground">كتب</p>
-          </div>
+          {booksVisible && (
+            <div className="bg-muted/50 rounded-lg p-4 text-center">
+              <p className="text-2xl font-bold">{stats.books}</p>
+              <p className="text-sm text-muted-foreground">كتب</p>
+            </div>
+          )}
           <div className="bg-muted/50 rounded-lg p-4 text-center">
             <p className="text-2xl font-bold">{stats.sayings}</p>
             <p className="text-sm text-muted-foreground">أقوال</p>
@@ -142,7 +153,7 @@ export function FavoritesPage() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-6 py-4 transition-colors whitespace-nowrap ${
-                activeTab === tab.id
+                effectiveTab === tab.id
                   ? 'bg-primary text-primary-foreground'
                   : 'hover:bg-muted text-muted-foreground'
               }`}
@@ -150,7 +161,7 @@ export function FavoritesPage() {
               <tab.icon className="w-5 h-5 flex-shrink-0" />
               <span className="text-sm sm:text-base">{tab.label}</span>
               <span className={`px-2 py-1 rounded-full text-xs ${
-                activeTab === tab.id
+                effectiveTab === tab.id
                   ? 'bg-primary-foreground/20'
                   : 'bg-muted'
               }`}>
@@ -162,7 +173,7 @@ export function FavoritesPage() {
 
         {/* Content */}
         <div className="p-6">
-          {activeTab === 'hymns' && (
+          {effectiveTab === 'hymns' && (
             <div className="space-y-4">
               {favorites.hymns.length === 0 ? (
                 <EmptyState
@@ -182,7 +193,7 @@ export function FavoritesPage() {
             </div>
           )}
 
-          {activeTab === 'images' && (
+          {effectiveTab === 'images' && (
             <div className="space-y-4">
               {favorites.images.length === 0 ? (
                 <EmptyState
@@ -204,7 +215,7 @@ export function FavoritesPage() {
             </div>
           )}
 
-          {activeTab === 'books' && (
+          {effectiveTab === 'books' && booksVisible && (
             <div className="space-y-4">
               {favorites.books.length === 0 ? (
                 <EmptyState
@@ -220,7 +231,7 @@ export function FavoritesPage() {
             </div>
           )}
 
-          {activeTab === 'sayings' && (
+          {effectiveTab === 'sayings' && (
             <div className="space-y-4">
               {favorites.sayings.length === 0 ? (
                 <EmptyState

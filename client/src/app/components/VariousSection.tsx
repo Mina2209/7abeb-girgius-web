@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   Download,
@@ -33,6 +33,7 @@ import { toast } from "sonner";
 import { TagFilter } from "./TagFilter";
 import { useTags } from "../hooks/useTags";
 import { useAuth } from "../contexts/AuthContext";
+import type { ServerTag } from "../services/tagsService";
 import { useIsEditor } from "../utils/adminUtils";
 import { apiGetJson, apiPutJson } from "../services/apiClient";
 import { createTag, notifyTagsUpdated } from "../services/tagsService";
@@ -64,6 +65,40 @@ function useDebounce<T>(value: T, delay: number): T {
     return () => clearTimeout(timer);
   }, [value, delay]);
   return debounced;
+}
+
+// Group a file's topics exactly the way the topics-management page groups them:
+// each topic is put under its section name, and sections are ordered by their
+// server "order" field (unassigned topics fall under "مواضيع متنوعة").
+function groupFileTagsBySection(
+  fileTags: string[],
+  allTags: ServerTag[],
+): Array<{ sectionName: string; sectionOrder: number; tags: string[] }> {
+  const sectionOfTag = new Map<string, { name: string; order: number }>();
+  for (const t of allTags) {
+    sectionOfTag.set(t.name, {
+      name: t.section?.name ?? 'مواضيع متنوعة',
+      order: t.section?.order ?? Number.MAX_SAFE_INTEGER,
+    });
+  }
+
+  const groups = new Map<string, { sectionName: string; sectionOrder: number; tags: string[] }>();
+  for (const tag of fileTags) {
+    const info = sectionOfTag.get(tag) ?? {
+      name: 'مواضيع متنوعة',
+      order: Number.MAX_SAFE_INTEGER,
+    };
+    let group = groups.get(info.name);
+    if (!group) {
+      group = { sectionName: info.name, sectionOrder: info.order, tags: [] };
+      groups.set(info.name, group);
+    }
+    group.tags.push(tag);
+  }
+
+  return [...groups.values()]
+    .map((g) => ({ ...g, tags: [...g.tags] }))
+    .sort((a, b) => a.sectionOrder - b.sectionOrder);
 }
 
 function sortCategories(cats: PowerpointCategory[], sort: SortOption): PowerpointCategory[] {
@@ -334,6 +369,14 @@ export function VariousSection() {
 
   const filteredTagNames = availableTagNames.filter((t) =>
     t.toLowerCase().includes(tagSearch.toLowerCase())
+  );
+
+  // Group the topics by their sections exactly like the topics-management page:
+  // section headers (ordered by section order) with their topics underneath,
+  // and unassigned topics under "مواضيع متنوعة".
+  const filteredTagGroups = useMemo(
+    () => groupFileTagsBySection(filteredTagNames, allTags),
+    [filteredTagNames, allTags]
   );
 
   const handleCreateAndToggleTag = async (catId: string, fileId: string, tagName: string) => {
@@ -713,9 +756,13 @@ export function VariousSection() {
                                   >
                                     <Tag className="w-3 h-3" />
                                     <span>
-                                      {(file.tags || []).length > 0
-                                        ? file.tags.join(", ")
-                                        : "إضافة مواضيع"}
+                                      {(() => {
+                                        const groups = groupFileTagsBySection(file.tags || [], allTags);
+                                        if (groups.length === 0) return "إضافة مواضيع";
+                                        return groups
+                                          .map((g) => `${g.sectionName} (${g.tags.join("، ")})`)
+                                          .join(" - ");
+                                      })()}
                                     </span>
                                   </button>
                                   {tagPopoverFileId === file.id && createPortal(
@@ -743,27 +790,66 @@ export function VariousSection() {
                                           </div>
                                         </div>
                                         <div className="overflow-y-auto p-1.5 flex-1">
-                                          {filteredTagNames.length > 0 ? (
-                                            filteredTagNames.map((tagName) => {
-                                              const isSelected = (file.tags || []).includes(tagName);
-                                              return (
-                                                <button
-                                                  key={tagName}
-                                                  onClick={() => {
-                                                    toggleFileTag(category.id, file.id, tagName);
-                                                    setTagSearch("");
-                                                  }}
-                                                  className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg transition-colors text-xs ${
-                                                    isSelected
-                                                      ? "bg-primary/10 text-primary font-medium"
-                                                      : "hover:bg-muted text-foreground"
-                                                  }`}
-                                                >
-                                                  <span>{tagName}</span>
-                                                  {isSelected && <Check className="w-3 h-3 shrink-0" />}
-                                                </button>
-                                              );
-                                            })
+                                          {tagSearch.trim() ? (
+                                            filteredTagNames.length > 0 ? (
+                                              <div className="space-y-0.5">
+                                                {filteredTagNames.map((tagName) => {
+                                                  const isSelected = (file.tags || []).includes(tagName);
+                                                  return (
+                                                    <button
+                                                      key={tagName}
+                                                      onClick={() => {
+                                                        toggleFileTag(category.id, file.id, tagName);
+                                                        setTagSearch("");
+                                                      }}
+                                                      className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg transition-colors text-xs ${
+                                                        isSelected
+                                                          ? "bg-primary/10 text-primary font-medium"
+                                                          : "hover:bg-muted text-foreground"
+                                                      }`}
+                                                    >
+                                                      <span>{tagName}</span>
+                                                      {isSelected && <Check className="w-3 h-3 shrink-0" />}
+                                                    </button>
+                                                  );
+                                                })}
+                                              </div>
+                                            ) : (
+                                              <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+                                                لا توجد مواضيع مطابقة
+                                              </div>
+                                            )
+                                          ) : filteredTagGroups.length > 0 ? (
+                                            <div className="space-y-2.5">
+                                              {filteredTagGroups.map((group) => (
+                                                <div key={group.sectionName}>
+                                                  <div className="px-2.5 py-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border/50 mb-1">
+                                                    {group.sectionName}
+                                                  </div>
+                                                  <div className="space-y-0.5">
+                                                    {group.tags.map((tagName) => {
+                                                      const isSelected = (file.tags || []).includes(tagName);
+                                                      return (
+                                                        <button
+                                                          key={tagName}
+                                                          onClick={() => {
+                                                            toggleFileTag(category.id, file.id, tagName);
+                                                          }}
+                                                          className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg transition-colors text-xs ${
+                                                            isSelected
+                                                              ? "bg-primary/10 text-primary font-medium"
+                                                              : "hover:bg-muted text-foreground"
+                                                          }`}
+                                                        >
+                                                          <span>{tagName}</span>
+                                                          {isSelected && <Check className="w-3 h-3 shrink-0" />}
+                                                        </button>
+                                                      );
+                                                    })}
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
                                           ) : (
                                             <div className="px-2 py-4 text-center text-xs text-muted-foreground">
                                               لا توجد مواضيع مطابقة

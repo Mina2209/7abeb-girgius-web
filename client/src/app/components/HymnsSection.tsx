@@ -28,7 +28,6 @@ import { LoginRequiredModal } from "./LoginRequiredModal";
 import { useIsEditor } from "../utils/adminUtils";
 import { normalizeArabic } from "../utils/arabicUtils";
 import { AdminEditHymnModal } from "./AdminEditHymnModal";
-import { VideoModal } from "./VideoModal";
 import { useHymnsData } from "../hooks/useHymnsData";
 import { useFavorites } from "../hooks/useFavorites";
 import type {
@@ -281,8 +280,6 @@ export function HymnsSection({
   const [editingHymn, setEditingHymn] = useState<Hymn | null>(null);
   const [bulkEditMode, setBulkEditMode] = useState(false);
 
-  // Video tutorial modal state
-  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   // أضف هذه الأسطر للمعاينة
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
@@ -854,13 +851,6 @@ export function HymnsSection({
           الترنيمة المطلوبة، وأضف المفضلات لديك، وحمّل الملفات للاستخدام في
           الخدمة والصلاة.
         </p>
-        <button
-          onClick={() => setIsVideoModalOpen(true)}
-          className="mt-2 flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors"
-        >
-          <Video className="w-4 h-4" />
-          <span>← شرح الاستخدام</span>
-        </button>
       </div>
 
       {/* Sticky Header Section */}
@@ -2072,13 +2062,6 @@ export function HymnsSection({
         />
       )}
 
-      {/* Video Tutorial Modal */}
-      <VideoModal
-        isOpen={isVideoModalOpen}
-        onClose={() => setIsVideoModalOpen(false)}
-        videoUrl="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-        title="شرح استخدام مكتبة الترانيم"
-      />
       {/* مودال معاينة الملفات لايف على الموقع قبل التحميل */}
       {isPreviewOpen && (
           <div

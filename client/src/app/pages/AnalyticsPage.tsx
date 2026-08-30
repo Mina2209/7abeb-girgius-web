@@ -100,6 +100,23 @@ const CONTENT_TYPE_LABELS: Record<string, string> = {
   saying: 'قول',
 };
 
+// Content types are recorded from different sources: content events use singular
+// values ('hymn', 'image', …) while search events use the section id (plural:
+// 'hymns', 'images', …). Normalize aliases so the content-type breakdown shows one
+// Arabic row per type instead of both 'images' and 'صورة', or 'hymns' and 'ترنيمة'.
+const CONTENT_TYPE_ALIASES: Record<string, string> = {
+  hymns: 'hymn',
+  images: 'image',
+  sayings: 'saying',
+  books: 'book',
+  powerpoints: 'powerpoint',
+};
+
+function canonicalContentType(type: string | null | undefined): string | null | undefined {
+  if (!type) return type;
+  return CONTENT_TYPE_ALIASES[type] ?? type;
+}
+
 const DEVICE_LABELS: Record<string, string> = {
   mobile: 'جوال',
   tablet: 'تابلت',
@@ -134,7 +151,7 @@ function eventLabel(name: string): string {
 
 function contentTypeLabel(type: string | null | undefined): string {
   if (!type) return '—';
-  return CONTENT_TYPE_LABELS[type] ?? type;
+  return CONTENT_TYPE_LABELS[canonicalContentType(type) ?? type] ?? type;
 }
 
 // ---------------------------------------------------------------------------
@@ -266,7 +283,7 @@ const deviceIcon = (device: string | null | undefined) => {
 };
 
 const contentIcon = (type: string | null | undefined) => {
-  switch (type) {
+  switch (canonicalContentType(type)) {
     case 'hymn':
       return <Music className="h-4 w-4" aria-hidden="true" />;
     case 'powerpoint':
@@ -316,6 +333,14 @@ export function AnalyticsPage() {
   const [chartMetric, setChartMetric] = useState<TimeseriesMetric>('page_views');
   const [timeseries, setTimeseries] = useState<DataState<AnalyticsDayPoint[]>>({ status: 'loading' });
   const [sections, setSections] = useState<SectionData>(EMPTY_LOADING);
+
+  // Search + sort controls for the "most downloaded files" card.
+  const [downloadFilter, setDownloadFilter] = useState('');
+  const [downloadSort, setDownloadSort] = useState<'asc' | 'desc'>('desc');
+
+  // Search + sort controls for the "most viewed content" card.
+  const [viewFilter, setViewFilter] = useState('');
+  const [viewSort, setViewSort] = useState<'asc' | 'desc'>('desc');
 
   const cacheRef = useRef(new Map<string, { sections: SectionData; timeseries: DataState<AnalyticsDayPoint[]> }>());
 
@@ -504,16 +529,24 @@ export function AnalyticsPage() {
         }))
       : [];
 
-  // Content type rows
-  const contentTypeRows: RankItem[] =
-    sections.contentTypes.status === 'success'
-      ? sections.contentTypes.data.map((c) => ({
-          key: c.contentType,
-          label: contentTypeLabel(c.contentType),
-          value: c.count,
-          icon: contentIcon(c.contentType),
-        }))
-      : [];
+  // Content type rows — normalize aliases (e.g. 'images' + 'image' → 'صورة')
+  // and merge their counts so each type appears as a single row.
+  const contentTypeRows: RankItem[] = useMemo(() => {
+    const data = sections.contentTypes.status === 'success' ? sections.contentTypes.data : [];
+    const merged = new Map<string, number>();
+    for (const c of data) {
+      const canonical = canonicalContentType(c.contentType) ?? '—';
+      merged.set(canonical, (merged.get(canonical) ?? 0) + c.count);
+    }
+    return [...merged.entries()]
+      .map(([type, value]) => ({
+        key: type,
+        label: contentTypeLabel(type),
+        value,
+        icon: contentIcon(type),
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [sections.contentTypes]);
 
   // Event breakdown rows (top 20)
   const eventRows: RankItem[] =
@@ -526,6 +559,34 @@ export function AnalyticsPage() {
       : [];
 
   const socialItems = sections.social.status === 'success' ? sections.social.data : [];
+
+  // Most downloaded files — client-side search + sort (filtered then sorted).
+  const downloadRows = useMemo(() => {
+    const data = sections.contentDownload.status === 'success' ? sections.contentDownload.data : [];
+    const q = downloadFilter.trim().toLowerCase();
+    const filtered = q
+      ? data.filter((item) => {
+          const name = (item.contentName ?? '').toLowerCase();
+          const typeLabel = contentTypeLabel(item.contentType).toLowerCase();
+          return name.includes(q) || typeLabel.includes(q);
+        })
+      : data;
+    return [...filtered].sort((a, b) => (downloadSort === 'asc' ? a.count - b.count : b.count - a.count));
+  }, [sections.contentDownload, downloadFilter, downloadSort]);
+
+  // Most viewed content — client-side search + sort (filtered then sorted).
+  const viewRows = useMemo(() => {
+    const data = sections.contentViews.status === 'success' ? sections.contentViews.data : [];
+    const q = viewFilter.trim().toLowerCase();
+    const filtered = q
+      ? data.filter((item) => {
+          const name = (item.contentName ?? '').toLowerCase();
+          const typeLabel = contentTypeLabel(item.contentType).toLowerCase();
+          return name.includes(q) || typeLabel.includes(q);
+        })
+      : data;
+    return [...filtered].sort((a, b) => (viewSort === 'asc' ? a.count - b.count : b.count - a.count));
+  }, [sections.contentViews, viewFilter, viewSort]);
 
   const socialIcons: Record<string, typeof Facebook> = {
     facebook_click: Facebook,
@@ -718,8 +779,17 @@ export function AnalyticsPage() {
       {/* Downloads + views */}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <CardHeader>
+          <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
             <CardTitle className="text-base font-semibold">أكثر الملفات تحميلًا</CardTitle>
+            <ContentListToolbar
+              filter={downloadFilter}
+              onFilterChange={setDownloadFilter}
+              sort={downloadSort}
+              onSortChange={setDownloadSort}
+              placeholder="ابحث باسم الملف..."
+              sortDescLabel="الأكثر تحميلًا"
+              sortAscLabel="الأقل تحميلًا"
+            />
           </CardHeader>
           <CardContent>
             {sections.contentDownload.status === 'loading' && (
@@ -730,18 +800,34 @@ export function AnalyticsPage() {
               </div>
             )}
             {sections.contentDownload.status === 'error' && <SectionError onRetry={handleRefresh} />}
-            {sections.contentDownload.status === 'success' && (
-              <ContentList
-                items={sections.contentDownload.data}
-                icon={<Download className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
-              />
-            )}
+            {sections.contentDownload.status === 'success' &&
+              (downloadRows.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  {downloadFilter.trim()
+                    ? 'لا توجد نتائج مطابقة لبحثك'
+                    : 'لا توجد بيانات كافية خلال الفترة المحددة'}
+                </p>
+              ) : (
+                <ContentList
+                  items={downloadRows}
+                  icon={<Download className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
+                />
+              ))}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
             <CardTitle className="text-base font-semibold">أكثر المحتويات مشاهدة</CardTitle>
+            <ContentListToolbar
+              filter={viewFilter}
+              onFilterChange={setViewFilter}
+              sort={viewSort}
+              onSortChange={setViewSort}
+              placeholder="ابحث باسم المحتوى..."
+              sortDescLabel="الأكثر مشاهدة"
+              sortAscLabel="الأقل مشاهدة"
+            />
           </CardHeader>
           <CardContent>
             {sections.contentViews.status === 'loading' && (
@@ -752,12 +838,19 @@ export function AnalyticsPage() {
               </div>
             )}
             {sections.contentViews.status === 'error' && <SectionError onRetry={handleRefresh} />}
-            {sections.contentViews.status === 'success' && (
-              <ContentList
-                items={sections.contentViews.data}
-                icon={<Eye className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
-              />
-            )}
+            {sections.contentViews.status === 'success' &&
+              (viewRows.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  {viewFilter.trim()
+                    ? 'لا توجد نتائج مطابقة لبحثك'
+                    : 'لا توجد بيانات كافية خلال الفترة المحددة'}
+                </p>
+              ) : (
+                <ContentList
+                  items={viewRows}
+                  icon={<Eye className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
+                />
+              ))}
           </CardContent>
         </Card>
       </div>
@@ -904,7 +997,74 @@ export function AnalyticsPage() {
 }
 
 // ---------------------------------------------------------------------------
-// Content list (downloads / views) — shared rows with type badge
+// Content list (downloads / views) — shared search + sort toolbar
+// ---------------------------------------------------------------------------
+
+function ContentListToolbar({
+  filter,
+  onFilterChange,
+  sort,
+  onSortChange,
+  placeholder,
+  sortDescLabel,
+  sortAscLabel,
+}: {
+  filter: string;
+  onFilterChange: (value: string) => void;
+  sort: 'asc' | 'desc';
+  onSortChange: (value: 'asc' | 'desc') => void;
+  placeholder: string;
+  sortDescLabel: string;
+  sortAscLabel: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="relative">
+        <Search
+          className="absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <Input
+          type="search"
+          value={filter}
+          onChange={(e) => onFilterChange(e.target.value)}
+          placeholder={placeholder}
+          aria-label={placeholder}
+          className="h-9 w-full pl-3 pr-8 sm:w-48"
+        />
+      </div>
+      <div className="flex items-center gap-1" role="group" aria-label="ترتيب">
+        <button
+          type="button"
+          onClick={() => onSortChange('desc')}
+          className={`rounded-md px-3 py-1 text-xs focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${
+            sort === 'desc'
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+          }`}
+          aria-pressed={sort === 'desc'}
+        >
+          {sortDescLabel}
+        </button>
+        <button
+          type="button"
+          onClick={() => onSortChange('asc')}
+          className={`rounded-md px-3 py-1 text-xs focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${
+            sort === 'asc'
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+          }`}
+          aria-pressed={sort === 'asc'}
+        >
+          {sortAscLabel}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Content list rows with type badge
 // ---------------------------------------------------------------------------
 
 function ContentList({

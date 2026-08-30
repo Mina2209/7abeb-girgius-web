@@ -19,7 +19,6 @@ import {
   Upload,
   CheckSquare,
   CheckCheck,
-  Video,
 } from 'lucide-react';
 import { useState, useMemo, useRef, useEffect, type RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -36,7 +35,6 @@ import { useIsEditor } from '../utils/adminUtils';
 import { AdminEditImageModal } from './AdminEditImageModal';
 import { AdminEditArtistModal } from './AdminEditArtistModal';
 import { AdminBulkEditImagesModal, BulkImageUpdates } from './AdminBulkEditImagesModal';
-import { VideoModal } from './VideoModal';
 import { useGalleryImagesPaged } from '../hooks/useGalleryImagesPaged';
 import {
   fetchGalleryIds,
@@ -226,7 +224,6 @@ export function ImageLibrarySection({
   const [isEditArtistModalOpen, setIsEditArtistModalOpen] = useState(false);
   const [editingArtistName, setEditingArtistName] = useState<string | null>(null);
 
-  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [bulkEditMode, setBulkEditMode] = useState(false);
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
 
@@ -731,13 +728,6 @@ export function ImageLibrarySection({
           واعرض معرض الصور بوضع ملء الشاشة، وأضف المفضلات لديك، وحمّل الصور
           للاستخدام في الخدمة.
         </p>
-        <button
-          onClick={() => setIsVideoModalOpen(true)}
-          className="mt-2 flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors"
-        >
-          <Video className="w-4 h-4" />
-          <span>← شرح الاستخدام</span>
-        </button>
       </div>
 
       {/* Sticky Header Section */}
@@ -1567,13 +1557,6 @@ export function ImageLibrarySection({
           availableTypes={allTypes}
         />
       )}
-
-      <VideoModal
-        isOpen={isVideoModalOpen}
-        onClose={() => setIsVideoModalOpen(false)}
-        videoUrl="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-        title="شرح استخدام مكتبة الصور"
-      />
     </div>
   );
 }

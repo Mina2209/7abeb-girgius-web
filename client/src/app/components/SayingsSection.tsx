@@ -1,4 +1,4 @@
-  import { Heart, Share2, ArrowUpDown, Search, ChevronDown, Tags, User, BookOpen, Calendar, Plus, Edit2, Trash2, Download, Upload, CheckSquare, Square, CheckCheck, Video, MessageSquareQuote, Users, X, Image as ImageIcon, FileSpreadsheet } from 'lucide-react';
+  import { Heart, Share2, ArrowUpDown, Search, ChevronDown, Tags, User, BookOpen, Calendar, Plus, Edit2, Trash2, Download, Upload, CheckSquare, Square, CheckCheck, MessageSquareQuote, Users, X, Image as ImageIcon, FileSpreadsheet } from 'lucide-react';
   import { useState, useMemo, useRef, useEffect } from 'react';
   import { useNavigate } from 'react-router-dom';
   import { TagFilter } from './TagFilter';
@@ -7,9 +7,8 @@
   import { getFatherByName, fathers as staticFathersData } from '../data/fathers';
   import { useIsEditor } from '../utils/adminUtils';
   import { normalizeArabic } from '../utils/arabicUtils';
-  import { AdminEditSayingModal } from './AdminEditSayingModal';
-  import { VideoModal } from './VideoModal';
-  import { useSayingsData } from '../hooks/useSayingsData';
+import { AdminEditSayingModal } from './AdminEditSayingModal';
+import { useSayingsData } from '../hooks/useSayingsData';
   import { useFavorites } from '../hooks/useFavorites';
   import type { ContentId, Saying } from '../types/content';
   import { useAuth } from '../contexts/AuthContext';
@@ -159,10 +158,7 @@ import { toast } from 'sonner';
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingSaying, setEditingSaying] = useState<Saying | null>(null);
     const [selectedSayingIds, setSelectedSayingIds] = useState<ContentId[]>([]);
-    const [bulkEditMode, setBulkEditMode] = useState(false);
-    
-    // Video tutorial modal state
-    const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+      const [bulkEditMode, setBulkEditMode] = useState(false);
     
     const sortDropdownRef = useRef<HTMLDivElement>(null);
     const filtersContainerRef = useRef<HTMLDivElement>(null);
@@ -721,13 +717,6 @@ import { toast } from 'sonner';
       <p className="text-muted-foreground leading-relaxed">
         مكتبة شاملة لحكم وأقوال آباء الكنيسة القديسين والمعلمين. استخدم البحث والفلاتر للعثور على الأقوال حسب القائل أو المصدر أو الموضوع، واضغط على اسم القديس لعرض سيرته، وأضف المفضلات لديك، وشارك الحكمة مع الآخرين.
       </p>
-      <button
-        onClick={() => setIsVideoModalOpen(true)}
-        className="mt-2 flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors"
-      >
-        <Video className="w-4 h-4" />
-        <span>← شرح الاستخدام</span>
-      </button>
     </div>
 
     {/* Sticky Header Section */}
@@ -1204,14 +1193,6 @@ import { toast } from 'sonner';
             allSources={allSources}
           />
         )}
-
-        {/* Video Tutorial Modal */}
-        <VideoModal
-          isOpen={isVideoModalOpen}
-          onClose={() => setIsVideoModalOpen(false)}
-          videoUrl="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-          title="شرح استخدام مكتبة أقوال الآباء"
-        />
 
         {/* Fathers List Modal */}
         {showFathersList && (
