@@ -54,19 +54,23 @@ export function downloadFile(
 }
 
 // Trigger a download from a server URL that responds with Content-Disposition: attachment
-// (e.g. the zip endpoint). A hidden iframe is used instead of navigation so that an error
-// response (such as a 503 when the server is busy) is contained inside the iframe and
-// doesn't replace the app's page. The download itself is owned by the browser once it
-// starts, so removing the iframe afterwards is safe.
+// (e.g. the zip endpoint). A transient anchor click is used: it navigates the top-level
+// window to the URL, and the browser owns the download from there via the attachment
+// header — so the current page is left untouched on success.
+//
+// Note: a hidden iframe must NOT be used here. The server sends `X-Frame-Options: DENY`
+// on every response, and Chrome/Edge silently drop downloads that come from an iframe
+// whose response is blocked by framing restrictions — producing a dead button.
 export function downloadViaUrl(
   url: string,
   meta?: DownloadAnalyticsMeta,
 ): void {
   if (!url) return;
-  const iframe = document.createElement('iframe');
-  iframe.style.display = 'none';
-  iframe.src = url;
-  document.body.appendChild(iframe);
-  setTimeout(() => iframe.remove(), 120000);
+  const link = document.createElement('a');
+  link.href = url;
+  link.rel = 'noopener';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
   trackDownload(meta);
 }

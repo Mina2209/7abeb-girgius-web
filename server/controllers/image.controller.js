@@ -174,11 +174,18 @@ export const ImageController = {
 
   updateAuthor: async (req, res) => {
     try {
-      const AUTHOR_UPDATE_FIELDS = ['name'];
+      const AUTHOR_UPDATE_FIELDS = ['name', 'bio', 'role', 'profileImage', 'facebook', 'instagram', 'website', 'email', 'specialty'];
       const updates = {};
       for (const field of AUTHOR_UPDATE_FIELDS) {
         if (req.body[field] !== undefined) {
           updates[field] = req.body[field];
+        }
+      }
+      if (req.body.socialMedia && typeof req.body.socialMedia === 'object') {
+        for (const key of ['facebook', 'instagram', 'website', 'email']) {
+          if (req.body.socialMedia[key] !== undefined) {
+            updates[key] = req.body.socialMedia[key];
+          }
         }
       }
       if (!updates.name || typeof updates.name !== 'string' || !updates.name.trim()) {

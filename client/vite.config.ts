@@ -81,6 +81,11 @@ export default defineConfig({
             if (id.includes('react-responsive-masonry')) {
               return 'vendor-masonry';
             }
+            if (id.includes('pptx-preview') || id.includes('echarts') || id.includes('lodash')) {
+              // Only used by the lazily-loaded PowerPoint previewer; keep out of the
+              // initial bundle so echarts (~700 kB) isn't downloaded on first paint.
+              return 'vendor-pptx';
+            }
             return 'vendor-misc';
           }
         },

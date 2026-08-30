@@ -1,6 +1,7 @@
 import { X, Mail, Lock } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { ForgotPasswordModal } from './ForgotPasswordModal';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ export function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginModalProp
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   if (!isOpen) return null;
 
@@ -98,7 +100,7 @@ export function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginModalProp
               />
               <span className="text-sm">تذكرني</span>
             </label>
-            <button type="button" className="text-sm text-primary hover:underline">
+            <button type="button" onClick={() => setShowForgotPassword(true)} className="text-sm text-primary hover:underline">
               نسيت كلمة المرور؟
             </button>
           </div>
@@ -119,6 +121,12 @@ export function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginModalProp
           </button>
         </p>
       </div>
+
+      <ForgotPasswordModal
+        isOpen={showForgotPassword}
+        onClose={() => setShowForgotPassword(false)}
+        onBackToLogin={() => setShowForgotPassword(false)}
+      />
     </div>
   );
 }

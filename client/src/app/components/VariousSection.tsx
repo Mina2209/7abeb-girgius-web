@@ -36,7 +36,8 @@ import { useAuth } from "../contexts/AuthContext";
 import { useIsEditor } from "../utils/adminUtils";
 import { apiGetJson, apiPutJson } from "../services/apiClient";
 import { createTag, notifyTagsUpdated } from "../services/tagsService";
-import { presignAndUpload, getPreviewUrl } from "../services/s3Upload";
+import { presignAndUpload, getDocumentFetchUrl } from "../services/s3Upload";
+import { PptxViewer } from "./PptxViewer";
 import { downloadFile } from "../utils/download";
 import { trackEvent } from "../services/analytics";
 import { useSearchAnalytics } from "../hooks/useSearchAnalytics";
@@ -326,7 +327,7 @@ export function VariousSection() {
   const availableTagNames = allTags.map((t) => t.name);
 
   const handlePreview = async (name: string, url: string) => {
-    const resolved = await getPreviewUrl(url);
+    const resolved = await getDocumentFetchUrl(url);
     setPreviewFile({ name, url: resolved });
     trackEvent('powerpoint_view', { contentType: 'powerpoint', contentName: name });
   };
@@ -915,12 +916,7 @@ export function VariousSection() {
             </DialogHeader>
             <div className="flex-1 w-full h-full rounded-lg overflow-hidden border border-border bg-black mt-4">
               {previewFile.url ? (
-                <iframe
-                  src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewFile.url)}`}
-                  className="w-full h-full border-0"
-                  allowFullScreen
-                  title="PowerPoint Preview"
-                />
+                <PptxViewer src={previewFile.url} title={previewFile.name} />
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground p-6 text-center">
                   <Presentation className="w-16 h-16 mb-4 opacity-40 animate-pulse" />

@@ -166,6 +166,36 @@ function createUploadController(s3Service = defaultS3Service) {
         }
       },
 
+    // Serves a target for the Microsoft Office Online viewer (view.officeapps.live.com).
+    // The viewer decides the file type from the URL *path extension*, so the streamed
+    // URL must end with a recognised extension — a bare /proxy?key= endpoint never
+    // renders. Here the :filename path segment is cosmetic; the real S3 object is
+    // addressed via ?key=. Content-Type is forced to pptx so both .pptx and .ppsx
+    // streams (identical OOXML presentation format) open regardless of their extension.
+      office: async (req, res) => {
+        const { key } = req.query;
+        if (!key) return res.status(400).json({ error: 'key required' });
+        if (!isReadableKey(key, PUBLIC_READ_PREFIXES)) return res.status(403).json({ error: 'access denied' });
+        try {
+          const { contentLength, body } = await s3Service.getObjectForProxy(key);
+          res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+          if (contentLength) res.setHeader('Content-Length', contentLength);
+          res.setHeader('Content-Disposition', 'inline; filename="presentation.pptx"');
+          res.setHeader('Cache-Control', 'public, max-age=3600');
+          if (body && typeof body.pipe === 'function') {
+            body.pipe(res);
+          } else if (body && typeof body.transformToByteArray === 'function') {
+            const buf = await body.transformToByteArray();
+            res.end(Buffer.from(buf));
+          } else {
+            res.status(404).json({ error: 'could not read file' });
+          }
+        } catch (err) {
+          console.error('office proxy error for key', key, '-', err.message);
+          return res.status(404).json({ error: 'file not found' });
+        }
+      },
+
     // Serve a resized thumbnail for a stored image (generated once, then cached in S3).
     // query: ?key=objectKey&w=400 — the full-size original is never modified.
     // Streams the image directly to avoid cross-origin redirect issues (CORB).

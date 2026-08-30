@@ -44,7 +44,8 @@ import {
 } from "../services/contentWriteService";
 import { downloadFile, downloadViaUrl } from "../utils/download";
 import { trackEvent } from "../services/analytics";
-import { getPreviewUrl } from "../services/s3Upload";
+import { getDocumentFetchUrl } from "../services/s3Upload";
+import { PptxViewer } from "./PptxViewer";
 import { useSearchAnalytics } from "../hooks/useSearchAnalytics";
 import { getApiBaseUrl } from "../config/api";
 import { toast } from 'sonner';
@@ -301,7 +302,7 @@ export function HymnsSection({
         contentName: title,
         properties: { fileType: type },
       });
-      const resolved = await getPreviewUrl(url);
+      const resolved = await getDocumentFetchUrl(url);
       setPreviewUrl(resolved);
     } else {
       trackEvent("hymn_view", {
@@ -2139,17 +2140,8 @@ export function HymnsSection({
               {/* 3. لو نوع الملف بوربوينت عادي (PPTX) - المعاينة التفاعلية */}
 {previewType === "PowerPoint file" && (
   <div className="w-full flex flex-col gap-4">
-    {/* حاوية الـ iframe مع مقاس مناسب وتجاوبي */}
-    <div className="w-full h-[300px] sm:h-[400px] lg:h-[500px] rounded-lg overflow-hidden border border-border bg-muted relative">
-      <iframe
-        src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`}
-        width="100%"
-        height="100%"
-        frameBorder="0"
-        title={previewTitle || "PowerPoint Preview"}
-        allowFullScreen
-      />
-    </div>  
+    {/* معاينة البوربوينت داخل المتصفح مباشرة (تعمل حتى على localhost لأي من pptx/ppsx) */}
+    <PptxViewer src={previewUrl} title={previewTitle} />
   </div>
 )}
             </div>

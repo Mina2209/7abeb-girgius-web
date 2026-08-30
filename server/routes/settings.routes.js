@@ -12,5 +12,9 @@ router.put('/site', authenticate, requireAdmin, settingsController.upsertSiteSet
 router.get('/powerpoint', settingsController.getPowerpointSettings);
 router.put('/powerpoint', authenticate, requireAdmin, settingsController.upsertPowerpointSettings);
 
+// Liturgy page settings (singleton)
+router.get('/liturgy', settingsController.getLiturgySettings);
+router.put('/liturgy', authenticate, requireAdmin, settingsController.upsertLiturgySettings);
+
 export default router;
 

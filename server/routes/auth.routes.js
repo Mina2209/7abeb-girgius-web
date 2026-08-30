@@ -26,8 +26,18 @@ const registerLimiter = rateLimit({
   message: { error: 'Too many registration attempts. Please try again later.' },
 });
 
+// Throttle password reset requests to prevent abuse / lockout flooding.
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,                    // per IP, per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'محاولات استعادة كلمة المرور كثيرة جداً. يرجى المحاولة لاحقاً.' },
+});
+
 router.post('/register', registerLimiter, authController.register);
 router.post('/login', loginLimiter, authController.login);
+router.post('/forgot-password', forgotPasswordLimiter, authController.forgotPassword);
 
 // Protected routes - require authentication and admin role
 router.post('/users', authenticate, requireAdmin, authController.createUser);

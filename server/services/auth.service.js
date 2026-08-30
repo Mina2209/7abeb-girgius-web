@@ -1,6 +1,7 @@
 import { prisma } from './prisma.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { randomBytes } from 'node:crypto';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRY = '7d';
@@ -115,6 +116,37 @@ export const authService = {
         created_at: user.createdAt,
       }
     };
+  },
+
+  // Search by username OR email, reset the password to a temporary one,
+  // and invalidate any outstanding sessions by bumping tokenVersion.
+  async requestPasswordReset(identifier) {
+    const value = identifier.trim();
+    if (!value) {
+      throw new Error('يرجى إدخال اسم المستخدم أو البريد الإلكتروني');
+    }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: { equals: value, mode: 'insensitive' } },
+          { email: { equals: value, mode: 'insensitive' } },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (!user) {
+      throw new Error('لم يتم العثور على أي حساب بهذه البيانات');
+    }
+
+    const temporaryPassword = randomBytes(8).toString('hex');
+
+    // updateUser hashes the password and increments tokenVersion,
+    // which invalidates all outstanding JWTs for this user.
+    await this.updateUser(user.id, { password: temporaryPassword });
+
+    return { userId: user.id, temporaryPassword };
   },
 
   async verifyToken(token) {

@@ -1,0 +1,96 @@
+/*
+ * Scoped style isolation for the client-side pptx-preview renderer.
+ *
+ * The library injects most of its styling inline, but global resets
+ * (Tailwind preflight, project fonts/line-heights) can still change slide
+ * dimensions. All selectors are prefixed with `.pptx-preview-scope`, which is
+ * applied to the PptxViewer viewport, so application styles cannot leak into
+ * the slide DOM.
+ *
+ * Layout note: the library renders the slide at a fixed logical resolution and
+ * the viewport scales the whole stage uniformly with `transform: scale()`,
+ * keeping text boxes, font sizes, shapes and background images in exact
+ * proportion. `overflow: hidden` on the scope keeps everything inside the
+ * slide boundaries.
+ */
+
+.pptx-preview-scope,
+.pptx-preview-scope *,
+.pptx-preview-scope *::before,
+.pptx-preview-scope *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.pptx-preview-scope {
+  line-height: normal;
+  font-family: inherit;
+  font-size: 16px;
+}
+
+.pptx-preview-scope .pptx-preview-wrapper,
+.pptx-preview-scope .pptx-preview-slide-wrapper,
+.pptx-preview-scope .slide-wrapper,
+.pptx-preview-scope .slide-master-wrapper,
+.pptx-preview-scope .slide-layout-wrapper {
+  line-height: normal;
+  font-family: inherit;
+  color: inherit;
+  overflow: hidden;
+}
+
+/* Keep slide text wrapped at word boundaries so it never punches outside the
+ * slide. `break-word` preserves contiguous Arabic words intact while still
+ * allowing an emergency break for overlong tokens (e.g. URLs). */
+.pptx-preview-scope p,
+.pptx-preview-scope span {
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Best-effort Arabic shaping/alignment override for the local renderer.
+ * The library lays text out LTR; forcing RTL direction + right alignment and
+ * an Arabic-friendly font stack keeps text inside its boxes and readable. */
+.pptx-preview-scope .local-ppt-arabic {
+  direction: rtl;
+  text-align: right;
+  font-family: 'Cairo', Tahoma, Arial, sans-serif;
+}
+
+.pptx-preview-scope .local-ppt-arabic p,
+.pptx-preview-scope .local-ppt-arabic span,
+.pptx-preview-scope .local-ppt-arabic a {
+  direction: rtl !important;
+  text-align: right !important;
+  font-family: 'Cairo', Tahoma, Arial, sans-serif !important;
+}
+
+/* Replace Tailwind preflight img/svg rules so pictures in the slide scale
+ * exactly with the stage instead of being shrunk by max-width rules. */
+.pptx-preview-scope img {
+  display: block;
+  max-width: none;
+  height: auto;
+}
+
+.pptx-preview-scope svg {
+  display: block;
+  max-width: none;
+}
+
+.pptx-preview-scope table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.pptx-preview-scope hr {
+  border: none;
+}
+
+.pptx-preview-scope video,
+.pptx-preview-scope audio {
+  display: block;
+  max-width: none;
+}

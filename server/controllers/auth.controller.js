@@ -102,6 +102,36 @@ export const authController = {
     }
   },
 
+  async forgotPassword(req, res) {
+    try {
+      const { identifier } = req.body;
+
+      if (!identifier || typeof identifier !== 'string') {
+        return res.status(400).json({ error: 'يجب إدخال اسم المستخدم أو البريد الإلكتروني' });
+      }
+
+      const trimmed = identifier.trim();
+      if (trimmed.length < 3 || trimmed.length > 100) {
+        return res.status(400).json({ error: 'يرجى إدخال اسم مستخدم أو بريد إلكتروني صحيح' });
+      }
+
+      const result = await authService.requestPasswordReset(trimmed);
+
+      await logService.createLog(
+        result.userId,
+        'UPDATE',
+        'USER',
+        result.userId,
+        'User reset password via forgot-password flow'
+      );
+
+      res.json({ ok: true, temporaryPassword: result.temporaryPassword });
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      res.status(400).json({ error: error.message });
+    }
+  },
+
   async createUser(req, res) {
     try {
       const { username, password, role } = req.body;

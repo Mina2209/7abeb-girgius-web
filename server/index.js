@@ -18,11 +18,12 @@ function requestLogger(req, res, next) {
 }
 
 // Per-request timeout: if a handler hasn't finished within the deadline, send 504 and
-// close the connection. Skips streaming endpoints (/zip) where long durations are normal.
-// Prevents hanging DB queries or network calls from holding connections indefinitely.
+// close the connection. Skips streaming endpoints (zip downloads) where long durations
+// are normal — otherwise a large zip gets destroyed mid-stream exactly 30s after start.
+// Path check matches both the bare '/zip' and mounted routes like '/api/hymns/zip'.
 const REQUEST_TIMEOUT_MS = 30 * 1000;
 function requestTimeout(req, res, next) {
-  if (req.path === '/zip') return next();
+  if (req.path === '/zip' || req.path.endsWith('/zip')) return next();
   const timer = setTimeout(() => {
     if (!res.headersSent) {
       res.status(504).json({ error: 'Gateway timeout' });
@@ -42,6 +43,7 @@ import uploadRoutes from './routes/upload.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import profileRoutes from './routes/profile.routes.js';
 import settingsRoutes from './routes/settings.routes.js';
+import downloadRoutes from './routes/download.routes.js';
 
 import lyricRoutes from './routes/lyric.routes.js';
 import backupRoutes from './routes/backup.routes.js';
@@ -210,6 +212,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/auth', passwordRoutes);
 app.use('/api/auth/profile', profileRoutes);
 app.use('/api/auth/settings', settingsRoutes);
+
+app.use('/api', downloadRoutes);
 
 app.use('/api/hymns', hymnRoutes);
 app.use('/api/tags', tagRoutes);
