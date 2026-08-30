@@ -34,6 +34,64 @@ function triggerSessionExpired() {
   window.dispatchEvent(new Event('sessionExpired'));
 }
 
+// ---- Resilience: retry + throttling (Task 13) ----------------------------------
+// GET requests are idempotent, so we safely retry them on transient failures
+// (HTTP 429/502/503/504 or network errors) using exponential backoff with jitter.
+// Mutations (POST/PUT/DELETE) are never retried to avoid double-submits.
+
+const MIN_REQUEST_GAP_MS = 150;
+const MAX_GET_RETRIES = 2;
+const RETRYABLE_STATUS = new Set([429, 502, 503, 504]);
+
+let lastRequestAt = 0;
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+/** Ensure at least MIN_REQUEST_GAP_MS between outgoing requests (throttle). */
+async function throttle() {
+  const now = Date.now();
+  const wait = MIN_REQUEST_GAP_MS - (now - lastRequestAt);
+  if (wait > 0) {
+    await sleep(wait);
+  }
+  lastRequestAt = Date.now();
+}
+
+function isRetryableStatus(status: number) {
+  return RETRYABLE_STATUS.has(status);
+}
+
+async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  const method = (init.method || 'GET').toUpperCase();
+  const isGet = method === 'GET';
+  let attempt = 0;
+
+  for (;;) {
+    let res: Response | undefined;
+    let networkError: unknown;
+
+    try {
+      res = await fetch(url, { ...init });
+    } catch (err) {
+      networkError = err;
+    }
+
+    const canRetry =
+      isGet && attempt < MAX_GET_RETRIES && (networkError !== undefined || (res && isRetryableStatus(res.status)));
+
+    if (!canRetry) {
+      if (networkError !== undefined) throw networkError;
+      return res as Response;
+    }
+
+    attempt += 1;
+    const backoffMs = 400 * 2 ** (attempt - 1) + Math.round(Math.random() * 300);
+    await sleep(backoffMs);
+  }
+}
+
 export async function apiRequest(path: string, init?: RequestInit): Promise<Response> {
   const base = getApiBaseUrl();
   const url = `${base}${path.startsWith('/') ? path : `/${path}`}`;
@@ -53,7 +111,9 @@ export async function apiRequest(path: string, init?: RequestInit): Promise<Resp
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  return fetch(url, {
+  await throttle();
+
+  return fetchWithRetry(url, {
     ...init,
     headers,
   });

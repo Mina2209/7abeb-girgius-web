@@ -5,8 +5,10 @@ import { prisma } from '../services/prisma.js';
 // silently using a guessable default. Production startup also refuses to boot without it.
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// Auth middleware to verify JWT tokens
-export function authenticate(req, res, next) {
+// Auth middleware to verify JWT tokens.
+// Async so Express 5 tracks the promise lifecycle (reliability fix: previously the
+// promise was not returned to Express, so its completion state was unobservable).
+export async function authenticate(req, res, next) {
   // Allow disabling auth for local/dev by setting DISABLE_AUTH=true in .env
   if (process.env.DISABLE_AUTH === 'true') return next();
 
@@ -18,25 +20,29 @@ export function authenticate(req, res, next) {
 
   const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
+  let decoded;
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    decoded = jwt.verify(token, JWT_SECRET);
+  } catch {
+    return res.status(401).json({ error: 'Unauthorized - Invalid token' });
+  }
 
-    // Fix #9: Verify tokenVersion matches the one stored in the database.
-    // If the user changed their password (which bumps tokenVersion), old tokens are rejected.
-    prisma.user.findUnique({
+  try {
+    // Verify tokenVersion matches the one stored in the database. If the user
+    // changed their password or role (which bumps tokenVersion), old tokens are rejected.
+    const user = await prisma.user.findUnique({
       where: { id: decoded.id },
       select: { tokenVersion: true },
-    }).then((user) => {
-      if (!user || (decoded.tokenVersion !== undefined && decoded.tokenVersion !== user.tokenVersion)) {
-        return res.status(401).json({ error: 'Unauthorized - Token revoked' });
-      }
-      req.user = decoded;
-      next();
-    }).catch(() => {
-      return res.status(401).json({ error: 'Unauthorized - Token verification failed' });
     });
-  } catch (error) {
-    return res.status(401).json({ error: 'Unauthorized - Invalid token' });
+
+    if (!user || (decoded.tokenVersion !== undefined && decoded.tokenVersion !== user.tokenVersion)) {
+      return res.status(401).json({ error: 'Unauthorized - Token revoked' });
+    }
+
+    req.user = decoded;
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Unauthorized - Token verification failed' });
   }
 }
 
@@ -44,26 +50,24 @@ export function authenticate(req, res, next) {
 // present, otherwise just continues. Used on public endpoints that show extra data to
 // editors. Revoked tokens (after password change) are silently ignored — the request
 // proceeds anonymously rather than failing, preserving public-route semantics.
-export function optionalAuthenticate(req, res, next) {
+export async function optionalAuthenticate(req, res, next) {
   const authHeader = req.headers['authorization'] || req.headers['Authorization'];
   if (authHeader && authHeader.startsWith('Bearer ')) {
     try {
       const decoded = jwt.verify(authHeader.substring(7), JWT_SECRET);
-      // Verify tokenVersion against DB so revoked tokens (post-password-change) don't
-      // attach stale identity. On failure, continue anonymously — never reject.
-      prisma.user.findUnique({
-        where: { id: decoded.id },
-        select: { tokenVersion: true },
-      }).then((user) => {
+      try {
+        // Verify tokenVersion against DB so revoked tokens (post-password-change) don't
+        // attach stale identity. On failure, continue anonymously — never reject.
+        const user = await prisma.user.findUnique({
+          where: { id: decoded.id },
+          select: { tokenVersion: true },
+        });
         if (user && (decoded.tokenVersion === undefined || decoded.tokenVersion === user.tokenVersion)) {
           req.user = decoded;
         }
-        next();
-      }).catch(() => {
+      } catch {
         // DB error — continue without attaching user.
-        next();
-      });
-      return; // next() is called inside the promise chain, not here
+      }
     } catch {
       // Invalid/expired token on a public route — ignore and continue unauthenticated.
     }

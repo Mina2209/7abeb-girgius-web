@@ -1,16 +1,21 @@
 services:
   db:
     image: postgres:15-alpine
+    # Credentials are injected via environment variables (no hardcoded values).
+    # Defaults are dev-only; production MUST set these.
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: church_app
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev-only-change-me}
+      POSTGRES_DB: ${POSTGRES_DB:-church_app}
+    # DB port is intentionally NOT exposed to the host — only the api service on the
+    # internal compose network reaches it. (Remove the comment and lines below only
+    # for local debugging with a non-default port, e.g. "127.0.0.1:5433:5432".)
+    # ports:
+    #   - "127.0.0.1:5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,8 +27,10 @@ services:
     ports:
       - "8080:8080"
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/church_app
-      JWT_SECRET: change-me-in-production
+      # Compose fails fast if JWT_SECRET is not provided (never boots with a weak default).
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set to a random 32+ char value}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-dev-only-change-me}@db:5432/${POSTGRES_DB:-church_app}
+      NODE_ENV: ${NODE_ENV:-production}
       PORT: 8080
     depends_on:
       db:

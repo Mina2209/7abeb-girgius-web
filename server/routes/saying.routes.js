@@ -10,9 +10,9 @@ router.get('/', SayingController.getAll);
 router.get('/:id', SayingController.getById);
 
 // Protected routes - require authentication and editor/admin role
-router.post('/', authenticate, requireEditor, validate({ author: 'string', content: 'string', authorImage: 'string?', source: 'string?', tags: 'array?' }), SayingController.create);
+router.post('/', authenticate, requireEditor, validate({ author: 'string:255', content: 'string:10000', authorImage: 'string?:2000', source: 'string?:255', tags: 'array?:100' }), SayingController.create);
 router.post('/bulk-import', authenticate, requireEditor, SayingController.bulkImport);
-router.put('/:id', authenticate, requireEditor, validate({ author: 'string', content: 'string', authorImage: 'string?', source: 'string?', tags: 'array?' }), SayingController.update);
+router.put('/:id', authenticate, requireEditor, validate({ author: 'string:255', content: 'string:10000', authorImage: 'string?:2000', source: 'string?:255', tags: 'array?:100' }), SayingController.update);
 router.delete('/:id', authenticate, requireEditor, SayingController.delete);
 
 export default router;

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { ChurchRoleDropdown } from './ChurchRoleDropdown';
 import { ServicesDropdown } from './ServicesDropdown';
+import { checkPassword } from '../utils/password';
 
 interface SignupModalProps {
   isOpen: boolean;
@@ -33,8 +34,11 @@ export function SignupModal({ isOpen, onClose, onSwitchToLogin }: SignupModalPro
       return;
     }
 
-    if (password.length < 6) {
-      setError('يجب أن تكون كلمة المرور 6 أحرف على الأقل');
+    const passwordCheck = checkPassword(password);
+    if (!passwordCheck.valid) {
+      setError(
+        'يجب أن تتكون كلمة المرور من 8 أحرف على الأقل وأن تحتوي على حرف كبير وصغير ورقم ورمز خاص'
+      );
       return;
     }
 

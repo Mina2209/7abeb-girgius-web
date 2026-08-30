@@ -22,8 +22,8 @@ router.get('/facets', optionalAuthenticate, ImageController.getFacets); // facet
 router.get('/:id', ImageController.getById);
 
 // Protected routes - require authentication and editor/admin role
-router.post('/', authenticate, requireEditor, validate({ title: 'string', imageUrl: 'string', 'ai?': 'boolean', 'published?': 'boolean', 'authorId?': 'string', 'typeId?': 'string', 'tags?': 'array' }), ImageController.create);
-router.put('/:id', authenticate, requireEditor, validate({ title: 'string', imageUrl: 'string', 'ai?': 'boolean', 'published?': 'boolean', 'authorId?': 'string', 'typeId?': 'string', 'tags?': 'array' }), ImageController.update);
+router.post('/', authenticate, requireEditor, validate({ title: 'string:255', imageUrl: 'string:2000', 'ai?': 'boolean', 'published?': 'boolean', 'authorId?': 'string:255', 'typeId?': 'string:255', 'tags?': 'array:100' }), ImageController.create);
+  router.put('/:id', authenticate, requireEditor, validate({ title: 'string:255', imageUrl: 'string:2000', 'ai?': 'boolean', 'published?': 'boolean', 'authorId?': 'string:255', 'typeId?': 'string:255', 'tags?': 'array:100' }), ImageController.update);
 router.delete('/:id', authenticate, requireEditor, ImageController.delete);
 
 export default router;

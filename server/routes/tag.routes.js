@@ -11,8 +11,8 @@ router.get('/:id', TagController.getById);
 
 // Protected routes - require ADMIN (specific paths before param routes)
 router.put('/reorder/batch', authenticate, requireAdmin, TagController.reorder);
-router.post('/', authenticate, requireAdmin, validate({ name: 'string', 'sectionId?': 'string', 'order?': 'number' }), TagController.create);
-router.put('/:id', authenticate, requireAdmin, validate({ name: 'string', 'sectionId?': 'string', 'order?': 'number' }), TagController.update);
+router.post('/', authenticate, requireAdmin, validate({ name: 'string:255', 'sectionId?': 'string:255', 'order?': 'number' }), TagController.create);
+router.put('/:id', authenticate, requireAdmin, validate({ name: 'string:255', 'sectionId?': 'string:255', 'order?': 'number' }), TagController.update);
 router.delete('/:id', authenticate, requireAdmin, TagController.delete);
 
 export default router;

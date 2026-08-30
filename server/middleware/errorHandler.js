@@ -20,6 +20,7 @@ export function errorHandler(err, req, res, next) {
   // Stack is only logged for 5xx (server bugs); 4xx are client errors and noisy.
   const logPayload = {
     time: new Date().toISOString(),
+    requestId: req.id,
     method: req.method,
     path: req.originalUrl,
     status,

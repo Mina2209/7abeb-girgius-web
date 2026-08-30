@@ -24,8 +24,8 @@ router.get('/zip', zipDownloadLimiter, HymnController.downloadZip);
 router.get('/:id', HymnController.getById);
 
 // Protected routes - require authentication and editor/admin role
-router.post('/', authenticate, requireEditor, validate({ title: 'string', files: 'array?', tags: 'array?' }), HymnController.create);
-router.put('/:id', authenticate, requireEditor, validate({ title: 'string', files: 'array?', tags: 'array?' }), HymnController.update);
+router.post('/', authenticate, requireEditor, validate({ title: 'string:255', files: 'array?:50', tags: 'array?:100' }), HymnController.create);
+router.put('/:id', authenticate, requireEditor, validate({ title: 'string:255', files: 'array?:50', tags: 'array?:100' }), HymnController.update);
 router.delete('/:id', authenticate, requireEditor, HymnController.delete);
 
 export default router;

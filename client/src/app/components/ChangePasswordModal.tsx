@@ -1,6 +1,7 @@
 import { X, Lock, Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { checkPassword } from '../utils/password';
 
 interface ChangePasswordModalProps {
   isOpen: boolean;
@@ -37,8 +38,11 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
       return;
     }
 
-    if (newPassword.length < 6) {
-      setError('يجب أن تكون كلمة المرور الجديدة 6 أحرف على الأقل');
+    const passwordCheck = checkPassword(newPassword);
+    if (!passwordCheck.valid) {
+      setError(
+        'يجب أن تتكون كلمة المرور من 8 أحرف على الأقل وأن تحتوي على حرف كبير وصغير ورقم ورمز خاص'
+      );
       return;
     }
 
@@ -185,7 +189,7 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
                 )}
               </button>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">يجب أن تكون 6 أحرف على الأقل</p>
+            <p className="text-xs text-muted-foreground mt-1">يجب أن تكون 8 أحرف على الأقل وأن تحتوي على حرف كبير وصغير ورقم ورمز خاص</p>
           </div>
 
           <div>

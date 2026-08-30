@@ -56,37 +56,40 @@
 
 ### Task 6: Fix Async Middleware
 **Priority:** HIGH → LOW (downgraded after testing)
-**Status:** ⚠️ NOT FIXED (reliability issue only, no auth bypass confirmed)
+**Status:** ✅ COMPLETED (Aug 2026)
 **Files:** `server/middleware/auth.js`
 **What was done:**
 - Wrote comprehensive test suite: `async-auth-behavior.test.js`
 - All 8 tests pass — confirms NO auth bypass exists
-- Issue is code quality (promise not returned to Express), not security
-**Recommendation:** Fix in future maintenance cycle; low risk as-is
+- `authenticate`/`optionalAuthenticate` converted from `.then().catch()` chains to `async/await` — promises are now returned to Express 5 so their completion state is tracked
+- Identical 401 messages preserved: 'Unauthorized - No token provided', 'Unauthorized - Invalid token', 'Unauthorized - Token revoked', 'Unauthorized - Token verification failed'
+- Test suite still green: `async-auth-behavior.test.js`, `auth-middleware.test.js`, `auth-security.test.js`
 
 ## Next Week
 
 ### Task 7: Strengthen Password Policy
 **Priority:** MEDIUM
-**Assignee:** Backend Developer
-**Estimated Time:** 3 hours
+**Status:** ✅ COMPLETED (Aug 2026)
+**Files:** `server/utils/password-policy.js`, `server/controllers/auth.controller.js`, `client/src/app/utils/password.ts`, `client/src/app/components/{SignupModal,ChangePasswordModal,AddUserModal}.tsx`
 **Acceptance Criteria:**
-- [ ] Update validation to require 8+ characters
-- [ ] Add complexity requirements
-- [ ] Update client-side validation
-- [ ] Add password strength indicator
-- [ ] Deploy to staging
+- [x] Update validation to require 8+ characters (enforced on server: register, createUser, changePassword)
+- [x] Add complexity requirements (lowercase + uppercase + digit + special, max 128)
+- [x] Update client-side validation (shared `checkPassword` util mirrors server policy)
+- [ ] Add password strength indicator (not added — deferred)
+- [ ] Deploy to staging (infra action)
+**Note:** `admin updateUser` is intentionally policy-free to preserve admin password-reset flexibility.
 
 ### Task 8: Add Request IDs
 **Priority:** MEDIUM
-**Assignee:** Backend Developer
-**Estimated Time:** 2 hours
+**Status:** ✅ COMPLETED (Aug 2026)
+**Files:** `server/middleware/requestId.js`, `server/index.js`, `server/middleware/errorHandler.js`
 **Acceptance Criteria:**
-- [ ] Generate UUID for each request
-- [ ] Include in all log entries
-- [ ] Return in response headers
-- [ ] Update error handling
-- [ ] Deploy to staging
+- [x] Generate UUID for each request (`crypto.randomUUID` in new `requestId` middleware, registered before requestLogger)
+- [x] Include in all log entries (requestLogger + errorHandler now emit `requestId`)
+- [x] Return in response headers (`X-Request-ID`)
+- [x] Update error handling (errorHandler log payload includes `requestId`)
+- [ ] Deploy to staging (infra action)
+- Unit tests pass: `request-id.test.js`
 
 ### Task 9: Invalidate Tokens on Role Change
 **Priority:** MEDIUM
@@ -133,27 +136,33 @@
 - `role-change-token.test.js` — role change token invalidation tests
 - `brute-force-protection.test.js` — progressive delay brute-force tests
 - `async-auth-behavior.test.js` — async auth middleware behavior tests
-**Remaining:** Rate limiter tests, input validation tests, auth flow integration tests
+- `validate-security.test.js` — input length / array-item / field-stripping tests (added Aug 2026)
+- `password-policy.test.js` — password complexity policy tests (added Aug 2026)
+- `request-id.test.js` — request ID assignment/header tests (added Aug 2026)
+**Baseline:** 136/136 server tests passing (was 113).
 
 ### Task 12: Docker Security Improvements
 **Priority:** LOW
-**Assignee:** DevOps
-**Estimated Time:** 2 hours
+**Status:** ✅ COMPLETED (code) — Docker build test pending (docker CLI not available in this environment)
+**Files:** `docker-compose.yml`, `server/.dockerignore`
 **Acceptance Criteria:**
-- [ ] Use environment variables for credentials
-- [ ] Remove exposed database port
-- [ ] Update `.dockerignore`
-- [ ] Test Docker build
+- [x] Use environment variables for credentials (`${POSTGRES_USER:-...}`, `${POSTGRES_PASSWORD:-...}`, `${POSTGRES_DB:-...}`)
+- [x] Remove exposed database port (commented out, no host mapping)
+- [x] Update `.dockerignore` (env files, node_modules, tests, dist, logs, backups, git, docs)
+- [x] API fails fast if `JWT_SECRET` missing: `${JWT_SECRET:?JWT_SECRET must be set to a random 32+ char value}`
+- [x] API secrets never ship with a weak default in compose
+- [ ] Test Docker build (needs docker CLI)
 
 ### Task 13: Client-Side Improvements
 **Priority:** LOW
-**Assignee:** Frontend Developer
-**Estimated Time:** 4 hours
+**Status:** ✅ PARTIALLY COMPLETED (Aug 2026) — httpOnly cookie auth & strength-indicator UI deferred
+**Files:** `client/src/app/services/apiClient.ts`, `client/src/app/utils/password.ts`, `client/src/app/components/{SignupModal,ChangePasswordModal,AddUserModal}.tsx`
 **Acceptance Criteria:**
-- [ ] Evaluate httpOnly cookie auth
-- [ ] Add client-side rate limiting
-- [ ] Implement retry logic
-- [ ] Update error handling
+- [ ] Evaluate httpOnly cookie auth (deferred — requires broader auth refactor)
+- [x] Add client-side rate limiting (150ms min-gap throttle in `apiRequest`)
+- [x] Implement retry logic (GET-only exponential backoff w/ jitter on 429/502/503/504/network errors; mutations never retried to avoid double-submit)
+- [x] Update error handling (API transport errors surfaced as before; session-expiry triggers preserved)
+- [x] Client password strength now mirrors server policy (8+ chars, complexity requirements)
 
 ## Emergency Procedures
 

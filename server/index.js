@@ -4,7 +4,8 @@ import cors from "cors";
 import compression from 'compression';
 import { prisma } from './services/prisma.js';
 
-// Lightweight request logger — logs method, URL, status, and response time (ms).
+// Lightweight request logger — logs method, URL, status, response time (ms), and
+// the request ID assigned by the `requestId` middleware for log correlation.
 // Skips health checks to reduce noise from load balancer probes.
 function requestLogger(req, res, next) {
   if (req.path === '/health') return next();
@@ -12,7 +13,7 @@ function requestLogger(req, res, next) {
   res.on('finish', () => {
     const duration = Date.now() - start;
     const level = res.statusCode >= 500 ? 'ERROR' : res.statusCode >= 400 ? 'WARN' : 'INFO';
-    console.log(`[${level}] ${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`);
+    console.log(`[${level}] [${req.id || '-'}] ${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`);
   });
   next();
 }
@@ -44,6 +45,7 @@ import authRoutes from './routes/auth.routes.js';
 import profileRoutes from './routes/profile.routes.js';
 import settingsRoutes from './routes/settings.routes.js';
 import downloadRoutes from './routes/download.routes.js';
+import requestId from './middleware/requestId.js';
 
 import lyricRoutes from './routes/lyric.routes.js';
 import backupRoutes from './routes/backup.routes.js';
@@ -138,6 +140,9 @@ app.set('trust proxy', 1);
 
 // Apply security headers to all responses
 app.use(securityHeaders);
+
+// Assign a request ID to every request (exposed via X-Request-ID header).
+app.use(requestId);
 
 // Gzip-compress responses. Large JSON payloads (e.g. the full hymns list) shrink
 // ~85% on the wire. Responds to the client's Accept-Encoding; small bodies are skipped.

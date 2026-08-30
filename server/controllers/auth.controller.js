@@ -1,5 +1,6 @@
 import { authService } from '../services/auth.service.js';
 import { logService } from '../services/log.service.js';
+import { validatePassword } from '../utils/password-policy.js';
 
 export const authController = {
 
@@ -15,9 +16,8 @@ export const authController = {
         return res.status(400).json({ error: 'Username must be a string between 3 and 50 characters' });
       }
 
-      if (password.length < 6 || password.length > 128) {
-        return res.status(400).json({ error: 'Password must be between 6 and 128 characters' });
-      }
+      const passwordCheck = validatePassword(password);
+      if (!passwordCheck.ok) return res.status(400).json({ error: passwordCheck.error });
 
       if (email !== undefined && email !== null) {
         if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) || email.trim().length > 254) {
@@ -150,9 +150,8 @@ export const authController = {
         return res.status(400).json({ error: 'Username must be a string between 3 and 50 characters' });
       }
 
-      if (password.length < 6 || password.length > 128) {
-        return res.status(400).json({ error: 'Password must be between 6 and 128 characters' });
-      }
+      const passwordCheck = validatePassword(password);
+      if (!passwordCheck.ok) return res.status(400).json({ error: passwordCheck.error });
 
       const user = await authService.createUser(username.trim(), password, roleValue);
       
@@ -387,9 +386,8 @@ export const authController = {
       if (!currentPassword || !newPassword) {
         return res.status(400).json({ error: 'currentPassword and newPassword are required' });
       }
-      if (String(newPassword).length < 6) {
-        return res.status(400).json({ error: 'New password must be at least 6 characters' });
-      }
+      const passwordCheck = validatePassword(newPassword);
+      if (!passwordCheck.ok) return res.status(400).json({ error: passwordCheck.error });
 
       // Read hashed password from DB and verify
       const user = await authService.getUserById(userId);

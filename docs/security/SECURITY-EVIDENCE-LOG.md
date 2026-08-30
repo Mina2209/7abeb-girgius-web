@@ -114,9 +114,9 @@ console.log('Default users created: admin/TEmPpasSWordFoRaDMin12e4##');
 
 ## Finding 8: Async Middleware Bug
 **Severity:** HIGH → MEDIUM (downgraded after testing)
-**Status:** CONFIRMED (reliability issue, NOT an auth bypass)
+**Status:** REMEDIATED (Aug 2026)
 **File:** `server/middleware/auth.js:26-37`
-**Evidence:**
+**Evidence (original):**
 ```javascript
 prisma.user.findUnique({ where: { id: decoded.id } })
     .then(user => {
@@ -138,13 +138,14 @@ prisma.user.findUnique({ where: { id: decoded.id } })
 **Exploitability:** LOW - No proven exploit path
 **Impact:** LOW (reliability issue only, not security bypass)
 **Recommended Fix:** Make middleware async or return promise from `.then().catch()` chain
+**Remediation:** `authenticate`/`optionalAuthenticate` rewritten as `async` functions with `try/await/catch`; promises now returned to Express 5 for lifecycle tracking. Identical 401 messages preserved. Regression: suite green (`async-auth-behavior`, `auth-middleware`, `auth-security`).
 **Confidence:** DOWNGRADED from HIGH to LOW after empirical testing
 
 ## Finding 9: Weak Password Policy
 **Severity:** MEDIUM
-**Status:** CONFIRMED
+**Status:** REMEDIATED (Aug 2026)
 **File:** `server/controllers/auth.controller.js:14-16`
-**Evidence:**
+**Evidence (original):**
 ```javascript
 if (!password || password.length < 6) {
     return res.status(400).json({ error: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' });
@@ -155,13 +156,14 @@ if (!password || password.length < 6) {
 **Exploitability:** MEDIUM - Depends on user password choice
 **Impact:** MEDIUM - Account compromise
 **Recommended Fix:** Require 8+ characters with complexity
+**Remediation:** New `server/utils/password-policy.js`: min 8 / max 128, plus lowercase + uppercase + digit + special. Enforced in `register`, `createUser` (admin-add), and self-service `changePassword`. `admin updateUser` intentionally policy-free (admin reset flexibility; existing tests rely on short passwords there). Client mirrors via `client/src/app/utils/password.ts` in Signup/ChangePassword/AddUser modals. Tests: `password-policy.test.js`.
 **Confidence:** CONFIRMED
 
 ## Finding 10: No Request ID Correlation
 **Severity:** MEDIUM
-**Status:** CONFIRMED
+**Status:** REMEDIATED (Aug 2026)
 **File:** `server/index.js:9-18`
-**Evidence:**
+**Evidence (original):**
 ```javascript
 const requestLogger = (req, res, next) => {
     if (req.path === '/health') return next();
@@ -178,6 +180,16 @@ const requestLogger = (req, res, next) => {
 **Exploitability:** N/A - Operational issue
 **Impact:** MEDIUM - Incident response difficulty
 **Recommended Fix:** Generate UUID for each request, include in logs
+**Remediation:** New `server/middleware/requestId.js` (registers before requestLogger) assigns `crypto.randomUUID()` per request, echoes it via `X-Request-ID` response header, and includes `requestId` in both requestLogger lines and errorHandler log payload. Tests: `request-id.test.js`.
+**Confidence:** CONFIRMED
+
+## Finding 11: No Max-Length / Array-Item Enforcement in Request Validation
+**Severity:** MEDIUM
+**Status:** REMEDIATED (Aug 2026)
+**File:** `server/middleware/validate.js`, route schemas
+**Evidence (original):** `validate()` types were `string`/`string?`/`array?` with no maximum-length or per-element constraints, so oversized strings/arrays were passed through to controllers/database.
+**Analysis:** Unbounded text bodies can inflate DB storage and downstream processing (PDF/zip generation), enabling storage/blast-radius abuse.
+**Remediation:** `validate()` now supports `string:255`, `string?:10000`, `string[]:100`, `array?:100`, and `string[]:100:255` (max count, per-element max). Route schemas updated for hymn, father, image, saying, tag. Unknown fields still stripped; bodies replaced with validated payload only. Tests: `validate-security.test.js`.
 **Confidence:** CONFIRMED
 
 ## Positive Findings (Well Implemented)
@@ -219,11 +231,13 @@ const requestLogger = (req, res, next) => {
 - ZIP download rate limiter (10/hour)
 
 ### P6: Docker Security
-**Status:** CONFIRMED SAFE
+**Status:** CONFIRMED SAFE — strengthened (Aug 2026)
 **Evidence:**
 - Multi-stage build excludes dev dependencies
 - Runs as non-root user (`USER node`)
 - No secrets hardcoded in Dockerfile
+- `docker-compose.yml` no longer hardcodes `POSTGRES_PASSWORD`/`JWT_SECRET`; credentials come from env var interpolation and the API refuses to boot if `JWT_SECRET` unset (fail-fast `${JWT_SECRET:?...}`)
+- DB port no longer published to the host (internal compose network only; host mapping commented out)
 
 ### P7: Backup Security
 **Status:** CONFIRMED SAFE

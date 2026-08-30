@@ -2,6 +2,7 @@ import { X, Mail, Lock, User, Church, Shield } from 'lucide-react';
 import { useState } from 'react';
 import { ChurchRoleDropdown } from './ChurchRoleDropdown';
 import { ServicesDropdown } from './ServicesDropdown';
+import { checkPassword } from '../utils/password';
 
 type UserRole = 'viewer' | 'editor' | 'admin';
 
@@ -43,8 +44,11 @@ export function AddUserModal({ isOpen, onClose, onAddUser }: AddUserModalProps) 
       return;
     }
 
-    if (password.length < 6) {
-      setError('يجب أن تكون كلمة المرور 6 أحرف على الأقل');
+    const passwordCheck = checkPassword(password);
+    if (!passwordCheck.valid) {
+      setError(
+        'يجب أن تتكون كلمة المرور من 8 أحرف على الأقل وأن تحتوي على حرف كبير وصغير ورقم ورمز خاص'
+      );
       return;
     }
 
