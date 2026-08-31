@@ -10,9 +10,40 @@ import {
   type ServerSayingRow,
 } from './contentMappers';
 
+// The hymns endpoint paginates server-side (default 50, hard cap 100 per page) and
+// answers with a bare array carrying no `total`, so a single request silently returns
+// a truncated list with no way for the caller to notice. Page through until a short
+// page comes back, which is the only reliable end-of-list signal this endpoint gives.
+const HYMN_PAGE_LIMIT = 100;
+const HYMN_MAX_PAGES = 200; // safety stop; 20k hymns is far beyond any real dataset
+
+async function fetchHymnRowsRemote(extraParams = ''): Promise<ServerHymn[]> {
+  const all: ServerHymn[] = [];
+  for (let page = 1; page <= HYMN_MAX_PAGES; page += 1) {
+    const qs = `page=${page}&limit=${HYMN_PAGE_LIMIT}${extraParams ? `&${extraParams}` : ''}`;
+    const rows = await apiGetJson<ServerHymn[]>(`/api/hymns?${qs}`);
+    if (!Array.isArray(rows)) throw new Error('Invalid hymns response');
+    all.push(...rows);
+    if (rows.length < HYMN_PAGE_LIMIT) break;
+  }
+  return all;
+}
+
 async function fetchHymnsRemote(): Promise<Hymn[]> {
-  const rows = await apiGetJson<ServerHymn[]>('/api/hymns');
-  if (!Array.isArray(rows)) throw new Error('Invalid hymns response');
+  const rows = await fetchHymnRowsRemote();
+  return rows.map(mapServerHymnToClient);
+}
+
+/**
+ * Server-filtered hymns (search / tags / fileTypes / sort / favorites).
+ *
+ * Returns fully mapped `Hymn` objects. Callers must not use the raw rows: the server
+ * shape differs from `Hymn` in every field that matters -- tags arrive as objects
+ * rather than strings, lyrics live under `lyric.content`, file URLs under `fileUrl`,
+ * and `fileTypes` / `duration` are derived, not sent.
+ */
+export async function fetchHymnsFiltered(params: string): Promise<Hymn[]> {
+  const rows = await fetchHymnRowsRemote(params);
   return rows.map(mapServerHymnToClient);
 }
 
