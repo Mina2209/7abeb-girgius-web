@@ -2,7 +2,7 @@ import type { GalleryImage, Hymn, HymnFileType, Saying } from '../types/content'
 import type { Artist } from '../data/artists';
 import type { Father } from '../data/fathers';
 import { apiGetJson, apiRequest } from './apiClient';
-import { uploadFileToS3, getFileContentType } from './s3Upload';
+import { uploadFileToS3, getFileContentType, presignAndUpload } from './s3Upload';
 import {
   mapServerAuthorToClient,
   mapServerFatherToClient,
@@ -60,6 +60,31 @@ async function ensureFilesUploadedToS3(
       return { ...f, fileUrl: s3Url || f.fileUrl };
     }),
   );
+}
+
+/**
+ * Upload a picked image to S3 and return the short stored URL.
+ *
+ * The image modals read files with FileReader as base64 data URLs, which is right for
+ * the preview but must never reach the API: `imageUrl` is validated at 2000 characters
+ * server-side, and nothing on the server converts base64 to S3 (it only ever deletes
+ * from S3). Sending the data URL therefore failed every upload with
+ * "imageUrl must not exceed 2000 characters". Uploading here mirrors what hymn files
+ * already do via ensureFilesUploadedToS3, and yields the same
+ * `/api/uploads/url?key=...` form as the rows written by the previous site.
+ */
+async function ensureImageUploadedToS3(src: string, title: string): Promise<string> {
+  if (!src || !isBase64DataUrl(src)) return src;
+
+  const mime = src.slice(5, src.indexOf(';')) || 'image/jpeg';
+  const ext = (mime.split('/')[1] || 'jpg').replace('+xml', '');
+  // The server sanitizes the key anyway (non-ASCII becomes '_'), so keep this simple
+  // and just strip anything that would be awkward in a filename.
+  const safeTitle = (title || 'image').trim().replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 60) || 'image';
+
+  const file = base64DataUrlToFile(src, `${safeTitle}.${ext}`, mime);
+  const { url } = await presignAndUpload(file, mime, 'Images');
+  return url;
 }
 
 export async function createHymn(input: Hymn, token?: string | null): Promise<Hymn> {
@@ -206,9 +231,10 @@ async function resolveImageMetaIds(image: GalleryImage, token?: string | null) {
 
 export async function createImage(image: GalleryImage, token?: string | null): Promise<GalleryImage> {
   const { authorId, typeId } = await resolveImageMetaIds(image, token);
+  const imageUrl = await ensureImageUploadedToS3(image.src, image.title);
   const body = {
     title: image.title,
-    imageUrl: image.src,
+    imageUrl,
     tags: image.tags,
     ai: image.aiGenerated,
     published: image.published,
@@ -225,9 +251,10 @@ export async function createImage(image: GalleryImage, token?: string | null): P
 
 export async function updateImage(id: string, image: GalleryImage, token?: string | null): Promise<GalleryImage> {
   const { authorId, typeId } = await resolveImageMetaIds(image, token);
+  const imageUrl = await ensureImageUploadedToS3(image.src, image.title);
   const body = {
     title: image.title,
-    imageUrl: image.src,
+    imageUrl,
     tags: image.tags,
     ai: image.aiGenerated,
     published: image.published,
