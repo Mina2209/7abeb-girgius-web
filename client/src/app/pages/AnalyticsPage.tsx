@@ -132,7 +132,7 @@ const SOCIAL_LABELS: Record<string, string> = {
 const ROUTE_LABELS: Record<string, string> = {
   '/': 'الصفحة الرئيسية',
   '/liturgy': 'بوربوينت الليتورجية',
-  '/hymns': 'مكتبة الترانيم',
+  '/hymns': 'مكتبة الترانيم للعرض',
   '/various': 'بوربوينت متنوعة',
   '/images': 'مكتبة الصور',
   '/artists': 'الفنانون',

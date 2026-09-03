@@ -25,7 +25,7 @@ interface Backup {
 const MAIN_SECTIONS: SectionConfig[] = [
   { id: 'home', name: 'الصفحة الرئيسية', route: 'home' },
   { id: 'liturgy', name: 'بوربوينت الليتورجية', route: 'liturgy' },
-  { id: 'hymns', name: 'مكتبة الترانيم', route: 'hymns' },
+  { id: 'hymns', name: 'مكتبة الترانيم للعرض', route: 'hymns' },
   { id: 'various', name: 'بوربوينت متنوعة', route: 'various' },
   { id: 'images', name: 'مكتبة الصور', route: 'images' },
   { id: 'books', name: 'مكتبة الكتب', route: 'books' },

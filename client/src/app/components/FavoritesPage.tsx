@@ -179,7 +179,7 @@ export function FavoritesPage() {
                 <EmptyState
                   icon={MusicIcon}
                   title="لا توجد ترانيم مفضلة"
-                  description="ابدأ بإضافة الترانيم المفضلة لديك من مكتبة الترانيم"
+                  description="ابدأ بإضافة الترانيم المفضلة لديك من مكتبة الترانيم للعرض"
                 />
               ) : (
                 favorites.hymns.map((hymn: any) => (

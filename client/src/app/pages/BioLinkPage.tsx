@@ -28,7 +28,7 @@ const PAGE_DESCRIPTION =
 const quickLinks = [
   { to: '/', icon: House, title: 'خدمة الأرشيدياكون حبيب جرجس', desc: 'الصفحة الرئيسية' },
   { to: '/liturgy', icon: Presentation, title: 'بوربوينت الليتورجية', desc: 'صلوات القداس والطقوس' },
-  { to: '/hymns', icon: Music, title: 'مكتبة الترانيم', desc: 'كلمات وألحان مسيحية' },
+  { to: '/hymns', icon: Music, title: 'مكتبة الترانيم للعرض', desc: 'كلمات وألحان مسيحية' },
   { to: '/various', icon: LayoutGrid, title: 'بوربوينت متنوعة', desc: 'شرائح متنوعة للعرض' },
   { to: '/images', icon: Images, title: 'مكتبة الصور', desc: 'مكتبة صور قبطية عالية الجودة' },
   { to: '/sayings', icon: BookOpen, title: 'أقوال الآباء', desc: 'حكم وأقوال روحية' },

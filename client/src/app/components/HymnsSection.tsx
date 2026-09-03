@@ -22,11 +22,12 @@ import {
   Music,
 } from "lucide-react";
 import { useState, useMemo, useRef, useEffect, type RefObject } from "react";
+import { useSearchParams } from "react-router-dom";
 import { TagFilter } from "./TagFilter";
 import { useAuth } from "../contexts/AuthContext";
 import { LoginRequiredModal } from "./LoginRequiredModal";
 import { useIsEditor } from "../utils/adminUtils";
-import { normalizeArabic } from "../utils/arabicUtils";
+import { normalizeArabic, shortContentId } from "../utils/arabicUtils";
 import { AdminEditHymnModal } from "./AdminEditHymnModal";
 import { useHymnsData } from "../hooks/useHymnsData";
 import { useFavorites } from "../hooks/useFavorites";
@@ -248,6 +249,7 @@ export function HymnsSection({
   const { user, profile, accessToken } = useAuth();
   const isEditor = useIsEditor();
   const { hymns, setHymns, loading: hymnsLoading } = useHymnsData();
+  const [searchParams] = useSearchParams();
 
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedFileTypes, setSelectedFileTypes] = useState<FileType[]>([]);
@@ -270,6 +272,19 @@ export function HymnsSection({
   useEffect(() => {
     setVisibleCount(25);
   }, [searchQuery, selectedTags, selectedFileTypes, sortBy, showFavoritesOnly]);
+
+  // Deep link: لو الرابط فيه ?hymn=<code> فاكسّباند الترنيمة المطلوبة واقصدها
+  useEffect(() => {
+    const hymnParam = searchParams.get("hymn");
+    if (!hymnParam) return;
+    const targetHymn = hymns.find(
+      (h) => shortContentId(h.id) === hymnParam || String(h.id) === hymnParam,
+    );
+    if (!targetHymn) return;
+    setExpandedHymnId(targetHymn.id);
+    // تأكد إن الترنيمة الهدف ظاهرة حتى لو كانت في صفحة أبعد من الـ visibleCount
+    setVisibleCount((prev) => Math.max(prev, 50));
+  }, [searchParams, hymns]);
 
   // Multi-select states
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -344,7 +359,7 @@ export function HymnsSection({
     }, 520);
 
     return () => clearTimeout(timer);
-  }, [expandedHymnId]);
+  }, [expandedHymnId, hymns]);
 
   // Get unique tags from hymns
   const allTags = useMemo(
@@ -637,6 +652,10 @@ export function HymnsSection({
 
   // Share hymn
   const shareHymn = async (hymn: (typeof hymns)[0]) => {
+    // Build a deep-link URL that opens directly on the shared hymn
+    const shareUrl = new URL(window.location.href);
+    shareUrl.searchParams.set("hymn", shortContentId(hymn.id));
+
     // Try native share API first (works on mobile and some modern browsers)
     trackEvent('share_started', {
       contentType: 'hymn',
@@ -647,7 +666,7 @@ export function HymnsSection({
         await navigator.share({
           title: hymn.title,
           text: `ترنيمة: ${hymn.title}`,
-          url: window.location.href,
+          url: shareUrl.toString(),
         });
         trackEvent('share_completed', {
           contentType: 'hymn',
@@ -664,7 +683,7 @@ export function HymnsSection({
 
     // Fallback: Create a temporary textarea to copy text
     try {
-      const shareText = `${hymn.title}\n${window.location.href}`;
+      const shareText = `${hymn.title}\n${shareUrl.toString()}`;
       const textarea = document.createElement("textarea");
       textarea.value = shareText;
       textarea.style.position = "fixed";
@@ -844,12 +863,9 @@ export function HymnsSection({
     <div className="flex flex-col h-full">
       {/* Title / Description */}
       <div>
-        <h1 className="mb-2 font-bold text-2xl sm:text-3xl lg:text-[36px]">مكتبة الترانيم</h1>
+        <h1 className="mb-2 font-bold text-2xl sm:text-3xl lg:text-[36px]">مكتبة الترانيم للعرض</h1>
         <p className="text-muted-foreground leading-relaxed">
-          مكتبة شاملة تضم مئات الترانيم والألحان القبطية مع فيديوهات وعروض
-          PowerPoint وملفات صوتية ونصوص. استخدم البحث والفلاتر للعثور على
-          الترنيمة المطلوبة، وأضف المفضلات لديك، وحمّل الملفات للاستخدام في
-          الخدمة والصلاة.
+          مكتبة شاملة تضم مئات الترانيم والألحان القبطية مع فيديوهات وعروضمجموعة من ملفات الترانيم المعدّة للاستخدام أثناء الخدمة والاجتماعات، تشمل عروض باوربوينت، وملفات موسيقى، وفيديوهات للترانيم، سواء كانت فيديو باوربوينت يجمع العرض والموسيقى، أو فيديو مونتاج مصمم للترنيمة. استعرض كلمات الترنيمة، واختر الملفات التي تحتاجها، أو حمّل المجموعة كاملة.
         </p>
       </div>
 
@@ -2095,9 +2111,6 @@ export function HymnsSection({
                   <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto animate-pulse">
                     <FileAudio className="w-8 h-8" />
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    مشغل الصوت المدمج
-                  </p>
                   <audio
                     controls
                     src={previewUrl}

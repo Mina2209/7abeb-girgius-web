@@ -133,7 +133,7 @@ export function TagFilter({
           {/* Dropdown menu — anchored below the button (full width on mobile,
               right-aligned under the button on desktop, RTL) */}
           {isDropdownOpen && (
-            <div className="absolute right-0 left-0 sm:left-auto top-full mt-2 z-50 max-h-80 flex flex-col bg-card border border-border rounded-xl shadow-lg sm:w-80">
+            <div className="absolute right-0 left-0 sm:left-auto top-full mt-2 z-50 max-h-80 flex flex-col bg-card border border-border rounded-xl shadow-lg min-w-[320px] sm:w-80">
               {/* Search within dropdown */}
               <div className="p-3 border-b border-border flex-shrink-0">
                 <div className="relative">
@@ -169,7 +169,7 @@ export function TagFilter({
                             onChange={() => toggleTag(tag)}
                             className="w-4 h-4 rounded border-border text-primary focus:ring-primary/50 cursor-pointer"
                           />
-                          <span className="text-xs flex-1">{tag}</span>
+                          <span className="text-xs flex-1 whitespace-nowrap">{tag}</span>
                         </label>
                       ))}
                     </div>
@@ -203,7 +203,7 @@ export function TagFilter({
                                   onChange={() => toggleTag(tag)}
                                   className="w-4 h-4 rounded border-border text-primary focus:ring-primary/50 cursor-pointer"
                                 />
-                                <span className="text-xs flex-1">{tag}</span>
+                                <span className="text-xs flex-1 whitespace-nowrap">{tag}</span>
                               </label>
                             ))}
                           </div>

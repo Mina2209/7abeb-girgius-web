@@ -160,8 +160,10 @@ export function HomeSection() {
       {/* Hero Section */}
       <div className="relative bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-3xl p-8 md:p-12 lg:p-16 border border-primary/20 overflow-hidden">
         <div className="relative z-10 text-center max-w-4xl mx-auto">
-          <h1 className="mb-4 font-bold text-3xl md:text-4xl lg:text-5xl">
-            خدمة الأرشيدياكون حبيب جرجس للداتا شو
+          <h1 className="mb-4 font-bold text-3xl md:text-4xl lg:text-5xl leading-tight">
+            خدمة الأرشيدياكون
+            <br className="sm:hidden" />
+            حبيب جرجس للداتا شو
           </h1>
           <p className="text-xl md:text-2xl text-muted-foreground mb-2">
             بكنيسة السيدة العذراء مريم بالنزهة الجديدة

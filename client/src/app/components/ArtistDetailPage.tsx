@@ -1,4 +1,4 @@
-import { ArrowLeft, Facebook, Instagram, Globe, Mail, Calendar, Image as ImageIcon, Edit2 } from 'lucide-react';
+import { ArrowRight, Facebook, Instagram, Globe, Mail, Calendar, Image as ImageIcon, Edit2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Masonry, { ResponsiveMasonry } from 'react-responsive-masonry';
@@ -75,7 +75,7 @@ export function ArtistDetailPage() {
           onClick={() => navigate('/artists')}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowRight className="w-4 h-4" />
           <span>العودة إلى الفنانين</span>
         </button>
       </div>
@@ -88,7 +88,7 @@ export function ArtistDetailPage() {
         onClick={() => navigate('/artists')}
         className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors mb-4 w-fit"
       >
-        <ArrowLeft className="w-5 h-5" />
+        <ArrowRight className="w-5 h-5" />
         <span>العودة إلى الفنانين</span>
       </button>
 

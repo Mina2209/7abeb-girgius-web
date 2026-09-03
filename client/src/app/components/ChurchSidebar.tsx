@@ -70,7 +70,7 @@ const InfoIcon = (props: any) => (
 const menuItems = [
   { id: 'home', label: 'الصفحة الرئيسية', icon: HomeIcon },
   { id: 'liturgy', label: 'بوربوينت الليتورجية', icon: PrayingHandsIcon },
-  { id: 'hymns', label: 'مكتبة الترانيم', icon: MusicIcon },
+  { id: 'hymns', label: 'مكتبة الترانيم للعرض', icon: MusicIcon },
   { id: 'various', label: 'بوربوينت متنوعة', icon: PresentationFolderIcon },
   { id: 'images', label: 'مكتبة الصور', icon: PictureIcon },
   { id: 'books', label: 'مكتبة الكتب', icon: BookOpenIcon },
@@ -127,10 +127,10 @@ export const ChurchSidebar = memo(function ChurchSidebar({
       <div className="lg:hidden fixed top-0 left-0 right-0 bg-sidebar text-sidebar-foreground z-[200] border-b border-sidebar-border shadow-lg">
           <div className="flex items-center justify-between px-3 h-20">
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="min-w-[44px] min-h-[44px] flex items-center justify-center p-2 rounded-md hover:bg-sidebar-accent transition-colors group"
-                aria-label="القائمة"
+              aria-label="القائمة"
             >
               {isMobileMenuOpen ? (
                 <X className="w-6 h-6 group-hover:text-sidebar-accent-foreground" />
@@ -143,7 +143,7 @@ export const ChurchSidebar = memo(function ChurchSidebar({
 
           <div className="flex items-center gap-3">
             <div className="flex flex-col items-center text-center leading-tight">
-              <p className="font-semibold text-sm">
+              <p className="font-semibold text-xs sm:text-sm">
                 خدمة الأرشيدياكون حبيب جرجس للداتا شو
               </p>
               <h2 className="text-[11px] font-medium text-sidebar-foreground/70">
@@ -159,8 +159,8 @@ export const ChurchSidebar = memo(function ChurchSidebar({
               decoding="async"
               className="w-10 h-10 rounded-lg object-cover"
             />
-          </div>
         </div>
+      </div>
 
         {/* Mobile Menu Dropdown */}
         <div

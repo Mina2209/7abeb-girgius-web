@@ -162,7 +162,7 @@ export default function App() {
     const pageTitles: Record<string, string> = {
       '/': ' خدمة الأرشيدياكون حبيب جرجس',
       '/liturgy': 'بوربوينت الليتورجية',
-      '/hymns': 'مكتبة الترانيم',
+      '/hymns': 'مكتبة الترانيم للعرض',
       '/various': 'بوربوينت متنوعة',
       '/images': 'مكتبة الصور',
       '/artists': 'الفنانون',

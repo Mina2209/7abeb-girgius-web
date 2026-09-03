@@ -82,7 +82,7 @@ export function LiturgySection() {
   }, []);
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto p-4 md:p-6 lg:p-8 animate-fade-in">
+    <div className="space-y-8 animate-fade-in">
       {/* Header Section */}
       <div className="border-b border-border pb-6">
         <h1 className="mb-2 font-bold text-2xl sm:text-3xl lg:text-[36px] text-foreground tracking-tight">بوربوينت الليتورجية</h1>

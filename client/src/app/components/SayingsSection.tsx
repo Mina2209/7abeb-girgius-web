@@ -1,12 +1,12 @@
   import { Heart, Share2, ArrowUpDown, Search, ChevronDown, Tags, User, BookOpen, Calendar, Plus, Edit2, Trash2, Download, Upload, CheckSquare, Square, CheckCheck, MessageSquareQuote, Users, X, Image as ImageIcon, FileSpreadsheet } from 'lucide-react';
   import { useState, useMemo, useRef, useEffect } from 'react';
-  import { useNavigate } from 'react-router-dom';
+  import { useNavigate, useSearchParams } from 'react-router-dom';
   import { TagFilter } from './TagFilter';
   import { MultiSelectFilter } from './MultiSelectFilter';
   import Masonry, { ResponsiveMasonry } from 'react-responsive-masonry';
   import { getFatherByName, fathers as staticFathersData } from '../data/fathers';
   import { useIsEditor } from '../utils/adminUtils';
-  import { normalizeArabic } from '../utils/arabicUtils';
+  import { normalizeArabic, shortContentId } from '../utils/arabicUtils';
 import { AdminEditSayingModal } from './AdminEditSayingModal';
 import { useSayingsData } from '../hooks/useSayingsData';
   import { useFavorites } from '../hooks/useFavorites';
@@ -134,6 +134,7 @@ import { toast } from 'sonner';
 
   export function SayingsSection() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const isEditor = useIsEditor();
     const { accessToken } = useAuth();
     const { sayings, setSayings, loading: sayingsLoading } = useSayingsData();
@@ -160,10 +161,31 @@ import { toast } from 'sonner';
     const [selectedSayingIds, setSelectedSayingIds] = useState<ContentId[]>([]);
       const [bulkEditMode, setBulkEditMode] = useState(false);
     
-    const sortDropdownRef = useRef<HTMLDivElement>(null);
+const sortDropdownRef = useRef<HTMLDivElement>(null);
     const filtersContainerRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const excelFileInputRef = useRef<HTMLInputElement>(null);
+const sayingCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+    // Deep link: لو الرابط فيه ?saying=<code> فاكسّباند القول المطلوب واقصده
+    useEffect(() => {
+      const sayingParam = searchParams.get('saying');
+      if (!sayingParam) return;
+      const targetSaying = sayings.find(
+        (s) => shortContentId(s.id) === sayingParam || String(s.id) === sayingParam,
+      );
+      if (!targetSaying) return;
+      setExpandedQuoteId(targetSaying.id);
+      let timer: ReturnType<typeof setTimeout>;
+      const tryScroll = () => {
+        const card = sayingCardRefs.current[String(targetSaying.id)];
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      };
+      timer = setTimeout(tryScroll, 650);
+      return () => clearTimeout(timer);
+    }, [searchParams, sayings]);
 
     // Load all fathers eagerly so we can resolve author images for cards
     useEffect(() => {
@@ -470,7 +492,10 @@ import { toast } from 'sonner';
     };
 
     const handleShare = (quote: Saying) => {
-      const shareText = `"${quote.quote}"\n\n- ${quote.author}`;
+      // Deep-link URL that opens directly on the shared saying
+      const shareUrl = new URL(window.location.href);
+      shareUrl.searchParams.set('saying', shortContentId(quote.id));
+      const shareText = `"${quote.quote}"\n\n- ${quote.author}\n${shareUrl.toString()}`;
       // Engage with a specific quote — never send the quote text itself.
       trackEvent('saying_view', {
         contentType: 'saying',
@@ -720,7 +745,7 @@ import { toast } from 'sonner';
     </div>
 
     {/* Sticky Header Section */}
-    <div className="sticky top-0 bg-background z-40 pb-2 pt-2 sm:pb-4 border-b border-border/50">
+    <div className="sticky top-[var(--app-header-height)] bg-background z-40 pb-2 pt-2 sm:pb-4 border-b border-border/50">
 
       {/* Admin Toolbar */}
           {isEditor && (
@@ -1013,6 +1038,13 @@ import { toast } from 'sonner';
                   return (
                     <div
                       key={item.id}
+                      ref={(el) => {
+                        if (el) {
+                          sayingCardRefs.current[String(item.id)] = el;
+                        } else {
+                          delete sayingCardRefs.current[String(item.id)];
+                        }
+                      }}
                       className={`bg-card relative z-0 isolate rounded-xl border overflow-hidden transition-all hover:bg-muted group/card w-full ${
                         isSelected ? 'border-primary ring-2 ring-primary/30' : 'border-border'
                       }`}

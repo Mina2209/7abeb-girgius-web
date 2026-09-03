@@ -1039,7 +1039,7 @@ export function ImageLibrarySection({
 
       <div className="flex-1 pt-6">
         <ResponsiveMasonry
-          columnsCountBreakPoints={{ 0: 1, 350: 1, 750: 2, 900: 3, 1200: 4 }}
+          columnsCountBreakPoints={{ 0: 2, 350: 2, 750: 2, 900: 3, 1200: 4 }}
         >
           <Masonry gutter="16px">
             {sortedImages.length > 0 ? (
@@ -1224,8 +1224,8 @@ export function ImageLibrarySection({
             <X className="w-5 h-5" />
           </button>
 
-          <div className="absolute top-4 right-4 left-20 bg-black/60 backdrop-blur-sm text-white rounded-xl p-4 z-10 max-w-2xl">
-            <h2 className="font-bold mb-1">{sortedImages[currentImageIndex].title}</h2>
+          <div className="absolute top-4 right-4 left-20 bg-black/60 backdrop-blur-sm text-white rounded-xl p-3 sm:p-4 z-10 max-w-[70%] sm:max-w-2xl">
+            <h2 className="font-bold text-sm sm:text-base mb-1">{sortedImages[currentImageIndex].title}</h2>
             <div className="flex items-center gap-2 text-xs text-white/70 flex-wrap">
               <span>الفنان: </span>
               <button
@@ -1253,7 +1253,7 @@ export function ImageLibrarySection({
                 </>
               )}
             </div>
-            <p className="text-sm text-white/80 mt-2">
+            <p className="text-xs sm:text-sm text-white/80 mt-1 sm:mt-2">
               {sortedImages[currentImageIndex].tags.join(', ')}
             </p>
           </div>
@@ -1323,7 +1323,7 @@ export function ImageLibrarySection({
           </div>
 
           <div
-            className="absolute inset-0 flex items-center justify-center px-4 py-32 md:px-20"
+            className="absolute inset-0 flex items-center justify-center px-3 py-16 sm:py-28 md:px-20"
             onClick={(e) => e.stopPropagation()}
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}

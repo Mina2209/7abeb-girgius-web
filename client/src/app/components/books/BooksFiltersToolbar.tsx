@@ -142,7 +142,7 @@ export function BooksFiltersToolbar({
         </p>
       </div>
 
-      <div className="sticky top-0 bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
+      <div className="sticky top-[var(--app-header-height)] bg-background z-40 pb-3 sm:pb-4 border-b border-border/50">
       {isEditor && (
         <div className="mt-4 mb-4 px-3 py-2 bg-primary/5 border border-primary/20 rounded-lg">
           <div className="flex items-center justify-between gap-3 flex-wrap">
