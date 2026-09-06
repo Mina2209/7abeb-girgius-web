@@ -106,7 +106,7 @@ export function MultiSelectFilter({
       {/* Dropdown menu — anchored below the button (full width on mobile,
           right-aligned under the button on desktop, RTL) */}
       {isDropdownOpen && (
-        <div className="absolute right-0 left-0 sm:left-auto top-full mt-2 z-50 max-h-80 flex flex-col bg-card border border-border rounded-xl shadow-lg sm:w-72">
+        <div className="absolute right-0 top-full mt-2 z-50 max-h-80 flex flex-col bg-card border border-border rounded-xl shadow-lg w-max max-w-[calc(100vw-1rem)] sm:w-80 sm:max-w-none">
           {/* Search Box */}
           <div className="p-3 border-b border-border flex-shrink-0">
             <div className="relative">
@@ -118,7 +118,7 @@ export function MultiSelectFilter({
                 placeholder="بحث..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pr-10 pl-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
+                className="w-full min-w-0 pr-10 pl-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
               />
             </div>
           </div>
@@ -130,7 +130,7 @@ export function MultiSelectFilter({
                 {filteredOptions.map((option) => (
                   <label
                     key={option}
-                    className="flex items-center gap-3 px-3 py-2 hover:bg-muted rounded-lg cursor-pointer transition-colors"
+                    className="flex items-center gap-3 px-3 py-2 hover:bg-muted rounded-lg cursor-pointer transition-colors whitespace-nowrap"
                   >
                     <input
                       id={`multi-select-option-${option.replace(/\s+/g, '-')}`}
@@ -138,9 +138,9 @@ export function MultiSelectFilter({
                       type="checkbox"
                       checked={selectedOptions.includes(option)}
                       onChange={() => toggleOption(option)}
-                      className="w-4 h-4 rounded border-border text-primary focus:ring-primary/50 cursor-pointer"
+                      className="w-4 h-4 rounded border-border text-primary focus:ring-primary/50 cursor-pointer flex-shrink-0"
                     />
-                    <span className="text-sm flex-1">{option}</span>
+                    <span className="text-sm">{option}</span>
                   </label>
                 ))}
               </div>

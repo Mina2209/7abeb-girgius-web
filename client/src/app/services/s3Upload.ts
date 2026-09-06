@@ -1,4 +1,5 @@
-import { apiGetJson } from './apiClient';
+import { apiGetJson, uploadWithProgress } from './apiClient';
+import { startUpload, updateProgress, completeUpload, failUpload } from '../state/uploadProgressStore';
 import { getApiBaseUrl } from '../config/api';
 
 const FILE_CONTENT_TYPES: Record<string, string> = {
@@ -39,28 +40,38 @@ export async function presignAndUpload(
   contentType: string,
   folder: string,
 ): Promise<UploadResult> {
-  const { url, key } = await apiGetJson<{ url: string; key: string }>(
-    '/api/uploads/presign',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filename: file.name, contentType, folder }),
-    },
-  );
+  const uploadId = startUpload(file.name);
+  try {
+    const { url, key } = await apiGetJson<{ url: string; key: string }>(
+      '/api/uploads/presign',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, contentType, folder }),
+      },
+    );
 
-  const putRes = await fetch(url, {
-    method: 'PUT',
-    headers: { 'Content-Type': contentType },
-    body: file,
-  });
-  if (!putRes.ok) {
-    throw new Error(`S3 upload failed with status ${putRes.status}`);
+    const putRes = await uploadWithProgress({
+      url,
+      method: 'PUT',
+      headers: { 'Content-Type': contentType },
+      body: file,
+      onUploadProgress: (loaded, total) => updateProgress(uploadId, loaded, total),
+    });
+    if (!putRes.ok) {
+      const detail = await putRes.text().catch(() => '');
+      throw new Error(`S3 upload failed with status ${putRes.status}${detail ? `: ${detail}` : ''}`);
+    }
+
+    completeUpload(uploadId);
+    // Stored absolute, matching every row the previous site wrote. The value is
+    // persisted in the database and read back by a frontend served from a different
+    // origin (the S3 website bucket), where a relative path would not resolve.
+    return { url: `${getApiBaseUrl()}/api/uploads/url?key=${encodeURIComponent(key)}`, key };
+  } catch (err) {
+    failUpload(uploadId, err instanceof Error ? err.message : String(err));
+    throw err;
   }
-
-  // Stored absolute, matching every row the previous site wrote. The value is
-  // persisted in the database and read back by a frontend served from a different
-  // origin (the S3 website bucket), where a relative path would not resolve.
-  return { url: `${getApiBaseUrl()}/api/uploads/url?key=${encodeURIComponent(key)}`, key };
 }
 
 export async function uploadFileToS3(

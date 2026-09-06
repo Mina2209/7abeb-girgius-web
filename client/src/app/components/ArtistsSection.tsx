@@ -69,7 +69,13 @@ export function ArtistsSection() {
         setMessage('تم تحديث بيانات الفنان بنجاح');
       } else {
         const created = await createArtist(artistData, accessToken);
-        setArtists(prev => [...prev, created]);
+        // The list renders in server order (name asc), so insert sorted rather than
+        // appending at the end (which would show the new artist in the wrong spot).
+        setArtists(prev => {
+          const idx = prev.findIndex(a => a.name.localeCompare(created.name, 'ar') > 0);
+          if (idx === -1) return [...prev, created];
+          return [...prev.slice(0, idx), created, ...prev.slice(idx)];
+        });
         setMessage('تم إضافة الفنان بنجاح');
       }
     } catch {

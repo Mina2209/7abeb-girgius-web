@@ -330,6 +330,7 @@ export function HymnsSection({
     setIsPreviewOpen(true);
   };
   const sortDropdownRef = useRef<HTMLDivElement>(null);
+  const mobileSortDropdownRef = useRef<HTMLDivElement>(null);
   const fileTypeDropdownRef = useRef<HTMLDivElement>(null);
   const filtersContainerRef = useRef<HTMLDivElement>(null!);
   const hymnCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -376,7 +377,8 @@ export function HymnsSection({
       if (!(target instanceof Node)) return;
 
       const isInsideSort =
-        sortDropdownRef.current?.contains(target) ?? false;
+        (sortDropdownRef.current?.contains(target) ?? false) ||
+        (mobileSortDropdownRef.current?.contains(target) ?? false);
       const isInsideFileType =
         fileTypeDropdownRef.current?.contains(target) ?? false;
 
@@ -865,7 +867,7 @@ export function HymnsSection({
       <div>
         <h1 className="mb-2 font-bold text-2xl sm:text-3xl lg:text-[36px]">مكتبة الترانيم للعرض</h1>
         <p className="text-muted-foreground leading-relaxed">
-          مكتبة شاملة تضم مئات الترانيم والألحان القبطية مع فيديوهات وعروضمجموعة من ملفات الترانيم المعدّة للاستخدام أثناء الخدمة والاجتماعات، تشمل عروض باوربوينت، وملفات موسيقى، وفيديوهات للترانيم، سواء كانت فيديو باوربوينت يجمع العرض والموسيقى، أو فيديو مونتاج مصمم للترنيمة. استعرض كلمات الترنيمة، واختر الملفات التي تحتاجها، أو حمّل المجموعة كاملة.
+          مجموعة من ملفات الترانيم المعدّة للاستخدام أثناء الخدمة والاجتماعات، تشمل عروض باوربوينت، وملفات موسيقى، وفيديوهات للترانيم، سواء كانت فيديو باوربوينت يجمع العرض والموسيقى، أو فيديو مونتاج مصمم للترنيمة. استعرض كلمات الترنيمة، واختر الملفات التي تحتاجها، أو حمّل المجموعة كاملة.
         </p>
       </div>
 
@@ -1006,7 +1008,7 @@ export function HymnsSection({
             {/* Sort Button - Icon only on mobile, beside search bar */}
             <div
               className="relative flex-shrink-0 sm:hidden"
-              ref={sortDropdownRef}
+              ref={mobileSortDropdownRef}
             >
               <button
                 onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
@@ -1014,34 +1016,11 @@ export function HymnsSection({
               >
                 <ArrowUpDown className="w-5 h-5 text-muted-foreground" />
               </button>
-            </div>
-          </div>
 
-          {/* Mobile Sort Panel - Slide up from bottom */}
-          {isSortDropdownOpen && (
-            <>
-              {/* Backdrop */}
-              <div
-                className="sm:hidden fixed inset-0 bg-black/50 z-[200] animate-in fade-in duration-200"
-                onClick={() => setIsSortDropdownOpen(false)}
-              />
-
-              {/* Slide-up Panel */}
-              <div className="sm:hidden fixed bottom-0 left-0 right-0 z-[201] bg-card rounded-t-xl shadow-2xl animate-in slide-in-from-bottom duration-300 pb-safe">
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-                  <h3 className="font-semibold text-lg">ترتيب حسب</h3>
-                  <button
-                    onClick={() => setIsSortDropdownOpen(false)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted transition-colors"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Sort Options */}
-                <div className="p-4 pb-8 max-h-[60vh] overflow-y-auto">
-                  <div className="space-y-2">
+              {/* Mobile Sort Dropdown - anchored below the button */}
+              {isSortDropdownOpen && (
+                <div className="absolute left-0 top-full mt-2 bg-card border border-border rounded-xl shadow-lg z-[100] w-max max-w-[calc(100vw-2rem)]">
+                  <div className="p-2 flex flex-col gap-1">
                     {sortOptions.map((option) => (
                       <button
                         key={option.value}
@@ -1050,9 +1029,9 @@ export function HymnsSection({
                           setSortBy(option.value);
                           setIsSortDropdownOpen(false);
                         }}
-                        className={`w-full text-right px-4 py-3.5 rounded-xl text-sm transition-colors ${
+                        className={`w-full text-right px-3 py-2 rounded-lg text-sm transition-colors whitespace-nowrap ${
                           sortBy === option.value
-                            ? "bg-primary text-primary-foreground font-medium"
+                            ? "bg-primary/10 text-primary"
                             : "hover:bg-muted"
                         }`}
                       >
@@ -1061,9 +1040,9 @@ export function HymnsSection({
                     ))}
                   </div>
                 </div>
-              </div>
-            </>
-          )}
+              )}
+            </div>
+          </div>
 
           {/* Filters and Sort Row */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3 -mt-2 sm:-mt-3.5">
@@ -1281,25 +1260,25 @@ export function HymnsSection({
               {/* Dropdown menu */}
               {isSortDropdownOpen && (
                 <div className="absolute left-0 right-0 sm:left-0 sm:right-auto top-full mt-2 sm:w-56 bg-card border border-border rounded-xl shadow-lg z-[100]">
-                  <div className="p-2">
-                    {sortOptions.map((option) => (
-                      <button
-                        key={option.value}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSortBy(option.value);
-                          setIsSortDropdownOpen(false);
-                        }}
-                        className={`w-full text-right px-3 py-2 rounded-lg text-sm transition-colors ${
-                          sortBy === option.value
-                            ? "bg-primary/10 text-primary"
-                            : "hover:bg-muted"
-                        }`}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
+<div className="p-2">
+                        {sortOptions.map((option) => (
+                          <button
+                            key={option.value}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSortBy(option.value);
+                              setIsSortDropdownOpen(false);
+                            }}
+                            className={`w-full text-right px-3 py-2 rounded-lg text-sm transition-colors whitespace-nowrap ${
+                              sortBy === option.value
+                                ? "bg-primary/10 text-primary"
+                                : "hover:bg-muted"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
                 </div>
               )}
             </div>

@@ -162,6 +162,7 @@ import { toast } from 'sonner';
       const [bulkEditMode, setBulkEditMode] = useState(false);
     
 const sortDropdownRef = useRef<HTMLDivElement>(null);
+    const mobileSortDropdownRef = useRef<HTMLDivElement>(null);
     const filtersContainerRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const excelFileInputRef = useRef<HTMLInputElement>(null);
@@ -244,7 +245,12 @@ const sayingCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
     // Close sort dropdown when clicking outside
     useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
-        if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target as Node)) {
+        const target = event.target;
+        if (!(target instanceof Node)) return;
+        const isInsideSort =
+          (sortDropdownRef.current?.contains(target) ?? false) ||
+          (mobileSortDropdownRef.current?.contains(target) ?? false);
+        if (!isInsideSort) {
           setIsSortDropdownOpen(false);
         }
       };
@@ -866,7 +872,7 @@ const sayingCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
               </div>
 
               {/* Sort Button - Icon only on mobile, beside search bar */}
-              <div className="relative flex-shrink-0 sm:hidden" ref={sortDropdownRef}>
+              <div className="relative flex-shrink-0 sm:hidden" ref={mobileSortDropdownRef}>
                 <button
                   onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
                   className="flex items-center justify-center min-w-[44px] min-h-[44px] w-[50px] h-[50px] bg-card border border-border rounded-xl hover:bg-muted transition-colors"
@@ -876,8 +882,8 @@ const sayingCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
                 {/* Dropdown menu - Mobile */}
                 {isSortDropdownOpen && (
-                  <div className="absolute left-0 right-0 top-full mt-2 bg-card border border-border rounded-xl shadow-lg z-[100]">
-                    <div className="p-2">
+                  <div className="absolute left-0 top-full mt-2 bg-card border border-border rounded-xl shadow-lg z-[100] w-max max-w-[calc(100vw-2rem)]">
+                    <div className="p-2 flex flex-col gap-1">
                       {sortOptions.map((option) => (
                         <button
                           key={option.value}
@@ -885,7 +891,7 @@ const sayingCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
                             setSortBy(option.value);
                             setIsSortDropdownOpen(false);
                           }}
-                          className={`w-full text-right px-3 py-2 rounded-lg text-sm transition-colors ${
+                          className={`w-full text-right px-3 py-2 rounded-lg text-sm transition-colors whitespace-nowrap ${
                             sortBy === option.value
                               ? 'bg-primary/10 text-primary'
                               : 'hover:bg-muted'

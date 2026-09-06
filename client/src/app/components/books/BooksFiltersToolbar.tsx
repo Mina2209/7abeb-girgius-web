@@ -7,7 +7,6 @@ import {
   Upload,
   Edit2,
   CheckSquare,
-  X,
   Tags,
   User,
   Building2,
@@ -84,6 +83,7 @@ interface BooksFiltersToolbarProps {
 
   // refs / container
   sortDropdownRef: React.RefObject<HTMLDivElement | null>;
+  mobileSortDropdownRef: React.RefObject<HTMLDivElement | null>;
   filtersContainerRef: React.RefObject<HTMLDivElement>;
 
   bulkEditModeLockedSort?: boolean;
@@ -126,6 +126,7 @@ export function BooksFiltersToolbar({
   favoritedBooks,
   favoritedCount,
   sortDropdownRef,
+  mobileSortDropdownRef,
   filtersContainerRef,
 }: BooksFiltersToolbarProps) {
   const mobileSortLabel = useMemo(
@@ -208,34 +209,18 @@ export function BooksFiltersToolbar({
             />
           </div>
 
-          <div className="relative flex-shrink-0 sm:hidden" ref={sortDropdownRef}>
+          <div className="relative flex-shrink-0 sm:hidden" ref={mobileSortDropdownRef}>
             <button
               onClick={onMobileSortToggle}
               className="flex items-center justify-center min-w-[44px] min-h-[44px] w-[50px] h-[50px] bg-card border border-border rounded-xl hover:bg-muted transition-opacity"
             >
               <ArrowUpDown className="w-5 h-5 text-muted-foreground" />
             </button>
-          </div>
-        </div>
 
-        {isSortDropdownOpen && (
-          <>
-            <div
-              className="sm:hidden fixed inset-0 bg-black/50 z-[200] animate-in fade-in duration-200"
-              onClick={onCloseMobileSort}
-            />
-            <div className="sm:hidden fixed bottom-0 left-0 right-0 z-[201] bg-card rounded-t-xl shadow-2xl animate-in slide-in-from-bottom duration-300 pb-safe">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-                <h3 className="font-semibold text-lg">ترتيب حسب</h3>
-                <button
-                  onClick={onCloseMobileSort}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted transition-opacity"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="p-4 max-h-[60vh] overflow-y-auto">
-                <div className="space-y-2">
+            {/* Mobile Sort Dropdown - anchored below the button */}
+            {isSortDropdownOpen && (
+              <div className="absolute left-0 top-full mt-2 bg-card border border-border rounded-xl shadow-lg z-[100] w-max max-w-[calc(100vw-2rem)]">
+                <div className="p-2 flex flex-col gap-1">
                   {sortOptions.map((option) => (
                     <button
                       key={option.value}
@@ -243,10 +228,10 @@ export function BooksFiltersToolbar({
                         onSetSortBy(option.value);
                         onCloseMobileSort();
                       }}
-                      className={`w-full text-right px-4 py-3.5 rounded-xl transition-opacity ${
+                      className={`w-full text-right px-3 py-2 rounded-lg text-sm transition-colors whitespace-nowrap ${
                         sortBy === option.value
-                          ? 'bg-primary text-primary-foreground font-medium'
-                          : 'hover:bg-muted'
+                          ? "bg-primary/10 text-primary"
+                          : "hover:bg-muted"
                       }`}
                     >
                       {option.label}
@@ -254,9 +239,9 @@ export function BooksFiltersToolbar({
                   ))}
                 </div>
               </div>
-            </div>
-          </>
-        )}
+            )}
+          </div>
+        </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3 -mt-2 sm:-mt-3.5">
           <div

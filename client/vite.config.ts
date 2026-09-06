@@ -48,6 +48,7 @@ export default defineConfig({
       },
     },
     cssCodeSplit: true,
+    cssMinify: 'esbuild',
     assetsInlineLimit: 0,
     chunkSizeWarningLimit: 500,
     modulePreload: {

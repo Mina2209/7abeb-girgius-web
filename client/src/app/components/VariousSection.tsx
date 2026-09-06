@@ -508,7 +508,7 @@ export function VariousSection() {
             <span className="hidden sm:inline text-muted-foreground">ترتيب</span>
           </button>
           {isSortOpen && (
-            <div className="absolute top-full left-0 mt-2 w-48 bg-card border border-border rounded-xl shadow-lg z-50 py-1 animate-in fade-in duration-150">
+            <div className="absolute top-full left-0 mt-2 bg-card border border-border rounded-xl shadow-lg z-50 py-1 animate-in fade-in duration-150 w-max max-w-[calc(100vw-2rem)] flex flex-col gap-1">
               {(Object.keys(sortLabels) as SortOption[]).map((option) => (
                 <button
                   key={option}
@@ -516,7 +516,7 @@ export function VariousSection() {
                     setSortBy(option);
                     setIsSortOpen(false);
                   }}
-                  className={`w-full text-right px-4 py-2.5 text-sm transition-colors ${
+                  className={`w-full text-right px-4 py-2.5 text-sm transition-colors whitespace-nowrap ${
                     sortBy === option
                       ? "bg-primary/10 text-primary font-medium"
                       : "text-foreground hover:bg-muted"

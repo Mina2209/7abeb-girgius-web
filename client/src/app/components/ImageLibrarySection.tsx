@@ -231,15 +231,18 @@ export function ImageLibrarySection({
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
   const sortDropdownRef = useRef<HTMLDivElement>(null);
+  const mobileSortDropdownRef = useRef<HTMLDivElement>(null);
   const filtersContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        sortDropdownRef.current &&
-        !sortDropdownRef.current.contains(event.target as Node)
-      ) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      const isInsideSort =
+        (sortDropdownRef.current?.contains(target) ?? false) ||
+        (mobileSortDropdownRef.current?.contains(target) ?? false);
+      if (!isInsideSort) {
         setIsSortDropdownOpen(false);
       }
     };
@@ -508,8 +511,8 @@ export function ImageLibrarySection({
         setImages((prev) => prev.map((img) => (img.id === updated.id ? updated : img)));
         setShareMessage('تم التحديث بنجاح');
       } else {
-        const created = await createImage(image, accessToken);
-        setImages((prev) => [...prev, created]);
+        await createImage(image, accessToken);
+        refetchGallery();
         setShareMessage('تمت الإضافة بنجاح');
       }
     } catch (err: any) {
@@ -525,7 +528,7 @@ export function ImageLibrarySection({
     const ok = created
       .filter((x): x is PromiseFulfilledResult<GalleryImage> => x.status === 'fulfilled')
       .map((x) => x.value);
-    setImages((prev) => [...prev, ...ok]);
+    refetchGallery();
     setShareMessage(`تمت إضافة ${ok.length} صورة بنجاح`);
     setTimeout(() => setShareMessage(''), 2000);
   };
@@ -876,7 +879,7 @@ export function ImageLibrarySection({
               )}
             </button>
 
-            <div className="relative flex-shrink-0 sm:hidden" ref={sortDropdownRef}>
+            <div className="relative flex-shrink-0 sm:hidden" ref={mobileSortDropdownRef}>
               <button
                 onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
                 className="flex items-center justify-center min-w-[44px] min-h-[44px] w-[50px] h-[50px] bg-card border border-border rounded-xl hover:bg-muted transition-colors"
@@ -885,8 +888,8 @@ export function ImageLibrarySection({
               </button>
 
               {isSortDropdownOpen && (
-                <div className="absolute left-0 right-0 top-full mt-2 bg-card border border-border rounded-xl shadow-lg z-[100]">
-                  <div className="p-2">
+                <div className="absolute left-0 top-full mt-2 bg-card border border-border rounded-xl shadow-lg z-[100] w-max max-w-[calc(100vw-2rem)]">
+                  <div className="p-2 flex flex-col gap-1">
                     {sortOptions.map((option) => (
                       <button
                         key={option.value}
@@ -894,7 +897,7 @@ export function ImageLibrarySection({
                           setSortBy(option.value);
                           setIsSortDropdownOpen(false);
                         }}
-                        className={`w-full text-right px-3 py-2 rounded-lg text-sm transition-colors ${
+                        className={`w-full text-right px-3 py-2 rounded-lg text-sm transition-colors whitespace-nowrap ${
                           sortBy === option.value
                             ? 'bg-primary/10 text-primary'
                             : 'hover:bg-muted'

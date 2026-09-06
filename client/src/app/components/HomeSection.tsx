@@ -16,9 +16,19 @@ import {
   BookOpen,
   GraduationCap,
   Mic2,
-  Cross
+  Cross,
+  Play,
+  Video,
+  AlertTriangle,
+  ShieldAlert,
+  Ban,
+  Globe,
+  BadgeCheck,
+  CheckCircle2,
+  Sparkles
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import logoImg512 from '../../assets/church-logo-512.webp';
 
 const marqueeItems = [
   { icon: Church, title: 'الليتورجية', desc: 'صلوات القداس والطقوس', color: 'from-amber-500/15 to-amber-600/5', iconColor: 'text-amber-600', border: 'border-amber-500/20' },
@@ -158,8 +168,19 @@ export function HomeSection() {
   return (
     <div className="space-y-16 pb-8">
       {/* Hero Section */}
-      <div className="relative bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-3xl p-8 md:p-12 lg:p-16 border border-primary/20 overflow-hidden">
+      <div className="relative bg-gradient-to-br from-primary/15 via-primary/5 to-transparent rounded-3xl p-8 md:p-12 lg:p-16 border border-primary/20 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%)] pointer-events-none"></div>
         <div className="relative z-10 text-center max-w-4xl mx-auto">
+          <div className="relative inline-block mb-6">
+            <div className="absolute inset-0 bg-primary/20 rounded-full blur-2xl scale-150"></div>
+            <img
+              src={logoImg512}
+              alt="شعار خدمة الأرشيدياكون حبيب جرجس"
+              loading="eager"
+              decoding="async"
+              className="relative w-28 h-28 md:w-36 md:h-36 object-contain drop-shadow-xl rounded-full ring-4 ring-primary/25 shadow-lg"
+            />
+          </div>
           <h1 className="mb-4 font-bold text-3xl md:text-4xl lg:text-5xl leading-tight">
             خدمة الأرشيدياكون
             <br className="sm:hidden" />
@@ -183,6 +204,70 @@ export function HomeSection() {
         <div className="absolute bottom-0 right-0 w-72 h-72 bg-primary/5 rounded-full blur-3xl"></div>
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/5 rounded-full blur-3xl"></div>
       </div>
+
+      {/* About the Platform + Intro Video */}
+      <section className="space-y-8 content-visibility-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+          <div className="bg-card rounded-2xl p-6 md:p-8 border border-border shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center">
+                <Sparkles className="w-6 h-6 text-primary" />
+              </div>
+              <h2 className="font-bold text-2xl md:text-3xl">ما هي المنصة؟</h2>
+            </div>
+            <p className="text-foreground/80 leading-relaxed mb-3">
+              منصة تجمع الميديا الكنسية القبطية الأرثوذكسية في مكانٍ واحد موثوق ومُنظَّم —
+              بوربوينت الليتورجية، وترانيم جاهزة للعرض، ومكتبة صور عالية الجودة، وأقوال الآباء.
+            </p>
+            <p className="text-foreground/80 leading-relaxed mb-6">
+              هدفنا خدمة الكنيسة: أتاحة المحتوى مجانًا بأعلى جودة، منسَّقًا ومصنَّفًا حتى تصل
+              للملف المناسب في ثوانٍ، وتُقدَّم الخدمة دون عناء تجميعها من أماكن متفرقة.
+            </p>
+
+            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+              <BadgeCheck className="w-5 h-5 text-primary" />
+              ما الذي يميّز هذه المنصة؟
+            </h3>
+            <ul className="space-y-3">
+              {[
+                'محتوى مُراجَع بعناية قبل نشره',
+                'مُصنَّف حسب الموضوع والنوع والمصدر مع بحث وفلاتر ذكية',
+                'جودة عالية جاهزة للعرض مباشرة من بيانات موثوقة',
+                'متاح مجانًا بالكامل لخدمة الكنيسة',
+                'تحديث مستمر وإضافة محتوى جديد باستمرار',
+              ].map((feature) => (
+                <li key={feature} className="flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+                  <span className="text-foreground/80 leading-relaxed">{feature}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="bg-gradient-to-br from-primary/5 via-primary/3 to-transparent rounded-2xl border border-dashed border-primary/40 overflow-hidden flex flex-col">
+            <div className="relative flex-1 aspect-video">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 p-6 text-center">
+                <div className="w-20 h-20 bg-primary/10 border border-primary/30 rounded-full flex items-center justify-center">
+                  <Video className="w-10 h-10 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-2xl mb-2">فيديو تعريفي بالمنصة</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    جولة سريعة على المكتبات والمميزات
+                    <br />
+                    وإجابة عن: كيف أستخدم المحتوى في خدمتي؟
+                  </p>
+                </div>
+                <span className="px-4 py-1.5 bg-primary/10 text-primary rounded-full text-sm font-semibold border border-primary/30">
+                  قريبًا
+                </span>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Quick Stats Section */}
       <section>
@@ -429,7 +514,7 @@ export function HomeSection() {
             </div>
             <h3 className="font-bold text-xl mb-3">تصفح المكتبات</h3>
             <p className="text-foreground/80 leading-relaxed">
-              استكشف مكتباتنا الستة واختر ما يناسب خدمتك
+              استكشف مكتباتنا واختر ما يناسب خدمتك
             </p>
           </div>
 
@@ -458,6 +543,60 @@ export function HomeSection() {
               قم بتحميل المحتوى واستخدمه في خدمتك
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* Important Notices: content usage rights */}
+      <section className="space-y-6 content-visibility-auto">
+        <div className="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-rose-500/5 rounded-2xl p-6 md:p-10 border border-amber-500/30 shadow-sm">
+          <div className="flex items-start gap-4 flex-col sm:flex-row mb-6">
+            <div className="w-14 h-14 shrink-0 bg-amber-500/20 rounded-2xl flex items-center justify-center">
+              <AlertTriangle className="w-7 h-7 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <h2 className="font-bold text-xl md:text-2xl mb-1">تنبيهات مهمة حول استخدام المحتوى</h2>
+              <p className="text-foreground/80 leading-relaxed">
+                جميع المواد في هذه المنصة مجهزة لخدمة الكنيسة، وهي محمية بحقوق استخدام واضحة.
+                نرجو الالتزام بهذه الضوابط عند التحميل والمشاركة:
+              </p>
+            </div>
+          </div>
+
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[
+              {
+                icon: Ban,
+                title: 'ممنوع البيع والاستخدام التجاري',
+                desc: 'لا يجوز بيع المحتوى أو استخدامه في أي نشاط تجاري أو مشروع يعود بربح.',
+              },
+              {
+                icon: Globe,
+                title: 'ممنوع إعادة الرفع في أماكن أخرى',
+                desc: 'لا يجوز إعادة رفع الملفات على مواقع أو قنوات أو مجموعات أخرى.',
+              },
+              {
+                icon: ShieldAlert,
+                title: 'الحفاظ على اللوجو والهوية',
+                desc: 'لا يجوز إزالة أو تغيير شعار الكنيسة أو شعارات الخدمة المضافة على أي ملف.',
+              },
+              {
+                icon: BadgeCheck,
+                title: 'المشاركة المسؤولة',
+                desc: 'عند العرض خارج كنيسة خدمتك، يُرجى ذكر المصدر والحفاظ على المحتوى دون تحريف.',
+              },
+            ].map((notice) => (
+              <li
+                key={notice.title}
+                className="flex items-start gap-3 bg-background/60 rounded-xl p-4 border border-amber-500/20"
+              >
+                <notice.icon className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-sm mb-1">{notice.title}</p>
+                  <p className="text-sm text-foreground/80 leading-relaxed">{notice.desc}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 

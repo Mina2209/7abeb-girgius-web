@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SectionsVisibilityProvider, useSectionsVisibility } from './contexts/SectionsVisibilityContext';
 import { AnalyticsRouteTracker } from './components/AnalyticsRouteTracker';
 import { HomeSection } from './components/HomeSection';
+import { UploadProgressCard } from './components/UploadProgressCard';
 
 const LazyToaster = lazy(() =>
   import('./components/ui/sonner').then((m) => ({ default: m.Toaster })),
@@ -292,6 +293,9 @@ export default function App() {
           </Suspense>
           </div>
         </main>
+
+        {/* Global upload progress notification — survives route changes */}
+        <UploadProgressCard />
 
         {/* Lazy-load modals only when opened to reduce initial JS evaluation */}
         {(isLoginModalOpen || isSignupModalOpen) && (

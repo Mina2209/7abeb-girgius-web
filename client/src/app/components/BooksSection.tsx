@@ -244,8 +244,29 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
   const [bulkEditMode, setBulkEditMode] = useState(false);
 
   const sortDropdownRef = useRef<HTMLDivElement>(null);
+  const mobileSortDropdownRef = useRef<HTMLDivElement>(null);
   const filtersContainerRef = useRef<HTMLDivElement>(null!);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const isInsideSort =
+        (sortDropdownRef.current?.contains(target) ?? false) ||
+        (mobileSortDropdownRef.current?.contains(target) ?? false);
+      if (!isInsideSort) {
+        setIsSortDropdownOpen(false);
+      }
+    };
+
+    if (isSortDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isSortDropdownOpen]);
 
   const [defaultCoverKey, setDefaultCoverKey] = useState(0);
 
@@ -498,6 +519,7 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
         favoritedBooks={favoritedBooks}
         favoritedCount={favoritedBooks.length}
         sortDropdownRef={sortDropdownRef}
+        mobileSortDropdownRef={mobileSortDropdownRef}
         filtersContainerRef={filtersContainerRef}
       />
 

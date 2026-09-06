@@ -486,7 +486,7 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                       <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
                         <ImageIcon className="w-12 h-12 mb-3" />
                         <p className="text-sm font-medium">انقر لتحميل صورة أو عدة صور</p>
-                        <p className="text-xs mt-1">JPG أو PNG (حتى 5 ميجابايت)</p>
+                        <p className="text-xs mt-1">JPG أو PNG</p>
                       </div>
                     )}
                   </div>

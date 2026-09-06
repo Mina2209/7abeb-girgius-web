@@ -47,7 +47,12 @@ export function AdminEditHymnModal({
   useEffect(() => {
     if (isOpen) {
       if (hymn) {
-        setFormData(hymn);
+        // Files loaded from the server have no uid; synthesize a stable one so
+        // the per-file delete button removes exactly one file, never the whole set.
+        const files = (hymn.files ?? []).map((file, index) =>
+          file.uid ? file : { ...file, uid: `${file.name}-${file.type}-${index}` },
+        );
+        setFormData({ ...hymn, files: files.length ? files : undefined });
       } else {
         // New hymn - generate new ID
         setFormData({

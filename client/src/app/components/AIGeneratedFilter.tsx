@@ -64,8 +64,8 @@ export function AIGeneratedFilter({
       {/* Dropdown menu */}
       {isDropdownOpen && (
         <>
-          {/* Mobile: Full width dropdown */}
-          <div className="sm:hidden absolute right-0 left-0 top-full mt-2 bg-card border border-border rounded-xl shadow-lg z-[100]">
+          {/* Mobile: Dropdown anchored below the button, sized to the widest item */}
+          <div className="sm:hidden absolute left-0 top-full mt-2 bg-card border border-border rounded-xl shadow-lg z-[100] w-max min-w-[120px] max-w-[calc(100vw-2rem)]">
             <div className="p-2">
               {visibleOptions.map((option) => (
                 <button
@@ -74,7 +74,7 @@ export function AIGeneratedFilter({
                     onChange(option.value);
                     setIsDropdownOpen(false);
                   }}
-                  className={`w-full text-right px-3 py-2 rounded-lg text-sm transition-colors ${
+                  className={`w-full text-right px-3 py-2 rounded-lg text-sm transition-colors whitespace-nowrap ${
                     value === option.value
                       ? 'bg-primary/10 text-primary'
                       : 'hover:bg-muted'

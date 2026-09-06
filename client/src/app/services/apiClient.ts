@@ -180,3 +180,58 @@ export async function apiDeleteJson<T>(path: string, init?: RequestInit): Promis
   });
 }
 
+export interface UploadProgressOptions {
+  url: string;
+  method: string;
+  headers?: HeadersInit;
+  body?: XMLHttpRequestBodyInit | null;
+  onUploadProgress?: (loaded: number, total: number) => void;
+}
+
+/**
+ * Perform an HTTP request with XMLHttpRequest so real upload progress can be
+ * observed. `fetch` deliberately exposes no upload progress events, so the S3
+ * presigned PUT (the only large binary upload in the app) uses this instead.
+ *
+ * Resolves to an object equivalent to a `fetch` Response (`ok`, `status`,
+ * `statusText`, `text()`).
+ */
+export interface XhrUploadResponse {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  text(): Promise<string>;
+}
+
+export async function uploadWithProgress(
+  options: UploadProgressOptions,
+): Promise<XhrUploadResponse> {
+  return new Promise<XhrUploadResponse>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(options.method, options.url, true);
+
+    const headers = new Headers(options.headers ?? {});
+    headers.forEach((value, key) => xhr.setRequestHeader(key, value));
+
+    xhr.upload.addEventListener('progress', (event: ProgressEvent) => {
+      if (event.lengthComputable && options.onUploadProgress) {
+        options.onUploadProgress(event.loaded, event.total);
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      resolve({
+        ok: xhr.status >= 200 && xhr.status < 300,
+        status: xhr.status,
+        statusText: xhr.statusText,
+        text: async () => xhr.responseText,
+      });
+    });
+
+    xhr.addEventListener('error', () => reject(new TypeError('Network request failed')));
+    xhr.addEventListener('abort', () => reject(new DOMException('Request aborted', 'AbortError')));
+
+    xhr.send(options.body ?? null);
+  });
+}
+
