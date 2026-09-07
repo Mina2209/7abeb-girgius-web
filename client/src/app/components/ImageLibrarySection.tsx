@@ -44,7 +44,7 @@ import {
 } from '../services/contentLoaders';
 import { fetchAllTags } from '../services/tagsService';
 import type { ContentId, GalleryImage } from '../types/content';
-import { createImage, deleteImage, updateImage, updateArtist } from '../services/contentWriteService';
+import { createImage, deleteImage, updateImage, updateArtist, deleteImageAuthor, deleteImageType } from '../services/contentWriteService';
 import { getApiBaseUrl } from '../config/api';
 import { getImageUrl } from '../utils/getImageUrl';
 import { normalizeArabic } from '../utils/arabicUtils';
@@ -198,6 +198,30 @@ export function ImageLibrarySection({
       .then((t) => setAllTags(t.map((x) => x.name)))
       .catch(() => {});
   }, []);
+
+  const handleDeleteArtist = async (name: string) => {
+    try {
+      await deleteImageAuthor(name, accessToken);
+      setAllArtists((prev) => prev.filter((a) => a !== name));
+      setShareMessage(`تم حذف الفنان "${name}"`);
+    } catch (err) {
+      setShareMessage(err instanceof Error && err.message ? err.message : 'فشل حذف الفنان');
+      throw err;
+    }
+    setTimeout(() => setShareMessage(''), 2500);
+  };
+
+  const handleDeleteType = async (name: string) => {
+    try {
+      await deleteImageType(name, accessToken);
+      setAllTypes((prev) => prev.filter((t) => t !== name));
+      setShareMessage(`تم حذف النوع "${name}"`);
+    } catch (err) {
+      setShareMessage(err instanceof Error && err.message ? err.message : 'فشل حذف النوع');
+      throw err;
+    }
+    setTimeout(() => setShareMessage(''), 2500);
+  };
 
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedArtists, setSelectedArtists] = useState<string[]>([]);
@@ -1547,6 +1571,8 @@ export function ImageLibrarySection({
           image={editingImage}
           allArtists={allArtists}
           allTypes={allTypes}
+          onDeleteArtist={handleDeleteArtist}
+          onDeleteType={handleDeleteType}
         />
       )}
 

@@ -38,7 +38,7 @@ export function AdminBulkEditBooksModal({
   availablePublishers,
   availableSeries,
 }: AdminBulkEditBooksModalProps) {
-  const { topicNames } = useUniversalTopics();
+  const { topicNames, topicsBySection } = useUniversalTopics();
   
   const [applyAuthor, setApplyAuthor] = useState(false);
   const [author, setAuthor] = useState('');
@@ -280,6 +280,7 @@ export function AdminBulkEditBooksModal({
                 {/* Topic Selection using TagMultiSelect */}
                 <TagMultiSelect
                   availableTags={topicNames}
+                  topicsBySection={topicsBySection}
                   selectedTags={selectedTopics}
                   onTagsChange={setSelectedTopics}
                   placeholder="ابحث أو أضف موضوع..."

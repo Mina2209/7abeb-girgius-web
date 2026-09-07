@@ -23,7 +23,7 @@ export function AdminEditSayingModal({
   allAuthors,
   allSources,
 }: AdminEditSayingModalProps) {
-  const { topicNames } = useUniversalTopics(); // Get centralized topics
+  const { topicNames, topicsBySection } = useUniversalTopics(); // Get centralized topics
   const [formData, setFormData] = useState<Saying>({
     id: 0,
     quote: '',
@@ -277,6 +277,7 @@ export function AdminEditSayingModal({
           {/* Tags */}
           <TagMultiSelect
             availableTags={topicNames}
+            topicsBySection={topicsBySection}
             selectedTags={formData.tags}
             onTagsChange={(tags) => setFormData({ ...formData, tags })}
             error={errors.tags}

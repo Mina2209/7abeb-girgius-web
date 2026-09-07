@@ -1,12 +1,7 @@
 import { useEffect, useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  House,
-  Presentation,
   Music,
-  LayoutGrid,
-  Images,
-  BookOpen,
   Facebook,
   Youtube,
   Mail,
@@ -20,18 +15,36 @@ import { toast } from 'sonner';
 import logoImg512 from '../../assets/church-logo-512.webp';
 import { cn } from '../utils/cn';
 import { trackEvent } from '../services/analytics';
+import { FlatIcon } from '../components/icons/FlatIcon';
 
 const PAGE_DESCRIPTION =
   'روابط سريعة لجميع خدمات موقع خدمة الأرشيدياكون حبيب جرجس والتواصل معنا.';
 
+// Icon wrapper components matching the main sidebar
+const HomeIcon = (props: any) => (
+  <FlatIcon iconClass="fi-sr-house-chimney" {...props} />
+);
+const PrayingHandsIcon = (props: any) => (
+  <FlatIcon iconClass="fi-sr-praying-hands" {...props} />
+);
+const PresentationFolderIcon = (props: any) => (
+  <FlatIcon iconClass="fi-sr-folder" {...props} />
+);
+const PictureIcon = (props: any) => (
+  <FlatIcon iconClass="fi-sr-picture" {...props} />
+);
+const QuoteIcon = (props: any) => (
+  <FlatIcon iconClass="fi-sr-comment-quote" {...props} />
+);
+
 // Static link data lives outside the component so it is never recreated on re-render.
 const quickLinks = [
-  { to: '/', icon: House, title: 'خدمة الأرشيدياكون حبيب جرجس', desc: 'الصفحة الرئيسية' },
-  { to: '/liturgy', icon: Presentation, title: 'بوربوينت الليتورجية', desc: 'صلوات القداس والطقوس' },
+  { to: '/', icon: HomeIcon, title: 'خدمة الأرشيدياكون حبيب جرجس', desc: 'الصفحة الرئيسية' },
+  { to: '/liturgy', icon: PrayingHandsIcon, title: 'بوربوينت الليتورجية', desc: 'صلوات القداس والطقوس' },
   { to: '/hymns', icon: Music, title: 'مكتبة الترانيم للعرض', desc: 'كلمات وألحان مسيحية' },
-  { to: '/various', icon: LayoutGrid, title: 'بوربوينت متنوعة', desc: 'شرائح متنوعة للعرض' },
-  { to: '/images', icon: Images, title: 'مكتبة الصور', desc: 'مكتبة صور قبطية عالية الجودة' },
-  { to: '/sayings', icon: BookOpen, title: 'أقوال الآباء', desc: 'حكم وأقوال روحية' },
+  { to: '/various', icon: PresentationFolderIcon, title: 'بوربوينت متنوعة', desc: 'شرائح متنوعة للعرض' },
+  { to: '/images', icon: PictureIcon, title: 'مكتبة الصور', desc: 'مكتبة صور قبطية عالية الجودة' },
+  { to: '/sayings', icon: QuoteIcon, title: 'أقوال الآباء', desc: 'حكم وأقوال روحية' },
 ] as const;
 
 const socialLinks = [

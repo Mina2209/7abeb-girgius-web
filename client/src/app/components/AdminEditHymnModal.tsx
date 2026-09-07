@@ -24,7 +24,7 @@ export function AdminEditHymnModal({
   onSave,
   hymn,
 }: AdminEditHymnModalProps) {
-  const { topicNames } = useUniversalTopics(); // Get centralized topics
+  const { topicNames, topicsBySection } = useUniversalTopics(); // Get centralized topics
   const [formData, setFormData] = useState<Hymn>({
     id: 0,
     title: '',
@@ -423,6 +423,7 @@ export function AdminEditHymnModal({
           {/* Tags */}
           <TagMultiSelect
             availableTags={topicNames}
+            topicsBySection={topicsBySection}
             selectedTags={formData.tags}
             onTagsChange={(tags) => setFormData({ ...formData, tags })}
             error={errors.tags}

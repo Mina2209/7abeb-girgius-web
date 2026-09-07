@@ -77,6 +77,10 @@ const BioLinkPage = lazy(() =>
   import('./pages/BioLinkPage').then((m) => ({ default: m.BioLinkPage })),
 );
 
+const NotFoundPage = lazy(() =>
+  import('./components/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
+);
+
 const sectionToPath: Record<string, string> = {
   home: '/',
   liturgy: '/liturgy',
@@ -113,7 +117,7 @@ const pathToSection = (pathname: string): string => {
     case '/about':
       return 'about';
     default:
-      return 'home';
+      return 'notfound';
   }
 };
 
@@ -182,7 +186,7 @@ export default function App() {
        '/qrcode': 'بطاقة خدمة الأرشيدياكون حبيب جرجس',
     };
 
-    document.title = pageTitles[location.pathname] || 'لوحة التحكم';
+    document.title = pageTitles[location.pathname] || 'الصفحة غير موجودة';
   }, [location.pathname]);
 
   // Standalone digital business card route — rendered without the sidebar/main shell.
@@ -288,7 +292,7 @@ export default function App() {
               <Route path="/admin/analytics" element={<AnalyticsPage />} />
               <Route path="/admin/activity" element={<UserActivityPage />} />
               <Route path="/admin/export" element={<AdminExportPage />} />
-              <Route path="*" element={<HomeSection />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Suspense>
           </div>

@@ -182,8 +182,7 @@ export function HomeSection() {
             />
           </div>
           <h1 className="mb-4 font-bold text-3xl md:text-4xl lg:text-5xl leading-tight">
-            خدمة الأرشيدياكون
-            <br className="sm:hidden" />
+خدمة الأرشيدياكون{" "}            <br className="sm:hidden" />
             حبيب جرجس للداتا شو
           </h1>
           <p className="text-xl md:text-2xl text-muted-foreground mb-2">
@@ -309,13 +308,13 @@ export function HomeSection() {
       {/* Featured Services Grid */}
       <section className="space-y-6 content-visibility-auto">
         <div className="text-center mb-8">
-          <h2 className="font-bold text-2xl md:text-3xl mb-3">خدماتنا</h2>
-          <p className="text-lg text-muted-foreground">اختر ما تحتاجه من مكتباتنا المتنوعة</p>
+          <h2 className="font-bold text-2xl md:text-3xl mb-3">أقسام المنصة</h2>
+          <p className="text-lg text-muted-foreground">اِبدأ بإستكشاف ما تحتاجه من مكتباتنا المتنوعة</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="flex flex-wrap justify-center gap-6">
           <div
-            className="bg-card rounded-2xl p-6 md:p-8 border border-border shadow-sm hover:shadow-xl hover:border-primary/50 transition-all group cursor-pointer"
+            className="w-full md:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)] bg-card rounded-2xl p-6 md:p-8 border border-border shadow-sm hover:shadow-xl hover:border-primary/50 transition-all group cursor-pointer"
             onClick={() => navigate('/liturgy')}
           >
             <div className="w-14 h-14 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
@@ -332,7 +331,7 @@ export function HomeSection() {
           </div>
 
           <div
-            className="bg-card rounded-2xl p-6 md:p-8 border border-border shadow-sm hover:shadow-xl hover:border-primary/50 transition-all group cursor-pointer"
+            className="w-full md:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)] bg-card rounded-2xl p-6 md:p-8 border border-border shadow-sm hover:shadow-xl hover:border-primary/50 transition-all group cursor-pointer"
             onClick={() => navigate('/hymns')}
           >
             <div className="w-14 h-14 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
@@ -349,13 +348,13 @@ export function HomeSection() {
           </div>
 
           <div
-            className="bg-card rounded-2xl p-6 md:p-8 border border-border shadow-sm hover:shadow-xl hover:border-primary/50 transition-all group cursor-pointer"
+            className="w-full md:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)] bg-card rounded-2xl p-6 md:p-8 border border-border shadow-sm hover:shadow-xl hover:border-primary/50 transition-all group cursor-pointer"
             onClick={() => navigate('/various')}
           >
             <div className="w-14 h-14 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
               <Presentation className="w-7 h-7 text-primary" />
             </div>
-            <h3 className="font-bold text-xl mb-3">عروض متنوعة</h3>
+            <h3 className="font-bold text-xl mb-3">بوربوينت متنوعة</h3>
             <p className="text-foreground/80 leading-relaxed mb-4">
               مكتبة عروض بوربوينت متنوعة منها بعض الصلوات الليتورجية بالصور، تأملات من صلوات القديسين وعروض أخرى.
             </p>
@@ -366,7 +365,7 @@ export function HomeSection() {
           </div>
 
           <div
-            className="bg-card rounded-2xl p-6 md:p-8 border border-border shadow-sm hover:shadow-xl hover:border-primary/50 transition-all group cursor-pointer"
+            className="w-full md:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)] bg-card rounded-2xl p-6 md:p-8 border border-border shadow-sm hover:shadow-xl hover:border-primary/50 transition-all group cursor-pointer"
             onClick={() => navigate('/images')}
           >
             <div className="w-14 h-14 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
@@ -383,7 +382,7 @@ export function HomeSection() {
           </div>
 
           <div
-            className="bg-card rounded-2xl p-6 md:p-8 border border-border shadow-sm hover:shadow-xl hover:border-primary/50 transition-all group cursor-pointer"
+            className="w-full md:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)] bg-card rounded-2xl p-6 md:p-8 border border-border shadow-sm hover:shadow-xl hover:border-primary/50 transition-all group cursor-pointer"
             onClick={() => navigate('/sayings')}
           >
             <div className="w-14 h-14 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
@@ -392,23 +391,6 @@ export function HomeSection() {
             <h3 className="font-bold text-xl mb-3">أقوال الآباء</h3>
             <p className="text-foreground/80 leading-relaxed mb-4">
               مكتبة أقوال الآباء منقاة منظمة حسب الموضوع، والقائل والمصدر، مراجَعة بعناية قبل نشرها.
-            </p>
-            <div className="flex items-center gap-2 text-primary font-medium group-hover:gap-3 transition-all">
-              <span>استكشف المكتبة</span>
-              <ArrowRight className="w-4 h-4" />
-            </div>
-          </div>
-
-          <div
-            className="bg-card rounded-2xl p-6 md:p-8 border border-border shadow-sm hover:shadow-xl hover:border-primary/50 transition-all group cursor-pointer"
-            onClick={() => navigate('/coptic')}
-          >
-            <div className="w-14 h-14 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <PenTool className="w-7 h-7 text-primary" />
-            </div>
-            <h3 className="font-bold text-xl mb-3">كتابة القبطي</h3>
-            <p className="text-foreground/80 leading-relaxed mb-4">
-              صفحة مخصصة لكتابة القبطي رقميًا، تشمل شرح التقنيات المتاحة مع توفير وتجميع الأدوات المطلوبة لذلك.
             </p>
             <div className="flex items-center gap-2 text-primary font-medium group-hover:gap-3 transition-all">
               <span>استكشف المكتبة</span>

@@ -45,7 +45,7 @@ export function AdminBulkEditImagesModal({
   availableArtists,
   availableTypes,
 }: AdminBulkEditImagesModalProps) {
-  const { topicNames } = useUniversalTopics(); // Get centralized topics
+  const { topicNames, topicsBySection } = useUniversalTopics(); // Get centralized topics
   const [applyArtist, setApplyArtist] = useState(false);
   const [artist, setArtist] = useState('');
   
@@ -255,6 +255,7 @@ export function AdminBulkEditImagesModal({
                 {/* Tag Selection using TagMultiSelect */}
                 <TagMultiSelect
                   availableTags={topicNames}
+                  topicsBySection={topicsBySection}
                   selectedTags={selectedTags}
                   onTagsChange={setSelectedTags}
                   placeholder="ابحث أو أضف موضوع..."

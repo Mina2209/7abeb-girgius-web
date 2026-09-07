@@ -13,6 +13,114 @@ interface AdminEditImageModalProps {
   image?: GalleryImage | null;
   allArtists: string[];
   allTypes: string[];
+  onDeleteArtist?: (name: string) => Promise<void>;
+  onDeleteType?: (name: string) => Promise<void>;
+}
+
+interface DeletableSelectProps {
+  value: string;
+  placeholder: string;
+  options: string[];
+  allowNew?: boolean;
+  newOptionLabel?: string;
+  onChange: (value: string) => void;
+  onRequestNew?: () => void;
+  onDelete?: (name: string) => Promise<void>;
+}
+
+function DeletableSelect({
+  value,
+  placeholder,
+  options,
+  allowNew,
+  newOptionLabel,
+  onChange,
+  onRequestNew,
+  onDelete,
+}: DeletableSelectProps) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  const handleDelete = async (name: string) => {
+    if (!onDelete) return;
+    try {
+      await onDelete(name);
+      if (value === name) onChange('');
+    } catch {
+      // keep the current selection when the delete fails
+    }
+  };
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full px-4 py-3 text-right bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer flex items-center justify-between gap-2"
+      >
+        <span className={`truncate ${value ? '' : 'text-muted-foreground'}`}>
+          {value || placeholder}
+        </span>
+        <ChevronDown className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+      </button>
+
+      {open && (
+        <div className="absolute z-[210] mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-64 overflow-y-auto py-1">
+          {options.length === 0 && (
+            <div className="px-3 py-2 text-sm text-muted-foreground">لا توجد خيارات</div>
+          )}
+          {options.map((option) => (
+            <div key={option} className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(option);
+                  setOpen(false);
+                }}
+                className="flex-1 text-right px-3 py-2 text-sm hover:bg-muted transition-colors truncate"
+                title={option}
+              >
+                {option}
+              </button>
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={() => handleDelete(option)}
+                  className="px-2.5 py-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex-shrink-0"
+                  title="حذف من القائمة نهائيًا"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          ))}
+          {allowNew && (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onRequestNew?.();
+              }}
+              className="w-full text-right px-3 py-2 text-sm text-primary font-medium hover:bg-primary/10 transition-colors border-t border-border mt-1"
+            >
+              {newOptionLabel}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface PendingImage {
@@ -34,8 +142,10 @@ export function AdminEditImageModal({
   image,
   allArtists,
   allTypes,
+  onDeleteArtist,
+  onDeleteType,
 }: AdminEditImageModalProps) {
-  const { topicNames } = useUniversalTopics(); // Get centralized topics
+  const { topicNames, topicsBySection } = useUniversalTopics(); // Get centralized topics
   const [formData, setFormData] = useState<GalleryImage>({
     id: 0,
     src: '',
@@ -271,29 +381,23 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                   {/* Common Artist Dropdown */}
                   <div>
                     <label className="block text-sm font-medium mb-2">الفنان المشترك</label>
-                    <div className="relative">
-                      <select
-                        id="edit-image-common-artist"
-                        name="commonArtist"
-                        value={showNewArtistInput ? '__new__' : commonArtist}
-                        onChange={(e) => {
-                          if (e.target.value === '__new__') {
-                            setShowNewArtistInput(true);
-                            setCommonArtist('');
-                          } else {
-                            setShowNewArtistInput(false);
-                            setCommonArtist(e.target.value);
-                          }
+                    <div>
+                      <DeletableSelect
+                        value={showNewArtistInput ? '' : commonArtist}
+                        placeholder="-- اختر فناناً --"
+                        options={allArtists}
+                        allowNew
+                        newOptionLabel="+ إضافة فنان جديد"
+                        onChange={(v) => {
+                          setShowNewArtistInput(false);
+                          setCommonArtist(v);
                         }}
-                        className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none cursor-pointer"
-                      >
-                        <option value="">-- اختر فناناً --</option>
-                        {allArtists.map((artist) => (
-                          <option key={artist} value={artist}>{artist}</option>
-                        ))}
-                        <option value="__new__">+ إضافة فنان جديد</option>
-                      </select>
-                      <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
+                        onRequestNew={() => {
+                          setShowNewArtistInput(true);
+                          setCommonArtist('');
+                        }}
+                        onDelete={onDeleteArtist}
+                      />
                     </div>
                     {showNewArtistInput && (
                       <input
@@ -314,29 +418,23 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                   {/* Common Type Dropdown */}
                   <div>
                     <label className="block text-sm font-medium mb-2">النوع المشترك</label>
-                    <div className="relative">
-                      <select
-                        id="edit-image-common-type"
-                        name="commonType"
-                        value={showNewTypeInput ? '__new__' : commonType}
-                        onChange={(e) => {
-                          if (e.target.value === '__new__') {
-                            setShowNewTypeInput(true);
-                            setCommonType('');
-                          } else {
-                            setShowNewTypeInput(false);
-                            setCommonType(e.target.value);
-                          }
+                    <div>
+                      <DeletableSelect
+                        value={showNewTypeInput ? '' : commonType}
+                        placeholder="-- اختر نوعاً --"
+                        options={allTypes}
+                        allowNew
+                        newOptionLabel="+ إضافة نوع جديد"
+                        onChange={(v) => {
+                          setShowNewTypeInput(false);
+                          setCommonType(v);
                         }}
-                        className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none cursor-pointer"
-                      >
-                        <option value="">-- اختر نوعاً --</option>
-                        {allTypes.map((type) => (
-                          <option key={type} value={type}>{type}</option>
-                        ))}
-                        <option value="__new__">+ إضافة نوع جديد</option>
-                      </select>
-                      <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
+                        onRequestNew={() => {
+                          setShowNewTypeInput(true);
+                          setCommonType('');
+                        }}
+                        onDelete={onDeleteType}
+                      />
                     </div>
                     {showNewTypeInput && (
                       <input
@@ -359,6 +457,7 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                 <div>
                   <TagMultiSelect
                     availableTags={topicNames}
+                    topicsBySection={topicsBySection}
                     selectedTags={commonTags}
                     onTagsChange={(tags) => setCommonTags(tags)}
                   />
@@ -559,29 +658,23 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                   <label className="block text-sm font-medium mb-2">
                     الفنان <span className="text-red-500">*</span>
                   </label>
-                  <div className="relative">
-                    <select
-                      id="edit-image-artist"
-                      name="artist"
-                      value={showNewArtistInput ? '__new__' : formData.artist}
-                      onChange={(e) => {
-                        if (e.target.value === '__new__') {
-                          setShowNewArtistInput(true);
-                          setFormData({ ...formData, artist: '' });
-                        } else {
-                          setShowNewArtistInput(false);
-                          setFormData({ ...formData, artist: e.target.value });
-                        }
+                  <div>
+                    <DeletableSelect
+                      value={showNewArtistInput ? '' : formData.artist}
+                      placeholder="-- اختر فناناً --"
+                      options={allArtists}
+                      allowNew
+                      newOptionLabel="+ إضافة فنان جديد"
+                      onChange={(v) => {
+                        setShowNewArtistInput(false);
+                        setFormData({ ...formData, artist: v });
                       }}
-                      className="w-full px-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none cursor-pointer"
-                    >
-                      <option value="">-- اختر فناناً --</option>
-                      {allArtists.map((artist) => (
-                        <option key={artist} value={artist}>{artist}</option>
-                      ))}
-                      <option value="__new__">+ إضافة فنان جديد</option>
-                    </select>
-                    <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
+                      onRequestNew={() => {
+                        setShowNewArtistInput(true);
+                        setFormData({ ...formData, artist: '' });
+                      }}
+                      onDelete={onDeleteArtist}
+                    />
                   </div>
                   {showNewArtistInput && (
                     <input
@@ -602,29 +695,23 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                   <label className="block text-sm font-medium mb-2">
                     النوع <span className="text-red-500">*</span>
                   </label>
-                  <div className="relative">
-                    <select
-                      id="edit-image-type"
-                      name="type"
-                      value={showNewTypeInput ? '__new__' : formData.type}
-                      onChange={(e) => {
-                        if (e.target.value === '__new__') {
-                          setShowNewTypeInput(true);
-                          setFormData({ ...formData, type: '' });
-                        } else {
-                          setShowNewTypeInput(false);
-                          setFormData({ ...formData, type: e.target.value });
-                        }
+                  <div>
+                    <DeletableSelect
+                      value={showNewTypeInput ? '' : formData.type}
+                      placeholder="-- اختر نوعاً --"
+                      options={allTypes}
+                      allowNew
+                      newOptionLabel="+ إضافة نوع جديد"
+                      onChange={(v) => {
+                        setShowNewTypeInput(false);
+                        setFormData({ ...formData, type: v });
                       }}
-                      className="w-full px-4 py-3 bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none cursor-pointer"
-                    >
-                      <option value="">-- اختر نوعاً --</option>
-                      {allTypes.map((type) => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                      <option value="__new__">+ إضافة نوع جديد</option>
-                    </select>
-                    <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
+                      onRequestNew={() => {
+                        setShowNewTypeInput(true);
+                        setFormData({ ...formData, type: '' });
+                      }}
+                      onDelete={onDeleteType}
+                    />
                   </div>
                   {showNewTypeInput && (
                     <input
@@ -660,6 +747,7 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
               <div className="lg:col-span-2">
                 <TagMultiSelect
                   availableTags={topicNames}
+                  topicsBySection={topicsBySection}
                   selectedTags={formData.tags}
                   onTagsChange={(tags) => setFormData({ ...formData, tags })}
                   error={errors.tags}

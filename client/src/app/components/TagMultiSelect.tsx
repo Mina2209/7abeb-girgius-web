@@ -1,6 +1,7 @@
 import { Search, X, Check, Plus } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { normalizeArabic } from '../utils/arabicUtils';
+import type { TopicsBySection } from '../services/tagsService';
 
 interface TagMultiSelectProps {
   availableTags: string[];
@@ -9,6 +10,7 @@ interface TagMultiSelectProps {
   placeholder?: string;
   label?: string;
   error?: string;
+  topicsBySection?: TopicsBySection[];
 }
 
 const normalizeSearchText = (text: string) => normalizeArabic(text).toLowerCase();
@@ -20,6 +22,7 @@ export function TagMultiSelect({
   placeholder = 'ابحث أو أضف موضوع...',
   label = 'الموضوع',
   error,
+  topicsBySection,
 }: TagMultiSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -110,6 +113,15 @@ export function TagMultiSelect({
     !availableTags.includes(searchQuery.trim()) && 
     !selectedTags.includes(searchQuery.trim());
 
+  const groupedSections = topicsBySection
+    ?.map((group) => ({
+      ...group,
+      topics: group.topics.filter((tag) => availableTags.includes(tag)),
+    }))
+    .filter((group) => group.topics.length > 0);
+
+  const showGrouped = !searchQuery.trim() && !!groupedSections && groupedSections.length > 0;
+
   return (
     <div>
       <label className="block text-sm font-medium mb-2">
@@ -168,30 +180,72 @@ export function TagMultiSelect({
               )}
 
               {/* Existing Tags */}
-              {filteredTags.length > 0 ? (
-                filteredTags.map((tag) => {
-                  const isSelected = selectedTags.includes(tag);
-                  return (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => handleToggleTag(tag)}
-                      className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg transition-colors text-sm ${
-                        isSelected
-                          ? 'bg-primary/10 text-primary'
-                          : 'hover:bg-muted'
-                      }`}
-                    >
-                      <span>{tag}</span>
-                      {isSelected && <Check className="w-4 h-4" />}
-                    </button>
-                  );
-                })
-              ) : (
-                !canAddNew && (
-                  <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                    لا توجد تصنيفات مطابقة
+              {showGrouped ? (
+                groupedSections && groupedSections.length > 0 ? (
+                  <div className="space-y-3">
+                    {groupedSections.map((group) => (
+                      <div key={group.section.id}>
+                        {/* Section Header */}
+                        <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground border-b border-border/50 mb-1">
+                          {group.section.name}
+                        </div>
+                        {/* Topics in Section */}
+                        <div className="space-y-1">
+                          {group.topics.map((tag) => {
+                            const isSelected = selectedTags.includes(tag);
+                            return (
+                              <button
+                                key={tag}
+                                type="button"
+                                onClick={() => handleToggleTag(tag)}
+                                className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg transition-colors text-sm ${
+                                  isSelected
+                                    ? 'bg-primary/10 text-primary'
+                                    : 'hover:bg-muted'
+                                }`}
+                              >
+                                <span>{tag}</span>
+                                {isSelected && <Check className="w-4 h-4" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
+                ) : (
+                  !canAddNew && (
+                    <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                      لا توجد تصنيفات مطابقة
+                    </div>
+                  )
+                )
+              ) : (
+                filteredTags.length > 0 ? (
+                  filteredTags.map((tag) => {
+                    const isSelected = selectedTags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => handleToggleTag(tag)}
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg transition-colors text-sm ${
+                          isSelected
+                            ? 'bg-primary/10 text-primary'
+                            : 'hover:bg-muted'
+                        }`}
+                      >
+                        <span>{tag}</span>
+                        {isSelected && <Check className="w-4 h-4" />}
+                      </button>
+                    );
+                  })
+                ) : (
+                  !canAddNew && (
+                    <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                      لا توجد تصنيفات مطابقة
+                    </div>
+                  )
                 )
               )}
             </div>

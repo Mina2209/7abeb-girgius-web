@@ -300,6 +300,32 @@ export async function updateArtist(id: string, data: Partial<Artist>, token?: st
   return mapServerAuthorToClient(row);
 }
 
+export async function deleteImageAuthor(name: string, token?: string | null): Promise<void> {
+  const rows = await apiGetJson<Array<{ id: string; name: string }>>('/api/images/meta/authors', {
+    headers: withAuth(token),
+  });
+  const found = (rows ?? []).find((r) => r.name === name);
+  if (!found) return;
+  const res = await apiRequest(`/api/images/meta/authors/${found.id}`, {
+    method: 'DELETE',
+    headers: withAuth(token),
+  });
+  await ensureOk(res, 'Failed to delete artist');
+}
+
+export async function deleteImageType(name: string, token?: string | null): Promise<void> {
+  const rows = await apiGetJson<Array<{ id: string; name: string }>>('/api/images/meta/types', {
+    headers: withAuth(token),
+  });
+  const found = (rows ?? []).find((r) => r.name === name);
+  if (!found) return;
+  const res = await apiRequest(`/api/images/meta/types/${found.id}`, {
+    method: 'DELETE',
+    headers: withAuth(token),
+  });
+  await ensureOk(res, 'Failed to delete type');
+}
+
 export async function fetchFathers(token?: string | null): Promise<Father[]> {
   const rows = await apiGetJson<ServerFatherRow[]>('/api/fathers', {
     headers: withAuth(token),
