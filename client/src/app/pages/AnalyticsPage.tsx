@@ -65,6 +65,7 @@ const EVENT_LABELS: Record<string, string> = {
   session_start: 'بدء جلسة',
   card_page_view: 'مشاهدة البطاقة',
   login_success: 'تسجيل دخول ناجح',
+  sign_up: 'إنشاء حساب جديد',
   login_failed: 'فشل تسجيل الدخول',
   logout: 'تسجيل خروج',
   admin_login: 'دخول مدير',
@@ -737,9 +738,9 @@ export function AnalyticsPage() {
         </Card>
       </section>
 
-      {/* Top pages + devices */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
+      {/* Top pages (tall) + short cards stacked vertically beside it */}
+      <div className="grid gap-6 lg:grid-cols-3 lg:items-start">
+        <Card className="lg:col-span-2 flex flex-col">
           <CardHeader>
             <CardTitle className="text-base font-semibold">أكثر الصفحات زيارة</CardTitle>
           </CardHeader>
@@ -757,27 +758,86 @@ export function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">الأجهزة المستخدمة</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {sections.devices.status === 'loading' && (
-              <div className="flex flex-col gap-4">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-8 w-full" />
+        {/* Vertical stack of short cards fills the remaining column */}
+        <div className="flex flex-col gap-6 lg:col-span-1">
+          <Card className="flex flex-col">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">الأجهزة المستخدمة</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {sections.devices.status === 'loading' && (
+                <div className="flex flex-col gap-4">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-8 w-full" />
+                  ))}
+                </div>
+              )}
+              {sections.devices.status === 'error' && <SectionError onRetry={handleRefresh} />}
+              {sections.devices.status === 'success' &&
+                (sections.devices.data.length === 0 ? <SectionEmpty /> : <RankBars items={deviceRows} />)}
+            </CardContent>
+          </Card>
+
+          <Card className="flex flex-col">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">التفاعل مع وسائل التواصل</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {sections.social.status === 'loading' && (
+                <div className="flex flex-col gap-4">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-8 w-full" />
+                  ))}
+                </div>
+              )}
+              {sections.social.status === 'error' && <SectionError onRetry={handleRefresh} />}
+              {sections.social.status === 'success' &&
+                (socialItems.length === 0 ? (
+                  <SectionEmpty />
+                ) : (
+                  <ul className="space-y-3">
+                    {socialItems.map((item) => {
+                      const Icon = socialIcons[item.platform] ?? BarChart3;
+                      return (
+                        <li
+                          key={item.platform}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2.5"
+                        >
+                          <span className="flex items-center gap-2 text-sm font-medium">
+                            <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                            {SOCIAL_LABELS[item.platform] ?? item.platform}
+                          </span>
+                          <span className="text-sm font-bold">{item.count.toLocaleString('ar-EG')}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 ))}
-              </div>
-            )}
-            {sections.devices.status === 'error' && <SectionError onRetry={handleRefresh} />}
-            {sections.devices.status === 'success' &&
-              (sections.devices.data.length === 0 ? <SectionEmpty /> : <RankBars items={deviceRows} />)}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          <Card className="flex flex-col">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">أنواع المحتوى</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {sections.contentTypes.status === 'loading' && (
+                <div className="flex flex-col gap-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-8 w-full" />
+                  ))}
+                </div>
+              )}
+              {sections.contentTypes.status === 'error' && <SectionError onRetry={handleRefresh} />}
+              {sections.contentTypes.status === 'success' &&
+                (sections.contentTypes.data.length === 0 ? <SectionEmpty /> : <RankBars items={contentTypeRows} />)}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Downloads + views */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
         <Card>
           <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
             <CardTitle className="text-base font-semibold">أكثر الملفات تحميلًا</CardTitle>
@@ -851,65 +911,6 @@ export function AnalyticsPage() {
                   icon={<Eye className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
                 />
               ))}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Social + content types */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">التفاعل مع وسائل التواصل</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {sections.social.status === 'loading' && (
-              <div className="flex flex-col gap-4">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-8 w-full" />
-                ))}
-              </div>
-            )}
-            {sections.social.status === 'error' && <SectionError onRetry={handleRefresh} />}
-            {sections.social.status === 'success' &&
-              (socialItems.length === 0 ? (
-                <SectionEmpty />
-              ) : (
-                <ul className="space-y-3">
-                  {socialItems.map((item) => {
-                    const Icon = socialIcons[item.platform] ?? BarChart3;
-                    return (
-                      <li
-                        key={item.platform}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2.5"
-                      >
-                        <span className="flex items-center gap-2 text-sm font-medium">
-                          <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                          {SOCIAL_LABELS[item.platform] ?? item.platform}
-                        </span>
-                        <span className="text-sm font-bold">{item.count.toLocaleString('ar-EG')}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">أنواع المحتوى</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {sections.contentTypes.status === 'loading' && (
-              <div className="flex flex-col gap-4">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton key={i} className="h-8 w-full" />
-                ))}
-              </div>
-            )}
-            {sections.contentTypes.status === 'error' && <SectionError onRetry={handleRefresh} />}
-            {sections.contentTypes.status === 'success' &&
-              (sections.contentTypes.data.length === 0 ? <SectionEmpty /> : <RankBars items={contentTypeRows} />)}
           </CardContent>
         </Card>
       </div>

@@ -3,6 +3,7 @@ import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SectionsVisibilityProvider, useSectionsVisibility } from './contexts/SectionsVisibilityContext';
 import { AnalyticsRouteTracker } from './components/AnalyticsRouteTracker';
+import { AnalyticsConsentBanner } from './components/AnalyticsConsentBanner';
 import { HomeSection } from './components/HomeSection';
 import { UploadProgressCard } from './components/UploadProgressCard';
 
@@ -195,6 +196,7 @@ export default function App() {
       <AuthProvider>
         <SectionsVisibilityProvider>
           <AnalyticsRouteTracker />
+          <AnalyticsConsentBanner />
           {deferredReady && (
             <Suspense fallback={null}>
               <LazyToaster />
@@ -214,6 +216,7 @@ export default function App() {
     <AuthProvider>
       <SectionsVisibilityProvider>
         <AnalyticsRouteTracker />
+        <AnalyticsConsentBanner />
         {deferredReady && (
           <Suspense fallback={null}>
             <LazyToaster />

@@ -21,6 +21,7 @@ export const ANALYTICS_EVENTS = new Set([
   'card_page_view',
   // auth
   'login_success',
+  'sign_up',
   'login_failed',
   'logout',
   'admin_login',

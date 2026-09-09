@@ -361,10 +361,14 @@ export function VariousSection() {
 
   const availableTagNames = allTags.map((t) => t.name);
 
-  const handlePreview = async (name: string, url: string) => {
+  const handlePreview = async (name: string, url: string, fileId?: string) => {
     const resolved = await getDocumentFetchUrl(url);
     setPreviewFile({ name, url: resolved });
-    trackEvent('powerpoint_view', { contentType: 'powerpoint', contentName: name });
+    trackEvent('powerpoint_view', {
+      contentType: 'powerpoint',
+      contentName: name,
+      contentId: fileId,
+    });
   };
 
   const filteredTagNames = availableTagNames.filter((t) =>
@@ -908,7 +912,7 @@ export function VariousSection() {
                           <div className="relative group/tooltip">
                             <button
                               onClick={() =>
-                                file.url && handlePreview(file.name, file.url)
+                                file.url && handlePreview(file.name, file.url, file.id)
                               }
                               className={`h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-card hover:bg-muted hover:text-primary transition-colors ${!file.url && "opacity-40 pointer-events-none"}`}
                             >

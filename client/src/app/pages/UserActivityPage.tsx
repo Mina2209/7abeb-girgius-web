@@ -60,6 +60,7 @@ import {
 
 const ACTION_LABELS: Record<string, string> = {
   login_success: 'تسجيل الدخول',
+  sign_up: 'إنشاء حساب جديد',
   logout: 'تسجيل الخروج',
   hymn_view: 'مشاهدة ترنيمة',
   powerpoint_view: 'مشاهدة بوربوينت',
@@ -82,7 +83,7 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 const ACTION_GROUPS: Array<{ label: string; actions: string[] }> = [
-  { label: 'الحساب', actions: ['login_success', 'logout'] },
+  { label: 'الحساب', actions: ['sign_up', 'login_success', 'logout'] },
   {
     label: 'المشاهدة',
     actions: ['hymn_view', 'powerpoint_view', 'image_view', 'saying_view', 'book_view'],
@@ -115,6 +116,20 @@ const DEVICE_LABELS: Record<string, string> = {
   tablet: 'تابلت',
   unknown: 'غير معروف',
 };
+
+const BROWSER_LABELS: Record<string, string> = {
+  chrome: 'Chrome',
+  firefox: 'Firefox',
+  edge: 'Edge',
+  opera: 'Opera',
+  safari: 'Safari',
+  other: 'آخر',
+};
+
+function browserLabel(browser: string | null | undefined): string | undefined {
+  if (!browser) return undefined;
+  return BROWSER_LABELS[browser] ?? browser;
+}
 
 const ROUTE_LABELS: Record<string, string> = {
   '/': 'الصفحة الرئيسية',
@@ -1271,6 +1286,8 @@ function contentIconForAction(action: string) {
   switch (action) {
     case 'login_success':
       return <LogIn className="h-4 w-4 text-muted-foreground" aria-hidden="true" />;
+    case 'sign_up':
+      return <UserCheck className="h-4 w-4 text-muted-foreground" aria-hidden="true" />;
     case 'logout':
       return <LogOut className="h-4 w-4 text-muted-foreground" aria-hidden="true" />;
     case 'download_started':
@@ -1329,18 +1346,15 @@ function ActivityDetails({ item }: { item: ActivityItem }) {
         <span dir="ltr">{routeLabel(item.route) !== '—' ? item.route : '—'}</span>
       </DetailRow>
       <DetailRow label="نوع المحتوى">{contentTypeLabel(item.contentType)}</DetailRow>
-      <DetailRow label="معرف المحتوى">
-        <span dir="ltr">{item.contentId || '—'}</span>
-      </DetailRow>
       <DetailRow label="اسم المحتوى">{item.contentName || '—'}</DetailRow>
-      <DetailRow label="الجهاز">
+      <DetailRow label="الجهاز ( المتصفح )">
         <span className="inline-flex items-center gap-1.5">
           {deviceIcon(item.deviceCategory)}
-          {deviceLabel(item.deviceCategory)}
+          {item.browserCategory
+            ? `${deviceLabel(item.deviceCategory)} (${browserLabel(item.browserCategory)})`
+            : deviceLabel(item.deviceCategory)}
         </span>
       </DetailRow>
-      <DetailRow label="المتصفح">{item.browserCategory || '—'}</DetailRow>
-
       <div className="pt-3">
         <p className="text-sm font-medium text-foreground">تفاصيل إضافية</p>
         {entries.length === 0 ? (

@@ -44,6 +44,7 @@ import {
 } from "../services/contentWriteService";
 import { downloadFile, downloadViaUrl } from "../utils/download";
 import { trackEvent } from "../services/analytics";
+import { trackGA4 } from "../services/ga4";
 import { getDocumentFetchUrl } from "../services/s3Upload";
 import { PptxViewer } from "./PptxViewer";
 import { useSearchAnalytics } from "../hooks/useSearchAnalytics";
@@ -302,32 +303,64 @@ export function HymnsSection({
   const [previewType, setPreviewType] = useState<FileType | null>(null);
   // The file being previewed, so the modal's download button can use its real name.
   const [previewFile, setPreviewFile] = useState<HymnFile | null>(null);
+  // Public content id of the hymn being previewed (GA4 item_id, never a user id).
+  const [previewContentId, setPreviewContentId] = useState<string | null>(null);
+  // Ensures video_start fires only once per preview session (not per play/pause).
+  const mediaStartTrackedRef = useRef(false);
   const handleOpenPreview = async (
     url: string,
     type: FileType,
     title: string,
     file?: HymnFile | null,
+    hymnId?: string,
   ) => {
+    mediaStartTrackedRef.current = false;
+    setPreviewContentId(hymnId ?? null);
+    const viewCtx = {
+      contentType: "hymn" as const,
+      contentId: hymnId,
+      contentName: title,
+      properties: { fileType: type },
+    };
     if (type === "PowerPoint file") {
-      trackEvent("powerpoint_view", {
-        contentType: "hymn",
-        contentName: title,
-        properties: { fileType: type },
-      });
+      trackEvent("powerpoint_view", viewCtx);
       const resolved = await getDocumentFetchUrl(url);
       setPreviewUrl(resolved);
     } else {
-      trackEvent("hymn_view", {
-        contentType: "hymn",
-        contentName: title,
-        properties: { fileType: type },
-      });
+      trackEvent("hymn_view", viewCtx);
       setPreviewUrl(url);
     }
     setPreviewType(type);
     setPreviewTitle(title);
     setPreviewFile(file ?? null);
     setIsPreviewOpen(true);
+  };
+
+  // Media interaction analytics for the HTML5 audio/video preview players.
+  // GA4-only (trackGA4 self-gates on consent + env). Only safe, non-PII
+  // metadata is sent — never the media URL. GA4 recommended events where
+  // applicable (video_start / video_complete), a sensible custom event for
+  // pause. video_start is fired once per preview session.
+  const previewMediaParams = () => {
+    const isAudio = previewType === "Music";
+    const params: Record<string, string | number | boolean> = {
+      media_type: isAudio ? "audio" : "video",
+      content_type: "hymn",
+      item_name: previewTitle,
+    };
+    if (previewContentId) params.item_id = previewContentId;
+    return params;
+  };
+  const handleMediaPlay = () => {
+    if (mediaStartTrackedRef.current) return;
+    mediaStartTrackedRef.current = true;
+    trackGA4("video_start", previewMediaParams());
+  };
+  const handleMediaPause = () => {
+    trackGA4("media_pause", previewMediaParams());
+  };
+  const handleMediaEnded = () => {
+    trackGA4("video_complete", previewMediaParams());
   };
   const sortDropdownRef = useRef<HTMLDivElement>(null);
   const mobileSortDropdownRef = useRef<HTMLDivElement>(null);
@@ -1513,6 +1546,7 @@ export function HymnsSection({
                                         fileType,
                                         hymn.title,
                                         fileObj,
+                                        shortContentId(hymn.id),
                                       );
                                     }}
                                   >
@@ -2095,6 +2129,9 @@ export function HymnsSection({
                     src={previewUrl}
                     className="w-full accent-primary mt-2"
                     autoPlay
+                    onPlay={handleMediaPlay}
+                    onPause={handleMediaPause}
+                    onEnded={handleMediaEnded}
                   />
                 </div>
               )}
@@ -2108,6 +2145,9 @@ export function HymnsSection({
                     src={previewUrl}
                     className="w-full h-full"
                     autoPlay
+                    onPlay={handleMediaPlay}
+                    onPause={handleMediaPause}
+                    onEnded={handleMediaEnded}
                   />
                 </div>
               )}

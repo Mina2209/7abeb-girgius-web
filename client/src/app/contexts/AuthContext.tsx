@@ -148,6 +148,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // إذا كان السيرفر يقوم بتسجيل الدخول تلقائياً بعد الإنشاء ويرد بـ Token
+    // Registration itself is a distinct event (GA4 recommended `sign_up`);
+    // the automatic login that follows is logged separately as `login_success`.
+    if (result) {
+      const registerRole = result?.user?.role
+        ? mapServerRoleToClient(result.user.role)
+        : undefined;
+      trackEvent('sign_up', registerRole ? { properties: { role: registerRole } } : {});
+    }
     if (result && result.token) {
       const clientRole = mapServerRoleToClient(result.user.role);
       

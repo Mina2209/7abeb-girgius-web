@@ -459,6 +459,57 @@ export function BooksSection({ isSidebarCollapsed }: BooksSectionProps) {
     getResultCount: () => filteredAndSortedBooks.length,
   });
 
+  // Meaningful filter changes only — discrete facet/sort toggles, debounced to
+  // coalesce rapid multi-facet clicks. Never fires on keystrokes (searchQuery
+  // is tracked separately by useSearchAnalytics) and never on first mount.
+  // Only safe scalars (counts/booleans) are sent — never the raw facet text,
+  // which could contain arbitrary/sensitive strings.
+  const filterFirstRunRef = useRef(true);
+  useEffect(() => {
+    if (books.length === 0) return;
+    if (filterFirstRunRef.current) {
+      filterFirstRunRef.current = false;
+      return;
+    }
+    if (
+      selectedTopics.length === 0 &&
+      selectedAuthors.length === 0 &&
+      selectedPublishers.length === 0 &&
+      selectedSeries.length === 0 &&
+      selectedBookTypes.length === 0 &&
+      !showFavoritesOnly &&
+      sortBy === "date-newest"
+    ) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      trackEvent("filter_applied", {
+        contentType: "book",
+        properties: {
+          topicsCount: selectedTopics.length,
+          authorsCount: selectedAuthors.length,
+          publishersCount: selectedPublishers.length,
+          seriesCount: selectedSeries.length,
+          typesCount: selectedBookTypes.length,
+          favoritesOnly: showFavoritesOnly,
+          sorted: sortBy !== "date-newest",
+          resultCount: filteredAndSortedBooks.length,
+        },
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [
+    books.length,
+    selectedTopics,
+    selectedAuthors,
+    selectedPublishers,
+    selectedSeries,
+    selectedBookTypes,
+    showFavoritesOnly,
+    sortBy,
+    filteredAndSortedBooks.length,
+  ]);
+
   const availableBooksForTopics = useMemo(() => getBooksForFacet(books, { searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks, excludeFacet: "topics" }), [books, searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks]);
   const availableBooksForAuthors = useMemo(() => getBooksForFacet(books, { searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks, excludeFacet: "authors" }), [books, searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks]);
   const availableBooksForPublishers = useMemo(() => getBooksForFacet(books, { searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks, excludeFacet: "publishers" }), [books, searchQuery, selectedTopics, selectedAuthors, selectedPublishers, selectedSeries, selectedBookTypes, showFavoritesOnly, favoritedBooks]);

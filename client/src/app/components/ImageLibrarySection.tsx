@@ -967,7 +967,7 @@ export function ImageLibrarySection({
 
               <div className="flex-1 sm:flex-initial">
                 <MultiSelectFilter
-                  label="النواع"
+                  label="النوع"
                   options={allTypes}
                   selectedOptions={selectedTypes}
                   onOptionsChange={setSelectedTypes}

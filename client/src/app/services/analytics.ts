@@ -1,4 +1,5 @@
 import { getApiBaseUrl, isApiConfigured } from '../config/api';
+import { trackGA4FromAnalytics } from './ga4';
 
 // ---------------------------------------------------------------------------
 // First-party analytics client.
@@ -25,6 +26,7 @@ const ANALYTICS_EVENT_NAMES = [
   'card_page_view',
   // auth
   'login_success',
+  'sign_up',
   'login_failed',
   'logout',
   'admin_login',
@@ -78,6 +80,11 @@ interface AnalyticsEventContext {
   contentName?: string;
   /** Free-form metadata. Sanitized + capped; scalars only. */
   properties?: AnalyticsProperties;
+  /**
+   * GA4-only parameters (e.g. the raw search term). Never part of the
+   * first-party payload sent to our server — used only by the GA4 bridge.
+   */
+  ga4?: AnalyticsProperties;
 }
 
 interface AnalyticsPayload {
@@ -102,6 +109,7 @@ interface AnalyticsPayload {
 const USER_ACTIVITY_ACTIONS = new Set<string>([
   // auth
   'login_success',
+  'sign_up',
   'logout',
   // content
   'hymn_view',
@@ -579,6 +587,14 @@ export function trackEvent(
   eventName: AnalyticsEventName,
   ctx: AnalyticsEventContext = {},
 ): void {
+  // GA4 is a separate opt-in layer with its own gate (consent + env). It runs
+  // even when the first-party gate is off, so a visitor can be GA4-tracked
+  // (after consent) while first-party analytics stays disabled.
+  try {
+    trackGA4FromAnalytics(eventName, ctx);
+  } catch {
+    // GA4 must never propagate into the UI
+  }
   if (!isAnalyticsEnabled()) return;
   try {
     const payload = buildPayload(eventName, ctx);

@@ -23,6 +23,7 @@ import { prisma } from './prisma.js';
 export const USER_ACTIVITY_EVENTS = new Set([
   // auth
   'login_success',
+  'sign_up',
   'logout',
   // content
   'hymn_view',

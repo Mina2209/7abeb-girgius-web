@@ -83,6 +83,15 @@ function createUploadController(s3Service = defaultS3Service) {
     return mapped;
   }
 
+  // Normalize an HTTP Range header to a value S3 accepts (single byte range only:
+  // "bytes=start-end", "bytes=start-", or "bytes=-end"). Returns the raw header or
+  // null when absent / unsupported (multi-range gets the full object).
+  function parseByteRangeHeader(header) {
+    if (typeof header !== 'string') return null;
+    const trimmed = header.trim();
+    return /^bytes=\d*-\d*$/.test(trimmed) ? trimmed : null;
+  }
+
   return {
     // Request a presigned PUT URL for uploading directly to S3
     // body: { filename, contentType }
@@ -104,9 +113,15 @@ function createUploadController(s3Service = defaultS3Service) {
         const { key, name } = req.query;
         if (!key) return res.status(400).send('key required');
         if (!isReadableKey(key, PUBLIC_READ_PREFIXES)) return res.status(403).json({ error: 'access denied' });
+        const range = parseByteRangeHeader(req.headers.range);
         try {
-          const { contentType, contentLength, body } = await s3Service.getObjectForProxy(key);
+          const { contentType, contentLength, contentRange, body } = await s3Service.getObjectForProxy(key, range);
           res.setHeader('Content-Type', contentType || 'application/octet-stream');
+          res.setHeader('Accept-Ranges', 'bytes');
+          if (contentRange) {
+            res.status(206);
+            res.setHeader('Content-Range', contentRange);
+          }
           if (contentLength) res.setHeader('Content-Length', contentLength);
           res.setHeader('Cache-Control', 'public, max-age=3600');
           if (name) {
@@ -146,9 +161,15 @@ function createUploadController(s3Service = defaultS3Service) {
         const { key } = req.query;
         if (!key) return res.status(400).json({ error: 'key required' });
         if (!isReadableKey(key, PUBLIC_READ_PREFIXES)) return res.status(403).json({ error: 'access denied' });
+        const range = parseByteRangeHeader(req.headers.range);
         try {
-          const { contentType, contentLength, body } = await s3Service.getObjectForProxy(key);
+          const { contentType, contentLength, contentRange, body } = await s3Service.getObjectForProxy(key, range);
           res.setHeader('Content-Type', contentType);
+          res.setHeader('Accept-Ranges', 'bytes');
+          if (contentRange) {
+            res.status(206);
+            res.setHeader('Content-Range', contentRange);
+          }
           if (contentLength) res.setHeader('Content-Length', contentLength);
           res.setHeader('Content-Disposition', 'inline');
           res.setHeader('Cache-Control', 'public, max-age=3600');

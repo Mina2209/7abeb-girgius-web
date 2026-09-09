@@ -146,7 +146,7 @@
   }
 
   html, body {
-    @apply bg-background text-foreground overflow-x-hidden;
+    @apply bg-background text-foreground overflow-hidden;
     font-family: 'Tajawal', sans-serif;
   }
 
@@ -199,6 +199,23 @@
     font-size: var(--text-base);
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
+  }
+
+  /* Style the native select dropdown panel so its options match the active
+     theme (dark/light) instead of the browser's default white/OS colors. */
+  select option {
+    background-color: var(--card);
+    color: var(--foreground);
+  }
+  select optgroup {
+    background-color: var(--card);
+    color: var(--muted-foreground);
+    font-style: normal;
+  }
+  select option:hover,
+  select option:checked {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
   }
 
   /* Scrollbar styling for light and dark modes */
