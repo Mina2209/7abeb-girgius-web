@@ -122,6 +122,7 @@ const pathToSection = (pathname: string): string => {
   }
 };
 
+
 export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
