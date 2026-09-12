@@ -29,6 +29,9 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import logoImg512 from '../../assets/church-logo-512.webp';
+import logoImg384 from '../../assets/church-logo-384.webp';
+import logoImg256 from '../../assets/church-logo-256.webp';
+import logoImg128 from '../../assets/church-logo-128.webp';
 
 const marqueeItems = [
   { icon: Church, title: 'الليتورجية', desc: 'صلوات القداس والطقوس', color: 'from-amber-500/15 to-amber-600/5', iconColor: 'text-amber-600', border: 'border-amber-500/20' },
@@ -174,9 +177,14 @@ export function HomeSection() {
           <div className="relative inline-block mb-6">
             <div className="absolute inset-0 bg-primary/20 rounded-full blur-2xl scale-150"></div>
             <img
-              src={logoImg512}
+              src={logoImg256}
+              srcSet={`${logoImg128} 128w, ${logoImg256} 256w, ${logoImg384} 384w, ${logoImg512} 512w`}
+              sizes="(min-width: 768px) 144px, 112px"
+              width={512}
+              height={512}
               alt="شعار خدمة الأرشيدياكون حبيب جرجس"
               loading="eager"
+              {...({ fetchpriority: 'high' } as unknown as React.ImgHTMLAttributes<HTMLImageElement>)}
               decoding="async"
               className="relative w-28 h-28 md:w-36 md:h-36 object-contain drop-shadow-xl rounded-full ring-4 ring-primary/25 shadow-lg"
             />

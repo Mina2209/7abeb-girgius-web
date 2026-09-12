@@ -1,3 +1,7 @@
+// @ts-expect-error Node.js type declarations are not included in this client config's tsconfig.
+import { readFileSync, writeFileSync } from 'node:fs'
+// @ts-expect-error Node.js type declarations are not included in this client config's tsconfig.
+import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -19,8 +23,52 @@ function moveCssFirst(): import('vite').Plugin {
   };
 }
 
+/**
+ * Loads the main Vite-emitted stylesheet asynchronously (media="print" swap trick)
+ * and inlines a tiny "critical" shell so the page never paints unstyled (no FOUC).
+ *
+ * The critical block only covers theme variables + base element styles that are
+ * needed before React hydrates. The full Tailwind stylesheet still loads, just
+ * without blocking first paint, and is cached immediately/browser + edge.
+ */
+function nonBlockingCss(): import('vite').Plugin {
+  let outDir = 'dist';
+  return {
+    name: 'non-blocking-css',
+    enforce: 'post',
+    apply: 'build',
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir);
+    },
+    async closeBundle() {
+      const htmlPath = resolve(outDir, 'index.html');
+      const html = readFileSync(htmlPath, 'utf8');
+
+      const cssLinkRe = /<link rel="stylesheet" crossorigin href="(\/assets\/[^"]+\.css)"\s*\/?>/;
+      const cssMatch = html.match(cssLinkRe);
+      if (!cssMatch) return;
+
+      const criticalCss = [
+        ':root{--background:#ffffff;--foreground:oklch(0.145 0 0);--primary:#1A4F9E;--card:#f7f7f7;--muted:#ececf0;--muted-foreground:#717182;--accent:#1A4F9E;--sidebar:#f7f7f7;--sidebar-foreground:#374151}',
+        '.dark{--background:#0f0f0f;--foreground:#f5f5f5;--primary:#c2410c;--card:#1a1a1a;--muted:#2a2a2a;--muted-foreground:#a1a1a1;--accent:#ea580c;--sidebar:#1a1a1a;--sidebar-foreground:#f5f5f5}',
+        'html,body{background-color:var(--background);color:var(--foreground);font-family:"Tajawal",sans-serif;overflow:hidden;min-height:100%}',
+      ].join('');
+
+      const replacement = [
+        `    <style id="critical-shell">${criticalCss}</style>`,
+        `    <link rel="stylesheet" href="${cssMatch[1]}" media="print" onload="this.media='all'" />`,
+        '    <noscript>',
+        `      <link rel="stylesheet" href="${cssMatch[1]}" />`,
+        '    </noscript>',
+      ].join('\n');
+
+      writeFileSync(htmlPath, html.replace(cssMatch[0], replacement), 'utf8');
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), moveCssFirst()],
+  plugins: [react(), tailwindcss(), moveCssFirst(), nonBlockingCss()],
   resolve: {
     alias: {
       '@': '/src',

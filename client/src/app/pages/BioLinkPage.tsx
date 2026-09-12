@@ -13,6 +13,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import logoImg512 from '../../assets/church-logo-512.webp';
+import logoImg384 from '../../assets/church-logo-384.webp';
+import logoImg256 from '../../assets/church-logo-256.webp';
+import logoImg128 from '../../assets/church-logo-128.webp';
 import { cn } from '../utils/cn';
 import { trackEvent } from '../services/analytics';
 import { FlatIcon } from '../components/icons/FlatIcon';
@@ -198,7 +201,9 @@ export function BioLinkPage() {
         {/* Header */}
         <header className="flex flex-col items-center text-center">
           <img
-            src={logoImg512}
+            src={logoImg256}
+            srcSet={`${logoImg128} 128w, ${logoImg256} 256w, ${logoImg384} 384w, ${logoImg512} 512w`}
+            sizes="112px"
             alt="شعار خدمة الأرشيدياكون حبيب جرجس"
             width={112}
             height={112}
