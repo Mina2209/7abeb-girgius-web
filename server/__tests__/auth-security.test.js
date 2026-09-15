@@ -7,7 +7,11 @@ const { authServiceMock, logServiceMock } = vi.hoisted(() => ({
 }));
 
 vi.mock('../services/log.service.js', () => ({ logService: logServiceMock }));
-vi.mock('../services/auth.service.js', () => ({ authService: authServiceMock }));
+vi.mock('../services/auth.service.js', () => ({
+  authService: authServiceMock,
+  normalizeUsername: (v) => (typeof v === 'string' ? v.trim().toLowerCase() : ''),
+  normalizeEmail: (v) => (typeof v === 'string' && v.trim() ? v.trim().toLowerCase() : null),
+}));
 
 // ── Imports ─────────────────────────────────────────────────────────────
 import { authController } from '../controllers/auth.controller.js';

@@ -233,8 +233,12 @@ export function UserManagementPage() {
     role: UserRole;
   }) => {
     // السيرفر الحالي (auth.controller.js) createUser يستقبل username/password/role فقط.
-    // لذلك نستخدم email كـ username.
-    const username = userData.email;
+    // لذلك نستخدم email كـ username مع أخذ الجزء المحلي (قبل @) وتحويله لحروف صغيرة.
+    const rawEmail = userData.email.trim();
+    const username = rawEmail.includes('@') ? rawEmail.split('@')[0].toLowerCase() : rawEmail.toLowerCase();
+    if (username.length < 3) {
+      throw new Error('الإيميل قصير جداً، يجب أن يكون اسم المستخدم المستخلص منه 3 أحرف على الأقل');
+    }
     const roleMap: Record<UserRole, ServerRole> = { admin: 'ADMIN', editor: 'EDITOR', viewer: 'VIEWER' };
     const prismaRole = roleMap[userData.role];
 

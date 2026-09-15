@@ -58,7 +58,7 @@ export function AddUserModal({ isOpen, onClose, onAddUser }: AddUserModalProps) 
 
     try {
       await onAddUser({
-        email,
+        email: email.trim(),
         password,
         fullName,
         churchName,

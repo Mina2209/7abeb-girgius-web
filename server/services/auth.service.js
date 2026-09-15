@@ -6,6 +6,22 @@ import { randomBytes } from 'node:crypto';
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRY = '7d';
 
+// Credential normalization: usernames/emails are stored and matched in a
+// case-insensitive way. trim -> (usernames only) local part before '@' -> lowercase.
+export function normalizeUsername(identifier) {
+  if (typeof identifier !== 'string') return '';
+  const value = identifier.trim();
+  if (!value) return '';
+  const local = value.includes('@') ? value.split('@')[0] : value;
+  return local.toLowerCase();
+}
+
+export function normalizeEmail(email) {
+  if (typeof email !== 'string') return null;
+  const value = email.trim();
+  return value ? value.toLowerCase() : null;
+}
+
 // Progressive delay configuration for failed login attempts
 // Increases delay after each failed attempt to slow down brute-force attacks
 const LOGIN_DELAY_CONFIG = {
@@ -64,8 +80,10 @@ function getDelayForAttempt(attemptCount) {
 
 export const authService = {
   async login(username, password) {
+    const normalizedUsername = normalizeUsername(username);
+
     // Check for progressive delay based on failed attempts
-    const failureData = getFailureData(getFailureKey(username));
+    const failureData = getFailureData(getFailureKey(normalizedUsername));
     if (failureData.count > 0) {
       const delay = getDelayForAttempt(failureData.count);
       if (delay > 0) {
@@ -75,25 +93,25 @@ export const authService = {
     }
 
     const user = await prisma.user.findUnique({ 
-      where: { username },
+      where: { username: normalizedUsername },
       select: { id: true, username: true, email: true, password: true, role: true, full_name: true, church_name: true, church_role: true, services: true, avatar_url: true, tokenVersion: true, createdAt: true }
     });
 
     if (!user) {
       // Record failure even for non-existent users to prevent username enumeration timing
-      recordFailure(username);
+      recordFailure(normalizedUsername);
       throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
     }
 
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
       // Record failure for wrong password
-      recordFailure(username);
+      recordFailure(normalizedUsername);
       throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
     }
 
     // Clear failures on successful login
-    clearFailures(username);
+    clearFailures(normalizedUsername);
 
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role, tokenVersion: user.tokenVersion },
@@ -121,16 +139,21 @@ export const authService = {
   // Search by username OR email, reset the password to a temporary one,
   // and invalidate any outstanding sessions by bumping tokenVersion.
   async requestPasswordReset(identifier) {
-    const value = identifier.trim();
-    if (!value) {
+    const trimmed = (identifier ?? '').trim();
+    if (!trimmed) {
       throw new Error('يرجى إدخال اسم المستخدم أو البريد الإلكتروني');
     }
+
+    // Usernames are matched by their normalized local-part form, while emails
+    // are matched by the full address (lowercased). Both remain insensitive.
+    const usernameValue = normalizeUsername(trimmed);
+    const emailValue = trimmed.toLowerCase();
 
     const user = await prisma.user.findFirst({
       where: {
         OR: [
-          { username: { equals: value, mode: 'insensitive' } },
-          { email: { equals: value, mode: 'insensitive' } },
+          { username: { equals: usernameValue, mode: 'insensitive' } },
+          { email: { equals: emailValue, mode: 'insensitive' } },
         ],
       },
       select: { id: true },
@@ -158,13 +181,20 @@ export const authService = {
   },
 
   async register(username, email, password, full_name, church_name, church_role, services) {
-    const existingUser = await prisma.user.findUnique({ where: { username } });
+    const normalizedUsername = normalizeUsername(username);
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!normalizedUsername) {
+      throw new Error('Username must not be empty');
+    }
+
+    const existingUser = await prisma.user.findUnique({ where: { username: normalizedUsername } });
     if (existingUser) {
       throw new Error('البريد الإلكتروني مستخدم بالفعل');
     }
 
-    if (email) {
-      const existingEmail = await prisma.user.findUnique({ where: { email } });
+    if (normalizedEmail) {
+      const existingEmail = await prisma.user.findUnique({ where: { email: normalizedEmail } });
       if (existingEmail) {
         throw new Error('البريد الإلكتروني مستخدم بالفعل');
       }
@@ -173,8 +203,8 @@ export const authService = {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
       data: {
-        username,
-        email,
+        username: normalizedUsername,
+        email: normalizedEmail,
         password: hashedPassword,
         role: 'VIEWER',
         full_name,
@@ -206,7 +236,12 @@ export const authService = {
   },
 
   async createUser(username, password, role = 'EDITOR') {
-    const existingUser = await prisma.user.findUnique({ where: { username } });
+    const normalizedUsername = normalizeUsername(username);
+    if (!normalizedUsername) {
+      throw new Error('Username must not be empty');
+    }
+
+    const existingUser = await prisma.user.findUnique({ where: { username: normalizedUsername } });
     if (existingUser) {
       throw new Error('Username already exists');
     }
@@ -214,7 +249,7 @@ export const authService = {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
       data: {
-        username,
+        username: normalizedUsername,
         password: hashedPassword,
         role
       },
@@ -265,6 +300,14 @@ export const authService = {
     // never accepted from external callers.
     const { tokenVersion: _tv, id: _id, createdAt: _ca, updatedAt: _ua, ...rest } = data;
     const updateData = { ...rest };
+
+    // Normalize username if it is being changed
+    if (updateData.username !== undefined) {
+      updateData.username = normalizeUsername(updateData.username);
+      if (!updateData.username) {
+        throw new Error('Username must not be empty');
+      }
+    }
 
     // Check if role is being changed
     if (data.role) {

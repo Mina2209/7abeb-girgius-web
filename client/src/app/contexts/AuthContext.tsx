@@ -65,7 +65,8 @@ function mapServerRoleToClient(role: ServerRole): 'viewer' | 'editor' | 'admin' 
 function normalizeLoginIdentifier(identifier: string): string {
   const value = identifier.trim();
   if (!value) return value;
-  return value.includes('@') ? value.split('@')[0] : value;
+  const local = value.includes('@') ? value.split('@')[0] : value;
+  return local.toLowerCase();
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -131,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const username = normalizeLoginIdentifier(email);
+    const normalizedEmail = email.trim().toLowerCase();
 
     // إرسال طلب POST حقيقي إلى روت التسجيل في السيرفر
     const result = await apiGetJson<LoginResponse>('/api/auth/register', {
@@ -138,7 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         username,
-        email,
+        email: normalizedEmail,
         password,
         full_name: fullName,
         church_name: churchName,
@@ -161,13 +163,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       const serverUser = {
         id: result.user.id,
-        email: result.user.email || email,
+        email: result.user.email || normalizedEmail,
         username: result.user.username,
       };
 
       const serverProfile: UserProfile = {
         id: result.user.id,
-        email: result.user.email || email,
+        email: result.user.email || normalizedEmail,
         full_name: result.user.full_name || fullName,
         church_name: result.user.church_name || churchName,
         church_role: result.user.church_role || churchRole,
@@ -204,7 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const role = mapServerRoleToClient(result.user.role);
-    const normalizedEmail = email.includes('@') ? email : `${result.user.username}@church.com`;
+    const normalizedEmail = result.user.email || (email.includes('@') ? email.trim().toLowerCase() : `${result.user.username}@church.com`);
     
     const serverUser = {
       id: result.user.id,

@@ -1,4 +1,4 @@
-import { authService } from '../services/auth.service.js';
+import { authService, normalizeUsername, normalizeEmail } from '../services/auth.service.js';
 import { logService } from '../services/log.service.js';
 import { validatePassword } from '../utils/password-policy.js';
 
@@ -12,7 +12,7 @@ export const authController = {
         return res.status(400).json({ error: 'Username and password are required' });
       }
 
-      if (typeof username !== 'string' || username.trim().length < 3 || username.trim().length > 50) {
+      if (typeof username !== 'string' || normalizeUsername(username).length < 3 || normalizeUsername(username).length > 50) {
         return res.status(400).json({ error: 'Username must be a string between 3 and 50 characters' });
       }
 
@@ -56,7 +56,7 @@ export const authController = {
       }
 
       const result = await authService.register(
-        username.trim(), email?.trim() || null, password,
+        normalizeUsername(username), normalizeEmail(email), password,
         full_name?.trim() || null, church_name?.trim() || null,
         church_role?.trim() || null, services || []
       );
@@ -146,14 +146,14 @@ export const authController = {
         return res.status(400).json({ error: `Invalid role. Allowed: ${ALLOWED_ROLES.join(', ')}` });
       }
 
-      if (typeof username !== 'string' || username.trim().length < 3 || username.trim().length > 50) {
+      if (typeof username !== 'string' || normalizeUsername(username).length < 3 || normalizeUsername(username).length > 50) {
         return res.status(400).json({ error: 'Username must be a string between 3 and 50 characters' });
       }
 
       const passwordCheck = validatePassword(password);
       if (!passwordCheck.ok) return res.status(400).json({ error: passwordCheck.error });
 
-      const user = await authService.createUser(username.trim(), password, roleValue);
+      const user = await authService.createUser(normalizeUsername(username), password, roleValue);
       
       // Log user creation by admin
       await logService.createLog(
