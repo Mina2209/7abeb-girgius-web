@@ -1,5 +1,6 @@
 import { X, Mail, KeyRound, Check, Copy } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { apiPostJson } from '../services/apiClient';
 
 interface ForgotPasswordModalProps {
@@ -54,9 +55,10 @@ export function ForgotPasswordModal({ isOpen, onClose, onBackToLogin }: ForgotPa
     try {
       await navigator.clipboard.writeText(temporaryPassword);
       setCopied(true);
+      toast.success('تم نسخ كلمة المرور بنجاح');
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard access may be blocked; the password remains selectable.
+      toast.error('تعذر نسخ كلمة المرور - الرجاء تحديدها ونسخها يدوياً');
     }
   };
 
