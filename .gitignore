@@ -10,3 +10,7 @@ server/backups/
 # local generated files
 server-review.html
 client/tsconfig.tsbuildinfo
+
+# python
+__pycache__/
+*.pyc
