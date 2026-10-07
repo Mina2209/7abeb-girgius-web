@@ -20,6 +20,15 @@
 //                 each one alone leaves decks the other would have finished.
 //   3. autofit  - the same fallback applied to the original deck, for shapes
 //                 with no embedded face to bind to.
+//   4. inset    - when a shape's text still overflows its own frame, push its
+//                 bottom text inset (bIns) out by a measured factor of the
+//                 overflow (1.5x, capped at 90pt or half the frame). That makes
+//                 LibreOffice's own fit test fail, so it picks the per-shape
+//                 scale instead of us shrinking anything globally. The inset is
+//                 chained onto the best candidate so far and guarded by a pixel
+//                 render: a page whose ink is proven clear of the slide edge
+//                 (phantom - word boxes carry up to ~104pt of ascent/descent)
+//                 is never modified, whatever the conservative detector says.
 //
 // A deck that measures clean is published at once. When no candidate clears the
 // defect outright, the best-scoring one is kept instead of being thrown away:
@@ -50,6 +59,17 @@ const CLIPFIT = join(SCRIPT_DIR, 'clipfit.py');
 const MAX_FACE_TRIES = 2;
 const RUN_TIMEOUT_MS = 60_000;
 const RUN_MAX_BUFFER = 4 * 1024 * 1024;
+
+// Fix 2 - measured autofit+inset, from the full 101-deck corpus: pushing the
+// shape's bottom text inset out by 2.0x its box overflow closed the last edge
+// cases (1.5 left several pages at <1pt; the pilot's proven output used 2.0x),
+// the frame is never shrunk past INSET_CAP_PT or half its own height, and a
+// page whose rendered ink keeps PHANTOM_PT clear of the slide edge is a
+// detector artifact and is never modified.
+const INSET_FACTOR = 2.0;
+const INSET_CAP_PT = 90.0;
+const INSET_MAX_FRAC = 0.5;
+const PHANTOM_PT = 30.0;
 
 // Unbeatable score: the deck as LibreOffice already rendered it.
 const UNRANKABLE = [9999, 9999, 9999];
@@ -119,11 +139,14 @@ function unchanged(pdfPath, report, reason, attempts = []) {
  * Rank a measured candidate: fewest dropped glyphs first, then fewest slides
  * still clipped or truncated. `pages` is the count the deck started with, so a
  * conversion that dropped or invented a slide cannot win on text alone.
+ * `ignore` names slides that are detector artifacts (phantom flags whose pixels
+ * were verified clear), which must not tip a candidate's ranking.
  */
-function scoreReport(report, pages) {
+function scoreReport(report, pages, ignore = []) {
   if (!report?.ok) return UNRANKABLE;
   const missing = (report.slides || []).reduce((n, s) => n + (s.missing_chars || 0), 0);
-  const broken = (report.repair || []).length;
+  const excluded = new Set(ignore);
+  const broken = (report.repair || []).filter((p) => !excluded.has(p)).length;
   const drifted = report.pages === pages ? 0 : 1000;
   return [missing, broken, broken + drifted];
 }
@@ -173,10 +196,10 @@ export function createClipGuard({ probe = clipGuardToolchain } = {}) {
 
     // Best candidate so far. It starts as the deck we were handed, so a repair
     // that measures worse than the original is never published instead of it.
-    let best = { pdfPath, report, score: scoreReport(report, pages), via: null };
-    const weigh = (candidate, after, via) => {
-      const score = scoreReport(after, pages);
-      if (outranks(score, best.score)) best = { pdfPath: candidate, report: after, score, via };
+    let best = { pdfPath, deckPath: null, report, score: scoreReport(report, pages), via: null };
+    const weigh = (candidate, deck, after, via, ignore = []) => {
+      const score = scoreReport(after, pages, ignore);
+      if (outranks(score, best.score)) best = { pdfPath: candidate, deckPath: deck, report: after, score, via };
     };
     const cleanResult = (candidate, after, via) =>
       ({ pdfPath: candidate, repaired: true, report: after, via, attempts });
@@ -202,7 +225,7 @@ export function createClipGuard({ probe = clipGuardToolchain } = {}) {
         const candidate = await convertToPdf(deck, workDir, libreoffice, execute);
         const after = await runClipfit(['detect', candidate, sourcePath], { execute, cwd: SCRIPT_DIR });
         if (isClean(after)) return cleanResult(candidate, after, `rebind:${face}`);
-        weigh(candidate, after, `rebind:${face}`);
+        weigh(candidate, deck, after, `rebind:${face}`);
         attempts.push({ mode: 'rebind', face, remaining: after?.repair?.length ?? null, error: after?.error });
 
         if (!after?.ok || !after.repair?.length || !after.shapes) continue;
@@ -225,7 +248,7 @@ export function createClipGuard({ probe = clipGuardToolchain } = {}) {
             ['detect', chainedPdf, sourcePath], { execute, cwd: SCRIPT_DIR },
           );
           if (isClean(chainedAfter)) return cleanResult(chainedPdf, chainedAfter, `rebind:${face}->autofit`);
-          weigh(chainedPdf, chainedAfter, `rebind:${face}->autofit`);
+          weigh(chainedPdf, chained, chainedAfter, `rebind:${face}->autofit`);
           attempts.push({
             mode: 'chain', face, remaining: chainedAfter?.repair?.length ?? null,
             error: chainedAfter?.error,
@@ -251,13 +274,98 @@ export function createClipGuard({ probe = clipGuardToolchain } = {}) {
         const candidate = await convertToPdf(deck, workDir, libreoffice, execute);
         const after = await runClipfit(['detect', candidate, sourcePath], { execute, cwd: SCRIPT_DIR });
         if (isClean(after)) return cleanResult(candidate, after, 'autofit');
-        weigh(candidate, after, 'autofit');
+        weigh(candidate, deck, after, 'autofit');
         attempts.push({ mode: 'autofit', remaining: after?.repair?.length ?? null, error: after?.error });
       } else {
         attempts.push({ mode: 'autofit', error: patched?.error || 'patch failed' });
       }
     } catch (error) {
       attempts.push({ mode: 'autofit', error: error?.message || String(error) });
+    }
+
+    // Stage 4 (Fix 2): a measured, phantom-guarded inset chained onto the best
+    // candidate. LibreOffice's fit test refuses to scale a shape while its frame
+    // still has text area, so a deck reaching here has shapes whose text runs
+    // past their own box (not just the page edge). Pushing bIns by the measured
+    // overflow makes LO pick the per-shape scale itself - no blanket size cut,
+    // no geometry change. The pixel render is the final judge: pages whose ink
+    // is proven clear of the slide edge are phantom flags and are never patched,
+    // and every candidate is re-measured before it can displace today's floor.
+    const buildInsetPlan = async (after, pdfPath) => {
+      const pages = after.clipped || [];
+      const plan = {};
+      const phantom = { pages: [], margins: {} };
+      if (!pages.length || !after.shapes) return { plan, guard: phantom };
+      let margins = {};
+      try {
+        phantom.margins = (
+          await runClipfit(['phantom', pdfPath, '--pages', pages.join(',')], {
+            execute, cwd: SCRIPT_DIR,
+          })
+        )?.margins ?? {};
+        phantom.pages = pages.filter((p) => (phantom.margins[p] ?? 0) >= PHANTOM_PT);
+        attempts.push({ mode: 'phantom', pages: phantom.pages, margins: phantom.margins });
+      } catch (error) {
+        // No pixel evidence -> nothing is "proven phantom", so everything stays
+        // in scope rather than risking a real cut being left behind.
+        attempts.push({ mode: 'phantom', error: error?.message || String(error) });
+      }
+      for (const slide of pages) {
+        if ((phantom.margins[slide] ?? 0) >= PHANTOM_PT) continue;
+        const segs = after.shapes[String(slide)] || [];
+        const ovf = after.shape_ovf?.[String(slide)] || {};
+        const per = {};
+        for (const seg of segs) {
+          const m = ovf[seg];
+          if (!m || !(m.ovf > 1)) continue;
+          const extra = Math.min(m.ovf * INSET_FACTOR, INSET_CAP_PT, (m.h ?? 0) * INSET_MAX_FRAC);
+          if (extra <= 0) continue;
+          per[String(seg)] = Math.round(extra * 100) / 100;
+        }
+        if (Object.keys(per).length) plan[String(slide)] = per;
+      }
+      return { plan, guard: phantom };
+    };
+
+    try {
+      const { plan, guard } = await buildInsetPlan(best.report, best.pdfPath);
+      if (Object.keys(plan).length) {
+        const via = best.via ? `${best.via}->inset` : 'inset';
+        const insetPlanPath = join(workDir, 'clip-inset-plan.json');
+        await writeFile(insetPlanPath, JSON.stringify(plan), 'utf8');
+        const deck = join(workDir, 'clip-inset.ppsx');
+        const patched = await runClipfit(
+          ['patch', best.deckPath || sourcePath, deck, insetPlanPath, '--mode', 'inset'],
+          { execute, cwd: SCRIPT_DIR },
+        );
+        if (!patched?.ok) {
+          attempts.push({ mode: 'inset', error: patched?.error || 'patch failed' });
+        } else {
+          const candidate = await convertToPdf(deck, workDir, libreoffice, execute);
+          const after = await runClipfit(['detect', candidate, sourcePath], { execute, cwd: SCRIPT_DIR });
+          const brokenModPhantom = (report) =>
+            (report?.repair || []).filter((p) => !guard.pages.includes(p)).length;
+          if (after?.ok && after.pages === pages && brokenModPhantom(after) === 0) {
+            return cleanResult(candidate, after, via);
+          }
+          // Compare both sides excluding the guarded pages, which are detector
+          // artifacts and must not tip the ranking; the original stays the
+          // fallback floor.
+          const floorScore = scoreReport(best.report, pages, guard.pages);
+          const candidateScore = scoreReport(after, pages, guard.pages);
+          if (after?.ok && outranks(candidateScore, floorScore)) {
+            best = { pdfPath: candidate, deckPath: deck, report: after, score: candidateScore, via };
+          }
+          attempts.push({
+            mode: 'inset',
+            remaining: brokenModPhantom(after),
+            error: after?.error,
+            guard: guard.pages,
+          });
+        }
+      }
+    } catch (error) {
+      attempts.push({ mode: 'inset', error: error?.message || String(error) });
     }
 
     if (!best.via) {
