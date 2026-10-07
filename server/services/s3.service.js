@@ -122,8 +122,14 @@ function createS3Service({ region, bucket, prefix = 'Uploads/' } = {}) {
     },
 
     // Write bytes to a key (used to cache generated thumbnails).
-    async putObjectBuffer(key, body, contentType) {
-      await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType }));
+    async putObjectBuffer(key, body, contentType, options = {}) {
+      await s3.send(new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+        ...options,
+      }));
     },
 
     // True if the object exists, false otherwise (used to serve cached thumbnails).

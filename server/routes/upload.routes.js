@@ -7,8 +7,10 @@ const router = Router();
 // All upload routes require authentication
 // bind controller methods to routes
 router.post('/presign', authenticate, requireEditor, UploadController.presign);
+router.post('/preview', authenticate, requireEditor, UploadController.generatePreview); // Generate/reuse a PDF preview for a presentation
 router.get('/url', UploadController.url); // Public - for viewing files
 router.get('/preview', UploadController.preview); // Public - direct presigned URL for Office viewer
+router.get('/preview/pdf', UploadController.previewPdf); // Public - PDF preview, converted on demand and cached
 router.get('/proxy', UploadController.proxy); // Public - proxy file through server for Office viewer
 router.get('/office/:filename', UploadController.office); // Public - Office viewer target with a .pptx path extension
 router.get('/thumb', UploadController.thumb); // Public - resized thumbnails for the gallery grid

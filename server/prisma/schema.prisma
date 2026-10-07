@@ -80,6 +80,13 @@ model File {
   originalName String?  // Original filename (including Unicode chars like Arabic)
   size         Int?
   duration     Int?
+  previewUrl   String?
+  slideCount   Int?
+  // Per-slide preview images. Holds a template such as
+  // /api/uploads/url?key=previews-img%2F<hash>%2F{n}.webp where {n} is the 1-based
+  // slide number; previewUrl keeps pointing at the PDF so older clients and any
+  // slide whose image is missing still have a fallback.
+  previewImageBaseUrl String?
   createdAt    DateTime @default(now())
 
   @@index([hymnId])

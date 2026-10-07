@@ -1,6 +1,7 @@
 import { prisma } from './prisma.js';
 import s3Service from './s3.service.js';
 import { cache } from './cache.js';
+import { queuePpsxPreviews } from './ppsx-converter.js';
 
 const TAG_SELECT = { id: true, name: true };
 
@@ -24,6 +25,11 @@ const LIST_SELECT = {
       fileUrl: true,
       originalName: true,
       duration: true,
+      previewUrl: true,
+      slideCount: true,
+      // Template for the per-slide WebP previews (contains "{n}" for the slide
+      // number). Optional: when it is null the client falls back to previewUrl.
+      previewImageBaseUrl: true,
     },
   },
 };
@@ -69,6 +75,7 @@ export const HymnService = {
       include: DETAIL_INCLUDE,
     });
     cache.del(HYMNS_LIST_KEY);
+    queuePpsxPreviews(result.files);
     return result;
   },
 
@@ -96,6 +103,7 @@ export const HymnService = {
       include: DETAIL_INCLUDE,
     });
     cache.del(HYMNS_LIST_KEY);
+    queuePpsxPreviews(result.files);
     return result;
   },
 
@@ -107,6 +115,24 @@ export const HymnService = {
     for (const file of hymn.files || []) {
       // If fileUrl is a server download endpoint like /api/uploads/url?key=<key>
       try {
+        if (file.previewUrl && file.previewUrl.includes('key=')) {
+          const previewKey = decodeURIComponent(file.previewUrl.split('key=')[1].split('&')[0]);
+          if (previewKey) await s3Service.deleteObject(previewKey);
+        }
+        // The per-slide images are separate objects under previews-img/<hash>/,
+        // so deleting the PDF preview alone would leave them orphaned.
+        if (file.previewImageBaseUrl && file.previewImageBaseUrl.includes('key=')) {
+          const base = decodeURIComponent(file.previewImageBaseUrl.split('key=')[1].split('&')[0]);
+          if (base) {
+            for (let n = 1; n <= (file.slideCount || 0); n += 1) {
+              try {
+                await s3Service.deleteObject(base.replace('{n}', String(n)));
+              } catch (e) {
+                console.error('Failed to delete slide image', base, n, ':', e.message || e);
+              }
+            }
+          }
+        }
         if (file.fileUrl && file.fileUrl.includes('key=')) {
           const parts = file.fileUrl.split('key=');
           const key = decodeURIComponent(parts[1] || '');

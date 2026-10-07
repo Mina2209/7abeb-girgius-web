@@ -1,0 +1,2 @@
+ALTER TABLE "File" ADD COLUMN "previewUrl" TEXT;
+ALTER TABLE "File" ADD COLUMN "slideCount" INTEGER;

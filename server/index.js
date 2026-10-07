@@ -3,6 +3,7 @@ import express from 'express';
 import cors from "cors";
 import compression from 'compression';
 import { prisma } from './services/prisma.js';
+import { getConverterStatus } from './services/ppsx-converter.js';
 
 // Lightweight request logger — logs method, URL, status, response time (ms), and
 // the request ID assigned by the `requestId` middleware for log correlation.
@@ -259,12 +260,32 @@ const PORT = process.env.PORT || 8080;
 async function main() {
   try {
     console.log('Connecting to database...');
-    await prisma.$connect();
+    const connectTimeoutMs = Number(process.env.DB_CONNECT_TIMEOUT_MS || 5000);
+    let timeoutId;
+    await Promise.race([
+      prisma.$connect(),
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error(`Database connection timed out after ${connectTimeoutMs}ms`)),
+          connectTimeoutMs,
+        );
+      }),
+    ]).finally(() => clearTimeout(timeoutId));
     console.log('Database connected.');
 
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);
-      
+
+      // Warn at boot if PowerPoint previews cannot be generated, so a missing
+      // LibreOffice shows up here instead of as a 502 on the first preview click.
+      getConverterStatus()
+        .then((status) => {
+          if (status.available) {
+            console.log(`PowerPoint previews enabled (LibreOffice: ${status.libreofficeBin}).`);
+          }
+        })
+        .catch(() => { /* never let a diagnostic probe affect startup */ });
+
       // Start automatic backup scheduler (every 24 hours, keep 7 backups).
       // Enabled in production or when ENABLE_BACKUP_SCHEDULER=true in any environment.
       // Wrapped in try/catch so a scheduler failure never crashes the main process.
@@ -277,8 +298,18 @@ async function main() {
       }
     });
   } catch (err) {
-    console.error('Failed to start server due to database connection error:', err);
-    process.exit(1);
+    const allowDblessLocal = process.env.NODE_ENV !== 'production'
+      && process.env.ALLOW_DBLESS_LOCAL === 'true';
+    if (!allowDblessLocal) {
+      console.error('Failed to start server due to database connection error:', err);
+      process.exit(1);
+    }
+
+    console.error('Database is unavailable. Starting local API without database access.');
+    console.error('Install/start PostgreSQL or Docker and set DATABASE_URL to enable data routes.');
+    app.listen(PORT, () => {
+      console.warn(`Server running on http://localhost:${PORT} (database disconnected)`);
+    });
   }
 }
 

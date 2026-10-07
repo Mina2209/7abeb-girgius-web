@@ -1,5 +1,6 @@
 import sharp from 'sharp';
 import defaultS3Service from '../services/s3.service.js';
+import { ensurePreviewPdf, generatePreviewForKey, isPreviewableKey } from '../services/ppsx-converter.js';
 
 // Verify an S3 key is within a public-readable prefix. All prefixes must end with '/'
 // to prevent segment-collision (e.g. 'HymnsEvil/' must not match prefix 'Hymns/').
@@ -42,6 +43,11 @@ function createUploadController(s3Service = defaultS3Service) {
   const PUBLIC_READ_PREFIXES = [
     ...Object.values(folderMap).map((v) => (v.endsWith('/') ? v : `${v}/`)),
     'thumbnails/',
+    'previews/',
+    // Per-slide WebP previews (services/slide-images.js). A separate prefix from
+    // 'previews/' so the PDF and the image set can never collide, and so the image
+    // objects can be retired independently.
+    'previews-img/',
   ].filter(Boolean);
 
   // Writable prefixes: the set of S3 key prefixes that editors may delete/mutate.
@@ -268,6 +274,80 @@ function createUploadController(s3Service = defaultS3Service) {
         }
         await s3Service.deleteObject(key);
         return res.json({ success: true });
+      },
+
+    // Generate (or reuse) a cached PDF preview for an uploaded presentation.
+    // Protected by auth middleware at the route level.
+    // body: { key } — key must be within a readable prefix.
+      generatePreview: async (req, res) => {
+        const key = typeof req.body?.key === 'string' ? String(req.body.key).trim() : '';
+        if (!key) return res.status(400).json({ error: 'key required' });
+        if (!isReadableKey(key, PUBLIC_READ_PREFIXES)) return res.status(403).json({ error: 'access denied' });
+        try {
+          const result = await generatePreviewForKey(key);
+          return res.json(result);
+        } catch (err) {
+          if (err?.code === 'UNSUPPORTED_TYPE') {
+            return res.status(400).json({ error: 'unsupported file type for preview' });
+          }
+          if (err?.code === 'CONVERTER_UNAVAILABLE') {
+            return res.status(503).json({ error: 'preview converter unavailable' });
+          }
+          console.error('preview generation error for key', key, '-', err?.message || err);
+          return res.status(502).json({ error: 'preview generation failed' });
+        }
+      },
+
+    // Stream the PDF preview for a presentation, converting it on first request.
+    // Public (no auth) so any visitor can preview a hymn: the source key must
+    // still be inside a public-read prefix, and the conversion result is cached in
+    // S3 under a key derived from the source key, so only the first viewer of a
+    // given presentation pays the LibreOffice cost.
+    // query: ?key=<presentationObjectKey>
+      previewPdf: async (req, res) => {
+        const { key } = req.query;
+        if (!key) return res.status(400).json({ error: 'key required' });
+        if (!isReadableKey(key, PUBLIC_READ_PREFIXES)) return res.status(403).json({ error: 'access denied' });
+        if (!isPreviewableKey(key)) return res.status(415).json({ error: 'unsupported file type for preview' });
+
+        let previewKey;
+        try {
+          ({ previewKey } = await ensurePreviewPdf(key));
+        } catch (err) {
+          if (err?.code === 'CONVERTER_UNAVAILABLE') {
+            // Deployment problem (no LibreOffice), not a bad request. Distinguish it
+            // so the client can say so instead of showing a generic failure.
+            return res.status(503).json({ error: 'preview converter unavailable' });
+          }
+          console.error('preview conversion error for key', key, '-', err?.message || err);
+          return res.status(502).json({ error: 'preview generation failed' });
+        }
+
+        const range = parseByteRangeHeader(req.headers.range);
+        try {
+          const { contentLength, contentRange, body } = await s3Service.getObjectForProxy(previewKey, range);
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Accept-Ranges', 'bytes');
+          if (contentRange) {
+            res.status(206);
+            res.setHeader('Content-Range', contentRange);
+          }
+          if (contentLength) res.setHeader('Content-Length', contentLength);
+          // The preview key is derived from the (unique) source upload key, so its
+          // bytes never change for a given URL.
+          res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
+          if (body && typeof body.pipe === 'function') {
+            body.pipe(res);
+          } else if (body && typeof body.transformToByteArray === 'function') {
+            const buf = await body.transformToByteArray();
+            res.end(Buffer.from(buf));
+          } else {
+            res.status(404).send('not found');
+          }
+        } catch (err) {
+          console.error('preview stream error for key', previewKey, '-', err.message);
+          return res.status(404).send('not found');
+        }
       },
 
     // Multipart endpoints
