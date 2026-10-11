@@ -20,6 +20,38 @@ export function isWritableKey(key, prefixes) {
   return prefixes.some((prefix) => key.startsWith(prefix));
 }
 
+// True when an If-None-Match header value matches the given S3 ETag. Handles a
+// list of candidates and the weak "W/" prefix; "*" matches anything. The
+// comparison ignores the surrounding quotes too, so a client (or proxy) that
+// sends the entity-tag with or without quotes still revalidates to a 304
+// instead of re-downloading the whole PDF.
+function etagMatches(header, etag) {
+  if (!header || !etag) return false;
+  if (header.trim() === '*') return true;
+  const normalize = (value) => value.trim().replace(/^W\//i, '').replace(/^"|"$/g, '');
+  const target = normalize(etag);
+  return header.split(',').some((candidate) => normalize(candidate) === target);
+}
+
+// Attach a single error handler to an S3 body stream before it is piped to the
+// response, so a failure that surfaces *after* the first bytes (and therefore the
+// headers) are flushed tears the connection down instead of answering a second
+// time. A naive `catch → res.status(...).send(...)` threw ERR_HTTP_HEADERS_SENT
+// ("Cannot set headers after they are sent") in production when a cached preview
+// key went missing mid-stream. Exported so the guard can be unit-tested directly.
+export function guardBodyStream(res, body, onError) {
+  if (!body || typeof body.once !== 'function') return;
+  body.once('error', (err) => {
+    if (typeof onError === 'function') onError(err);
+    if (res.headersSent) res.destroy(err);
+    else res.status(502).json({ error: 'preview stream failed' });
+  });
+  // Client hung up: stop pulling bytes we can no longer deliver.
+  res.once('close', () => {
+    if (typeof body.destroy === 'function') body.destroy();
+  });
+}
+
 // Controller factory that accepts an S3 service instance (for easier testing/DI)
 function createUploadController(s3Service = defaultS3Service) {
   // Load optional folder/type mapping and allowlist from environment
@@ -325,7 +357,26 @@ function createUploadController(s3Service = defaultS3Service) {
 
         const range = parseByteRangeHeader(req.headers.range);
         try {
-          const { contentLength, contentRange, body } = await s3Service.getObjectForProxy(previewKey, range);
+          const { contentLength, contentRange, etag, lastModified, body } = await s3Service.getObjectForProxy(previewKey, range);
+
+          // The preview key is derived from the source upload key, but its *bytes*
+          // are mutable: re-running the conversion (e.g. the Arabic-font fix) rewrites
+          // the same object. `immutable` therefore lied to every browser — a client
+          // that had the old PDF cached kept it for a full day even for a URL whose
+          // content had changed. Store it, but require revalidation, and expose the
+          // S3 ETag/Last-Modified so unchanged clients get a cheap 304 instead of the
+          // whole PDF (and no re-conversion).
+          res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+          if (etag) res.setHeader('ETag', etag);
+          if (lastModified) res.setHeader('Last-Modified', new Date(lastModified).toUTCString());
+
+          // Only full responses are conditionally revalidated; a Range request must
+          // still answer with 206 partial content.
+          if (!range && etagMatches(req.headers['if-none-match'], etag)) {
+            if (body && typeof body.destroy === 'function') body.destroy();
+            return res.status(304).end();
+          }
+
           res.setHeader('Content-Type', 'application/pdf');
           res.setHeader('Accept-Ranges', 'bytes');
           if (contentRange) {
@@ -333,10 +384,14 @@ function createUploadController(s3Service = defaultS3Service) {
             res.setHeader('Content-Range', contentRange);
           }
           if (contentLength) res.setHeader('Content-Length', contentLength);
-          // The preview key is derived from the (unique) source upload key, so its
-          // bytes never change for a given URL.
-          res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
           if (body && typeof body.pipe === 'function') {
+            // The S3 body is a Node stream: a failure can surface asynchronously
+            // AFTER the first bytes (and therefore the headers) are on the wire.
+            // Guard it so the outer catch never answers a second time — that threw
+            // ERR_HTTP_HEADERS_SENT on a missing cached preview key in production.
+            guardBodyStream(res, body, (streamErr) => {
+              console.error('preview stream error for key', previewKey, '-', streamErr?.message || streamErr);
+            });
             body.pipe(res);
           } else if (body && typeof body.transformToByteArray === 'function') {
             const buf = await body.transformToByteArray();
@@ -346,6 +401,9 @@ function createUploadController(s3Service = defaultS3Service) {
           }
         } catch (err) {
           console.error('preview stream error for key', previewKey, '-', err.message);
+          // Headers may already be flushed (a body.pipe() that had started):
+          // answering again would throw ERR_HTTP_HEADERS_SENT. Drop the connection.
+          if (res.headersSent) return res.destroy(err);
           return res.status(404).send('not found');
         }
       },

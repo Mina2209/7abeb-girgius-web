@@ -47,7 +47,7 @@ function expectSourceUntouched(s3Service, objects) {
   expect(objects.get(SOURCE_KEY).toString()).toBe(SOURCE_BYTES.toString());
 }
 
-function createMocks({ slideImages = false, clipGuard = null } = {}) {
+function createMocks({ slideImages = false, clipGuard = null, probeCsFont = async () => 'Tajawal Regular' } = {}) {
   const objects = new Map();
   const outdirs = [];
   const s3Service = {
@@ -96,6 +96,10 @@ function createMocks({ slideImages = false, clipGuard = null } = {}) {
     // pdftotext and would add LibreOffice runs of its own. Tests that exercise it
     // pass a fake instead of leaving this default in place.
     clipGuard,
+    // Arabic CS-font self-check: stubbed so tests never shell out to the host's
+    // fontconfig. Defaults to the correct Tajawal mapping (silent); a self-check
+    // test overrides it to drive the warn / fail paths.
+    probeCsFont,
   });
   return { objects, s3Service, outdirs, execute, database, libreofficeCalls, converter };
 }
@@ -525,5 +529,64 @@ describe('ppsx-converter – clip guard wiring', () => {
       code: 'CONVERTER_UNAVAILABLE',
     });
     expect(clipGuard).not.toHaveBeenCalled();
+  });
+});
+
+describe('ppsx-converter – Arabic CS font self-check', () => {
+  // The decks' Arabic runs declare cs="Times New Roman" (not embedded). When the
+  // host has no alias to Tajawal, fontconfig substitutes Noto Naskh Arabic and
+  // freshly converted previews come out with disconnected glyphs. The self-check
+  // must report that substitution loudly, stay silent when it is correct, and
+  // never fail a conversion either way.
+  function captureWarn() {
+    const calls = [];
+    const spy = vi.spyOn(console, 'warn').mockImplementation((...args) => {
+      calls.push(args.join(' '));
+    });
+    return { calls, restore: () => spy.mockRestore() };
+  }
+
+  it('warns but still converts when fc-match resolves to Noto instead of Tajawal', async () => {
+    const { objects, converter } = createMocks({ probeCsFont: async () => 'Noto Naskh Arabic' });
+    objects.set(SOURCE_KEY, SOURCE_BYTES);
+    const { calls, restore } = captureWarn();
+    try {
+      const result = await converter.ensurePreviewPdf(SOURCE_KEY);
+      expect(result.created).toBe(true);
+      expect(calls.join('\n')).toContain('not Tajawal');
+    } finally {
+      restore();
+    }
+  });
+
+  it('stays silent when fc-match already resolves to Tajawal', async () => {
+    const { objects, converter } = createMocks();
+    objects.set(SOURCE_KEY, SOURCE_BYTES);
+    const { calls, restore } = captureWarn();
+    try {
+      await converter.generatePreviewForKey(SOURCE_KEY);
+      expect(calls).toEqual([]);
+    } finally {
+      restore();
+    }
+  });
+
+  it('never crashes and never warns when fc-match itself fails (no fontconfig)', async () => {
+    // A failing probe (no fc-match on the host) must be swallowed: the conversion
+    // still succeeds and nothing is logged.
+    const { objects, converter } = createMocks({
+      probeCsFont: async () => {
+        throw new Error('ENOENT: fc-match');
+      },
+    });
+    objects.set(SOURCE_KEY, SOURCE_BYTES);
+    const { calls, restore } = captureWarn();
+    try {
+      const result = await converter.ensurePreviewPdf(SOURCE_KEY);
+      expect(result.created).toBe(true);
+      expect(calls).toEqual([]);
+    } finally {
+      restore();
+    }
   });
 });

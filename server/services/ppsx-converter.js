@@ -75,6 +75,46 @@ async function probeBinary(candidates, probeArgs) {
 }
 
 /**
+ * Arabic-shaping self-check: what fontconfig would pick for the decks' CS font.
+ *
+ * The decks tag Arabic lyric runs with `cs="Times New Roman"`; that family is not
+ * installed on the conversion host, while Tajawal is both embedded in the decks and
+ * the alias target in fonts/90-tajawal-times-new-roman.conf (installed by
+ * scripts/install-arabic-fonts.sh). Without the alias fontconfig substitutes
+ * Noto Naskh Arabic and LibreOffice emits unshaped (disconnected) glyphs.
+ *
+ * Intentionally never throws: a font problem is a warning, never a 500. Returns
+ * null when fc-match is absent (e.g. a Windows dev box), where the check is moot.
+ */
+async function resolveCsFont(execute) {
+  try {
+    const { stdout } = await execute('fc-match', ['Times New Roman'], { timeout: 10_000 });
+    return (stdout || '').trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+// Wrap the probe so every path that resolves the toolchain can run the same check
+// exactly once per process. A non-Tajawal substitution is logged loudly; a missing
+// fc-match, a bad exit, or an unknown face must never take the converter down.
+async function warnIfCsFontMisconfigured(getCsFont) {
+  let csFont = null;
+  try {
+    csFont = await getCsFont();
+  } catch {
+    return;
+  }
+  if (csFont && !/tajawal/i.test(csFont)) {
+    console.warn(
+      `[ppsx] Arabic CS font "Times New Roman" resolves to "${csFont}", not Tajawal. `
+      + 'Run server/scripts/install-arabic-fonts.sh on this host or Arabic previews '
+      + 'will convert with disconnected glyphs.',
+    );
+  }
+}
+
+/**
  * Resolve the conversion toolchain once per process.
  *
  * A missing LibreOffice is a deployment problem, not a per-request one: without this
@@ -92,8 +132,14 @@ export async function getConverterStatus() {
         '[ppsx] LibreOffice not found — PowerPoint previews cannot be generated. '
         + 'Install it (the Docker image already does) or set LIBREOFFICE_BIN to the binary path.',
       );
-    } else if (!pdfinfoBin) {
-      console.warn('[ppsx] pdfinfo not found — slide counts will be omitted from previews.');
+    } else {
+      if (!pdfinfoBin) {
+        console.warn('[ppsx] pdfinfo not found — slide counts will be omitted from previews.');
+      }
+      // Arabic shaping depends on the host font, which the Docker image installs but
+      // a plain (PM2) host does not. Surface a substituted face once, at startup,
+      // instead of letting every new deck render disconnected Arabic silently.
+      await warnIfCsFontMisconfigured(() => resolveCsFont(execFileAsync));
     }
   }
   return {
@@ -223,12 +269,18 @@ export function createPpsxConverter({
   // slide edge. Null opts out entirely — tests inject it so they do not depend
   // on python3/pdftotext being installed, and CLIP_GUARD=0 disables it at runtime.
   clipGuard = defaultClipGuard,
+  // Arabic CS-font probe for the startup self-check. Defaults to the real
+  // `fc-match`; injected in tests so they never depend on the host's fontconfig.
+  probeCsFont = () => resolveCsFont(execute),
 } = {}) {
   const slideImageService = slideImages || null;
   // One conversion per source key at a time. Without this, N concurrent viewers of
   // the same never-previewed presentation would each spawn a LibreOffice process
   // writing to the same S3 key.
   const inFlight = new Map();
+  // Font self-check: once per converter instance so tests can drive it with their
+  // own `execute`. The boot-path copy in getConverterStatus guards separately.
+  let csFontChecked = false;
 
   // ...and a ceiling across *different* keys, because LibreOffice is the one
   // genuinely expensive thing this process does: each conversion forks soffice
@@ -279,6 +331,15 @@ export function createPpsxConverter({
       // Serve an already-converted preview even if the converter has since been
       // removed — only a cache miss actually needs LibreOffice.
       const status = await resolveBinaries();
+
+      // The boot path (getConverterStatus) also probes, but runs against the real
+      // host toolchain — which tests avoid. Re-run the same once-per-process check
+      // through the injected probe so a misconfigured host is loud in dev too.
+      if (!csFontChecked && status.available && status.libreofficeBin) {
+        csFontChecked = true;
+        await warnIfCsFontMisconfigured(probeCsFont);
+      }
+
       if (await s3Service.objectExists(previewKey)) {
         return {
           previewKey,

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Readable } from 'node:stream';
+import { EventEmitter } from 'node:events';
 import jwt from 'jsonwebtoken';
 
 // ── Hoisted: set env BEFORE the controller and auth middleware are imported ──
@@ -35,6 +36,7 @@ vi.mock('../services/prisma.js', () => ({ prisma: { user: prismaUserMock } }));
 import express from 'express';
 import request from 'supertest';
 import uploadRouter from '../routes/upload.routes.js';
+import { guardBodyStream } from '../controllers/upload.controller.js';
 
 // ── App factory ─────────────────────────────────────────────────────────
 function buildApp() {
@@ -228,6 +230,8 @@ describe('GET /api/uploads/preview/pdf – public on-demand preview', () => {
       contentType: 'application/pdf',
       contentLength: 8,
       contentRange: null,
+      etag: '"abc123"',
+      lastModified: new Date('2026-10-01T00:00:00Z'),
       body: streamable('%PDF-1.7'),
     });
 
@@ -236,9 +240,52 @@ describe('GET /api/uploads/preview/pdf – public on-demand preview', () => {
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toBe('application/pdf');
     expect(res.headers['accept-ranges']).toBe('bytes');
-    expect(res.headers['cache-control']).toBe('public, max-age=86400, immutable');
+    // Mutable object: must revalidate instead of advertising `immutable`.
+    expect(res.headers['cache-control']).toBe('public, max-age=0, must-revalidate');
+    expect(res.headers['etag']).toBe('"abc123"');
+    expect(res.headers['last-modified']).toBe('Thu, 01 Oct 2026 00:00:00 GMT');
     expect(res.body.toString()).toBe('%PDF-1.7');
     expect(ensurePreviewPdfMock).toHaveBeenCalledWith(EDITOR_KEY);
+  });
+
+  it('answers 304 (and streams no bytes) when the client already has the ETag', async () => {
+    ensurePreviewPdfMock.mockResolvedValueOnce({ previewKey: PREVIEW_KEY, created: false, slideCount: 3 });
+    getObjectForProxyMock.mockResolvedValueOnce({
+      contentType: 'application/pdf',
+      contentLength: 8,
+      contentRange: null,
+      etag: '"abc123"',
+      lastModified: new Date('2026-10-01T00:00:00Z'),
+      body: streamable('%PDF-1.7'),
+    });
+
+    const res = await getPreviewPdf(EDITOR_KEY, { 'If-None-Match': 'W/"abc123"' });
+
+    expect(res.status).toBe(304);
+    expect(res.headers['etag']).toBe('"abc123"');
+    expect(res.body.length).toBe(0);
+  });
+
+  // A proxy or a hand-written client may drop the surrounding quotes (or the
+  // weak prefix). Either way the entity-tag is the same, so the answer is 304,
+  // not a full re-download of the PDF.
+  it('answers 304 for quoted, unquoted, and "*" ETag matches alike', async () => {
+    for (const value of ['"abc123"', 'abc123', '*']) {
+      ensurePreviewPdfMock.mockResolvedValueOnce({ previewKey: PREVIEW_KEY, created: false, slideCount: 3 });
+      getObjectForProxyMock.mockResolvedValueOnce({
+        contentType: 'application/pdf',
+        contentLength: 8,
+        contentRange: null,
+        etag: '"abc123"',
+        lastModified: new Date('2026-10-01T00:00:00Z'),
+        body: streamable('%PDF-1.7'),
+      });
+
+      const res = await getPreviewPdf(EDITOR_KEY, { 'If-None-Match': value });
+
+      expect(res.status).toBe(304);
+      expect(res.body.length).toBe(0);
+    }
   });
 
   it('forwards a Range header as a 206 partial response', async () => {
@@ -304,5 +351,51 @@ describe('GET /api/uploads/preview/pdf – public on-demand preview', () => {
     const res = await getPreviewPdfJson(EDITOR_KEY);
 
     expect(res.status).toBe(404);
+  });
+
+  // Regression for the production ERR_HTTP_HEADERS_SENT ("Cannot set headers after
+  // they are sent"): a cached preview whose S3 body fails *after* body.pipe() has
+  // flushed the headers must never be answered a second time.
+  describe('guardBodyStream (stream double-response guard)', () => {
+    function fakeRes(headersSent) {
+      return {
+        headersSent,
+        once: vi.fn(),
+        status: vi.fn(function () { return this; }),
+        json: vi.fn(function () { return this; }),
+        destroy: vi.fn(),
+      };
+    }
+    function fakeBody() {
+      const body = new EventEmitter();
+      body.pipe = vi.fn();
+      body.destroy = vi.fn();
+      return body;
+    }
+
+    it('answers 502 exactly once when the source errors before headers are sent', () => {
+      const res = fakeRes(false);
+      const body = fakeBody();
+      guardBodyStream(res, body, () => {});
+
+      body.emit('error', new Error('The specified key does not exist.'));
+
+      expect(res.status).toHaveBeenCalledTimes(1);
+      expect(res.status).toHaveBeenCalledWith(502);
+      expect(res.json).toHaveBeenCalledWith({ error: 'preview stream failed' });
+      expect(res.destroy).not.toHaveBeenCalled();
+    });
+
+    it('destroys the connection (never a second response) once headers are sent', () => {
+      const res = fakeRes(true);
+      const body = fakeBody();
+      guardBodyStream(res, body, () => {});
+
+      body.emit('error', new Error('The specified key does not exist.'));
+
+      expect(res.destroy).toHaveBeenCalledTimes(1);
+      expect(res.status).not.toHaveBeenCalled();
+      expect(res.json).not.toHaveBeenCalled();
+    });
   });
 });

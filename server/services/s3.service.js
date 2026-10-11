@@ -106,9 +106,11 @@ function createS3Service({ region, bucket, prefix = 'Uploads/' } = {}) {
 
     // Fetch an object (optionally a byte range) and return metadata + stream for
     // proxying responses. Supports HTTP Range requests so HTML5 media players can
-    // seek. Returns { contentType, contentLength, contentRange, body } where body
-    // is a Node Readable and contentRange is the S3 Content-Range (e.g. "bytes
-    // 0-1023/4096") when a range was requested, null otherwise.
+    // seek. Returns { contentType, contentLength, contentRange, etag, lastModified,
+    // body } where body is a Node Readable and contentRange is the S3 Content-Range
+    // (e.g. "bytes 0-1023/4096") when a range was requested, null otherwise. The
+    // etag/lastModified are exposed so callers can answer conditional (304) requests
+    // for mutable objects without re-sending their bytes.
     async getObjectForProxy(key, range) {
       const command = new GetObjectCommand({ Bucket: bucket, Key: key });
       if (range) command.input.Range = range;
@@ -117,6 +119,8 @@ function createS3Service({ region, bucket, prefix = 'Uploads/' } = {}) {
         contentType: res.ContentType || 'application/octet-stream',
         contentLength: res.ContentLength || null,
         contentRange: res.ContentRange || null,
+        etag: res.ETag || null,
+        lastModified: res.LastModified || null,
         body: res.Body,
       };
     },
