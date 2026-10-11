@@ -37,7 +37,7 @@ import type { ServerTag } from "../services/tagsService";
 import { useIsEditor } from "../utils/adminUtils";
 import { apiGetJson, apiPutJson } from "../services/apiClient";
 import { createTag, notifyTagsUpdated } from "../services/tagsService";
-import { presignAndUpload, getDocumentFetchUrl } from "../services/s3Upload";
+import { presignAndUpload, getDocumentFetchUrl, requestPreviewGeneration } from "../services/s3Upload";
 import { PptxViewer } from "./PptxViewer";
 import { downloadFile } from "../utils/download";
 import { trackEvent } from "../services/analytics";
@@ -48,6 +48,8 @@ interface PowerpointFile {
   name: string;
   url: string;
   tags: string[];
+  previewUrl?: string;
+  slideCount?: number | null;
 }
 
 interface PowerpointCategory {
@@ -143,7 +145,11 @@ export function VariousSection() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [tempName, setTempName] = useState("");
   const [uploadingFileId, setUploadingFileId] = useState<string | null>(null);
-  const [previewFile, setPreviewFile] = useState<{ name: string; url: string } | null>(null);
+  const [previewFile, setPreviewFile] = useState<{
+    name: string;
+    url: string;
+    slideCount?: number | null;
+  } | null>(null);
   const [tagPopoverFileId, setTagPopoverFileId] = useState<string | null>(null);
   const [tagPopoverPos, setTagPopoverPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
   const [tagSearch, setTagSearch] = useState("");
@@ -208,15 +214,47 @@ export function VariousSection() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isSortOpen]);
 
-  const uploadToS3 = async (file: File): Promise<string | null> => {
+  const uploadToS3 = async (file: File): Promise<{ url: string; key: string } | null> => {
     try {
       const contentType = file.type || "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-      const result = await presignAndUpload(file, contentType, "PowerPoints");
-      return result.url;
+      return await presignAndUpload(file, contentType, "PowerPoints");
     } catch {
       toast.error("فشل رفع الملف");
       return null;
     }
+  };
+
+  // Fire-and-forget: ask the server to build (or reuse) the PDF preview for a
+  // newly uploaded presentation, then attach it to the file record so the
+  // preview dialog renders the slides. Failures keep the file as original-only.
+  const generatePreviewForUpload = (
+    file: File,
+    key: string | undefined,
+    fileId: string,
+    catId: string
+  ) => {
+    if (!key || !/\.(ppsx|pptx)$/i.test(file.name)) return;
+    requestPreviewGeneration(key).then((preview) => {
+      if (!preview) return;
+      setCategories((cats) =>
+        cats.map((cat) =>
+          cat.id !== catId
+            ? cat
+            : {
+                ...cat,
+                files: cat.files.map((f) =>
+                  f.id === fileId
+                    ? {
+                        ...f,
+                        previewUrl: preview.previewUrl,
+                        slideCount: preview.slideCount,
+                      }
+                    : f
+                ),
+              }
+        )
+      );
+    });
   };
 
   const addCategory = () => {
@@ -260,12 +298,12 @@ export function VariousSection() {
       if (!file) return;
       const fileId = `p-${Date.now()}`;
       setUploadingFileId(fileId);
-      const url = await uploadToS3(file);
+      const result = await uploadToS3(file);
       setUploadingFileId(null);
       const newFile: PowerpointFile = {
         id: fileId,
         name: file.name.split(".").slice(0, -1).join(".") || file.name,
-        url: url || "",
+        url: result?.url || "",
         tags: [],
       };
       setCategories(
@@ -273,6 +311,7 @@ export function VariousSection() {
           cat.id === catId ? { ...cat, files: [...cat.files, newFile] } : cat
         )
       );
+      generatePreviewForUpload(file, result?.key, fileId, catId);
     };
     input.click();
   };
@@ -285,7 +324,7 @@ export function VariousSection() {
       const file = e.target.files?.[0];
       if (!file) return;
       setUploadingFileId(fileId);
-      const url = await uploadToS3(file);
+      const result = await uploadToS3(file);
       setUploadingFileId(null);
       setCategories(
         categories.map((cat) => {
@@ -294,12 +333,19 @@ export function VariousSection() {
             ...cat,
             files: cat.files.map((f) =>
               f.id === fileId
-                ? { ...f, name: file.name.split(".").slice(0, -1).join(".") || file.name, url: url || f.url }
+                ? {
+                    ...f,
+                    name: file.name.split(".").slice(0, -1).join(".") || file.name,
+                    url: result?.url || f.url,
+                    previewUrl: undefined,
+                    slideCount: null,
+                  }
                 : f
             ),
           };
         })
       );
+      generatePreviewForUpload(file, result?.key, fileId, catId);
     };
     input.click();
   };
@@ -361,13 +407,17 @@ export function VariousSection() {
 
   const availableTagNames = allTags.map((t) => t.name);
 
-  const handlePreview = async (name: string, url: string, fileId?: string) => {
-    const resolved = await getDocumentFetchUrl(url);
-    setPreviewFile({ name, url: resolved });
+  const handlePreview = async (file: PowerpointFile) => {
+    const resolved = await getDocumentFetchUrl(file.url);
+    setPreviewFile({
+      name: file.name,
+      url: resolved,
+      slideCount: file.slideCount,
+    });
     trackEvent('powerpoint_view', {
       contentType: 'powerpoint',
-      contentName: name,
-      contentId: fileId,
+      contentName: file.name,
+      contentId: file.id,
     });
   };
 
@@ -912,7 +962,7 @@ export function VariousSection() {
                           <div className="relative group/tooltip">
                             <button
                               onClick={() =>
-                                file.url && handlePreview(file.name, file.url, file.id)
+                                file.url && handlePreview(file)
                               }
                               className={`h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-card hover:bg-muted hover:text-primary transition-colors ${!file.url && "opacity-40 pointer-events-none"}`}
                             >
@@ -1006,7 +1056,11 @@ export function VariousSection() {
             </DialogHeader>
             <div className="flex-1 w-full h-full rounded-lg overflow-hidden border border-border bg-black mt-4">
               {previewFile.url ? (
-                <PptxViewer src={previewFile.url} title={previewFile.name} />
+                <PptxViewer
+                  src={previewFile.url}
+                  slideCount={previewFile.slideCount}
+                  title={previewFile.name}
+                />
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground p-6 text-center">
                   <Presentation className="w-16 h-16 mb-4 opacity-40 animate-pulse" />

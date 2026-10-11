@@ -1,4 +1,4 @@
-import { apiGetJson, uploadWithProgress } from './apiClient';
+import { apiGetJson, apiPostJson, uploadWithProgress } from './apiClient';
 import { startUpload, updateProgress, completeUpload, failUpload } from '../state/uploadProgressStore';
 import { getApiBaseUrl } from '../config/api';
 
@@ -21,6 +21,21 @@ const FILE_FOLDERS: Record<string, string> = {
   'PowerPoint file': 'Hymns',
   'Music': 'Hymns',
 };
+
+// Mirrors the server's PREVIEW_NAME_OK: every presentation format the admin upload
+// UI accepts. Must stay in sync with server/services/ppsx-converter.js.
+const PREVIEWABLE_EXT = /\.(ppsx|pptx|ppt|pps|pptm|ppsm|potx|potm|odp)$/i;
+
+// Preview PDFs live at a stable URL derived from the source object key, but their
+// bytes are mutable — re-running the conversion (e.g. the Arabic-font fix) rewrites
+// the same S3 object. The server answers with `must-revalidate` + an ETag so future
+// changes are picked up, but a browser that cached the old bytes under the previous
+// `immutable` header will not revalidate until that entry expires. This explicit
+// version moves every client onto a fresh URL once. The server ignores `v`, so it
+// never triggers a new conversion or a new S3 object; it is deterministic, so the
+// URL is identical on every render for a given deploy. Bump it only when the cached
+// previews are regenerated out-of-band.
+export const PREVIEW_PDF_CACHE_VERSION = '20261011-fontfix';
 
 export function getFileContentType(fileType: string): string {
   return FILE_CONTENT_TYPES[fileType] || 'application/octet-stream';
@@ -91,23 +106,62 @@ export async function uploadFileToS3(
 }
 
 /**
- * Resolve a stored file URL (e.g. `/api/uploads/url?key=...`) to a server-proxied
- * URL suitable for embedding in the Office Online viewer iframe.
- *
- * The Office viewer fetches the file from Microsoft's servers, which cannot access
- * S3 presigned URLs directly (CORS / network restrictions). By pointing the viewer
- * at our own server's proxy endpoint, the server fetches from S3 and streams the
- * file back to Microsoft's viewer — avoiding all CORS issues.
- *
- * The returned URL is absolute so Microsoft's servers can resolve it.
+* Ask the server to generate (or reuse) the PDF preview for an uploaded
+ * presentation, returning the preview URL and page count. The original .ppsx is
+ * never touched. Returns null when generation fails (e.g. LibreOffice missing).
  */
+export async function requestPreviewGeneration(key: string): Promise<{
+  previewUrl: string;
+  slideCount: number | null;
+} | null> {
+  try {
+    const res = await apiPostJson<{
+      previewKey: string;
+      previewUrl: string;
+      slideCount: number | null;
+    }>('/api/uploads/preview', { key });
+    // Normalize a relative server URL so the browser can fetch it from any origin.
+    const previewUrl = res.previewUrl.startsWith('/api/')
+      ? `${getApiBaseUrl()}${res.previewUrl}`
+      : res.previewUrl;
+    return {
+      previewUrl,
+      slideCount: res.slideCount ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Resolve a stored file URL to the app's own streaming endpoint so the browser can
- * fetch the raw file bytes (used by the in-app PowerPoint renderer).
+ * Build the on-demand PDF preview URL for a stored presentation.
  *
- * Unlike `getPreviewUrl`, this always points at the app's API base (same environment
- * the app itself talks to), never at an external host — so it works on localhost
- * during development and avoids any CORS surprises.
+ * The server derives a cache key from the source object, converts the presentation
+ * with LibreOffice the first time it is requested, and streams the PDF back. That
+ * makes the preview available for every presentation already in the bucket — no
+ * re-upload and no per-file metadata required.
+ *
+ * Returns undefined for anything that is not a presentation (audio, video, images).
+ */
+export function buildPreviewPdfUrl(storedUrl?: string | null): string | undefined {
+  if (!storedUrl) return undefined;
+  try {
+    const u = new URL(storedUrl, window.location.origin);
+    const key = u.searchParams.get('key');
+    if (!key || !PREVIEWABLE_EXT.test(key)) return undefined;
+    const origin = getApiBaseUrl() || window.location.origin;
+    return `${origin}/api/uploads/preview/pdf?key=${encodeURIComponent(key)}&v=${PREVIEW_PDF_CACHE_VERSION}`;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Resolve a stored file URL (e.g. `/api/uploads/url?key=...`) to the app's own
+ * streaming endpoint so the browser can fetch the raw file bytes.
+ *
+ * The returned URL is absolute so it works on localhost during development and
+ * avoids any CORS surprises when the app is served from a different origin.
  */
 export async function getDocumentFetchUrl(storedUrl: string): Promise<string> {
   try {
@@ -116,59 +170,6 @@ export async function getDocumentFetchUrl(storedUrl: string): Promise<string> {
     if (!key) return storedUrl;
     const origin = getApiBaseUrl() || window.location.origin;
     return `${origin}/api/uploads/url?key=${encodeURIComponent(key)}`;
-  } catch {
-    return storedUrl;
-  }
-}
-
-function isPublicHost(hostname: string): boolean {
-  const h = hostname.toLowerCase();
-  return !(
-    h === 'localhost' ||
-    h === '127.0.0.1' ||
-    h === '::1' ||
-    h === '0.0.0.0' ||
-    h.endsWith('.local') ||
-    /^10\./.test(h) ||
-    /^192\.168\./.test(h) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(h)
-  );
-}
-
-/**
- * Resolve a stored file URL (e.g. `/api/uploads/url?key=...`) to a URL Microsoft's
- * Office Online viewer can open.
- *
- * The Office viewer (view.officeapps.live.com) fetches the document from Microsoft's
- * servers, so two things must be true:
- *   1. The URL must be publicly reachable (Microsoft cannot access `localhost`).
- *      We prefer the host of the stored absolute URL when it is public, otherwise we
- *      fall back to the configured API base.
- *   2. The URL path must end with a recognised document extension (.pptx / .ppsx / ...).
- *      The viewer refuses URLs without one, so we build a path like
- *      `/api/uploads/office/<name>.pptx?key=<s3Key>` and force `.pptx` — .ppsx is the
- *      same OOXML presentation format, so it renders identically in the viewer.
- */
-export async function getPreviewUrl(storedUrl: string): Promise<string> {
-  try {
-    const u = new URL(storedUrl, window.location.origin);
-    const key = u.searchParams.get('key');
-    if (!key) return storedUrl;
-
-    const apiBase = getApiBaseUrl();
-    let origin = '';
-    if (/^https?:$/.test(u.protocol) && u.hostname && isPublicHost(u.hostname)) {
-      origin = u.origin;
-    } else {
-      origin = apiBase || window.location.origin;
-    }
-
-    const keyName = key.split('/').pop() || 'presentation';
-    const baseName = keyName
-      .replace(/[?#].*$/, '')
-      .replace(/\.(pptx|ppsx|ppt|pptm|potx|potm|pdf)$/i, '');
-
-    return `${origin}/api/uploads/office/${encodeURIComponent(baseName)}.pptx?key=${encodeURIComponent(key)}`;
   } catch {
     return storedUrl;
   }

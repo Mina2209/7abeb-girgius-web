@@ -8,6 +8,8 @@ export interface HymnFile {
   url: string;
   size?: number;
   uid?: string;
+  previewUrl?: string;
+  slideCount?: number | null;
 }
 
 export interface Hymn {

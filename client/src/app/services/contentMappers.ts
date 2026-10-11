@@ -11,6 +11,8 @@ type ServerHymnFile = {
   originalName?: string | null;
   size?: number | null;
   duration?: number | null;
+  previewUrl?: string | null;
+  slideCount?: number | null;
 };
 
 export type ServerHymn = {
@@ -109,6 +111,8 @@ export function mapServerHymnToClient(row: ServerHymn): Hymn {
     name: f.originalName?.trim() || f.fileUrl || 'ملف',
     url: resolveFileUrl(f.fileUrl),
     size: f.size ?? undefined,
+    previewUrl: f.previewUrl ? resolveFileUrl(f.previewUrl) : undefined,
+    slideCount: f.slideCount ?? undefined,
   }));
   const fileTypes = [...new Set(files.map((f) => f.type))] as HymnFileType[];
   const durations = (row.files ?? [])

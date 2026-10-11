@@ -1,5 +1,42 @@
 @custom-variant dark (&:is(.dark *));
 
+/* PowerPoint preview frame.
+   Sized by CSS rather than inline styles so the two width declarations below act
+   as a real vh -> dvh fallback (a later declaration wins where dvh is known, and
+   is simply dropped by older parsers). 88px is the toolbar allowance so the frame
+   plus its controls stay inside the viewport on short screens. */
+.deck-frame {
+  --deck-space: 88px;
+  --deck-frame-ratio: calc(var(--deck-frame-w) / var(--deck-frame-h));
+  aspect-ratio: var(--deck-frame-w) / var(--deck-frame-h);
+  width: min(
+    calc(var(--deck-frame-w) * 1px),
+    100%,
+    calc((100vh - var(--deck-space)) * var(--deck-frame-ratio))
+  );
+  width: min(
+    calc(var(--deck-frame-w) * 1px),
+    100%,
+    calc((100dvh - var(--deck-space)) * var(--deck-frame-ratio))
+  );
+  max-width: 100%;
+  /* Hard cap. A short modal must never crop the bottom of a slide: without this
+     the fixed aspect box can outgrow its parent, and any ancestor that clips
+     would slice the last line of text off. */
+  max-height: calc(100vh - var(--deck-space));
+  max-height: calc(100dvh - var(--deck-space));
+  flex: 0 0 auto;
+}
+
+/* Fullscreen drops the deck ratio entirely and fills the display. */
+.deck-shell-bare .deck-frame {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  aspect-ratio: auto;
+}
+
 :root {
   --font-size: 16px;
   --background: #ffffff;

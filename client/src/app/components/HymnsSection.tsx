@@ -2099,7 +2099,7 @@ export function HymnsSection({
           >
           <div className="bg-card border border-border rounded-xl w-full max-w-3xl max-h-[85vh] overflow-y-auto overflow-x-hidden shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
             {/* الهيدر */}
-            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border bg-muted/20 sticky top-0 z-10">
+            <div className="flex items-center justify-between px-2 sm:px-6 py-4 border-b border-border bg-muted/20 sticky top-0 z-10">
               <h3 className="font-bold text-lg text-right flex-1">
                 {previewTitle}
               </h3>
@@ -2155,8 +2155,11 @@ export function HymnsSection({
               {/* 3. لو نوع الملف بوربوينت عادي (PPTX) - المعاينة التفاعلية */}
 {previewType === "PowerPoint file" && (
   <div className="w-full flex flex-col gap-4">
-    {/* معاينة البوربوينت داخل المتصفح مباشرة (تعمل حتى على localhost لأي من pptx/ppsx) */}
-    <PptxViewer src={previewUrl} title={previewTitle} />
+    <PptxViewer
+      src={previewUrl}
+      slideCount={previewFile?.slideCount}
+      title={previewTitle}
+    />
   </div>
 )}
             </div>
