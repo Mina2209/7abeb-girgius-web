@@ -9,6 +9,7 @@ import { prisma } from './prisma.js';
 import defaultS3Service from './s3.service.js';
 import { defaultClipGuard } from './clip-guard.js';
 import { uploadUrlFor } from './storage-urls.js';
+import { ownedPreviewKeyForSource } from './preview-cache-key.js';
 
 
 const execFileAsync = promisify(execFile);
@@ -167,10 +168,35 @@ function isPowerPointFile(file) {
   return POWERPOINT_TYPES.has(file?.type) && PREVIEW_NAME_OK.test(file?.originalName || '');
 }
 
-export function previewKeyForSource(sourceKey) {
-  // Stable per-source-key name so repeated on-demand conversions reuse the object.
+// Version of the PowerPoint -> PDF conversion pipeline. Bump this whenever a change
+// makes already-stored previews stale: a font-substitution fix
+// (server/scripts/install-arabic-fonts.sh + the Tajawal alias), a LibreOffice upgrade,
+// or a change to the clip-guard/refit pass. It is part of every stored preview key, so
+// raising it turns the next request for every deck into a cache miss that re-converts
+// with the new pipeline. Old objects stay in S3 untouched and are never served again,
+// because nothing derives their key once the segment moves.
+//
+// This is the authoritative server-side version. It deliberately does NOT come from
+// the client's `v` query parameter: the preview endpoint ignores `v` (untrusted), so a
+// client cannot pin, skip, or forge a conversion version.
+export const PREVIEW_PIPELINE_VERSION = '2';
+
+export function previewKeyForSource(sourceKey, version = PREVIEW_PIPELINE_VERSION) {
+  // Legacy hash-only key, still used by the File-row conversion pipeline and for
+  // reading pre-fix caches. New on-demand/admin previews use an explicit
+  // ownership namespace via previewKeyForOwnedSource().
   const hash = createHash('sha256').update(sourceKey).digest('hex').slice(0, 32);
-  return `previews/${hash}.pdf`;
+  return `previews/v${version}/${hash}.pdf`;
+}
+
+// New preview keys carry whether the source is an image or an ordinary
+// presentation. Image keys also carry the source key, so authorization can do an
+// exact image lookup instead of scanning every image row per request.
+export function previewKeyForOwnedSource(sourceKey, {
+  kind = 'file',
+  version = PREVIEW_PIPELINE_VERSION,
+} = {}) {
+  return ownedPreviewKeyForSource(sourceKey, { kind, version });
 }
 
 // True when the key points at a presentation LibreOffice can turn into a PDF.
@@ -316,14 +342,20 @@ export function createPpsxConverter({
 
   // Returns the S3 key of the cached PDF for a source object, converting it first
   // if needed. Concurrent callers share a single conversion.
-  async function ensurePreviewPdf(sourceKey) {
+  //
+  // Passing { kind: 'image' | 'file' } selects the ownership-aware namespace.
+  // Omitting it preserves the legacy hash-only layout used by the File-row
+  // conversion pipeline, whose File row is the ownership proof.
+  async function ensurePreviewPdf(sourceKey, { kind = null } = {}) {
     if (!isPreviewableKey(sourceKey)) {
       const err = new Error('unsupported file type for preview generation');
       err.code = 'UNSUPPORTED_TYPE';
       throw err;
     }
 
-    const previewKey = previewKeyForSource(sourceKey);
+    const previewKey = kind
+      ? previewKeyForOwnedSource(sourceKey, { kind })
+      : previewKeyForSource(sourceKey);
     const running = inFlight.get(previewKey);
     if (running) return running;
 
@@ -406,8 +438,8 @@ export function createPpsxConverter({
     };
   }
 
-  async function generatePreviewForKey(sourceKey) {
-    const { previewKey, slideCount } = await ensurePreviewPdf(sourceKey);
+  async function generatePreviewForKey(sourceKey, { kind = null } = {}) {
+    const { previewKey, slideCount } = await ensurePreviewPdf(sourceKey, { kind });
     // The caller here is the admin upload UI, which awaits this response and has no
     // File row to persist a template on. So only advertise images that are already
     // in S3; otherwise start the render in the background and let the next open of
@@ -415,10 +447,15 @@ export function createPpsxConverter({
     let previewImageBaseUrl = null;
     if (slideImageService) {
       try {
-        const existing = await slideImageService.peek(sourceKey);
+        const existing = kind
+          ? await slideImageService.peek(sourceKey, { kind })
+          : await slideImageService.peek(sourceKey);
         previewImageBaseUrl = existing?.template ?? null;
         if (!existing) {
-          void slideImageService.generate(sourceKey).catch((error) => {
+          const rendering = kind
+            ? slideImageService.generate(sourceKey, { kind })
+            : slideImageService.generate(sourceKey);
+          void rendering.catch((error) => {
             console.error(`[ppsx] slide images failed for ${sourceKey}:`, error?.message || error);
           });
         }

@@ -111,7 +111,7 @@ describe('authenticate – async middleware behavior', () => {
     expect(res.status).toHaveBeenCalledWith(401);
   });
 
-  it('accepts legacy tokens without tokenVersion field', async () => {
+  it('returns 401 when tokenVersion is missing (legacy token)', async () => {
     dbTokens.set('u1', 0);
     const token = jwt.sign({ id: 'u1', username: 'alice', role: 'VIEWER' }, JWT_SECRET);
     const req = fakeReq(token);
@@ -119,8 +119,22 @@ describe('authenticate – async middleware behavior', () => {
     const next = vi.fn();
     authenticate(req, res, next);
     await flush();
-    expect(next).toHaveBeenCalledOnce();
-    expect(req.user).toBeDefined();
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Unauthorized - Token revoked' });
+  });
+
+  it('returns 401 when tokenVersion is invalid (non-numeric)', async () => {
+    dbTokens.set('u1', 0);
+    const token = sign({ tokenVersion: '0' });
+    const req = fakeReq(token);
+    const res = fakeRes();
+    const next = vi.fn();
+    authenticate(req, res, next);
+    await flush();
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Unauthorized - Token revoked' });
   });
 
   it('does not bypass auth when DB is slow', async () => {

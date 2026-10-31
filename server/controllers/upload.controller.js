@@ -1,6 +1,9 @@
 import sharp from 'sharp';
 import defaultS3Service from '../services/s3.service.js';
 import { ensurePreviewPdf, generatePreviewForKey, isPreviewableKey } from '../services/ppsx-converter.js';
+import { ensureSlideImages } from '../services/slide-images.js';
+import { authorizeImageAccess } from '../services/image-access.js';
+import { PREVIEW_CACHE_NAMESPACES } from '../services/preview-cache-key.js';
 
 // Verify an S3 key is within a public-readable prefix. All prefixes must end with '/'
 // to prevent segment-collision (e.g. 'HymnsEvil/' must not match prefix 'Hymns/').
@@ -18,6 +21,45 @@ export function isWritableKey(key, prefixes) {
   if (!key || typeof key !== 'string') return false;
   if (!prefixes || !prefixes.length) return false;
   return prefixes.some((prefix) => key.startsWith(prefix));
+}
+
+// Image visibility is checked before any S3 operation. Image rows are the
+// authority; the caller's role is read from the server-verified req.user set by
+// optionalAuthenticate, never from a query/body value.
+async function enforceImageAccess(req, res, key) {
+  let access;
+  try {
+    access = await authorizeImageAccess(key, { user: req.user });
+  } catch (err) {
+    // Any unexpected failure is a denial. Do not fall through to S3.
+    console.error('Image access authorization failed:', err?.message || err);
+    res.status(404).json({ error: 'Image not found' });
+    return null;
+  }
+
+  if (access.applies && !access.allowed) {
+    // Missing, unpublished, ambiguous, malformed image keys and database
+    // failures are indistinguishable to the client.
+    res.status(404).json({ error: 'Image not found' });
+    return null;
+  }
+  return access;
+}
+
+function isDraftImageAccess(access) {
+  return !!(access?.applies && access.allowed && access.published === false);
+}
+
+// Image sources get the protected image preview namespace. Everything else is
+// ordinary presentation data and belongs in the public file namespace.
+function previewOwnershipKind(access) {
+  return access?.applies ? 'image' : 'file';
+}
+
+// A draft served to an editor/admin must not enter a shared cache. Published
+// images and non-image uploads keep their existing public cache policy.
+function applyImageCacheControl(res, access, publicValue) {
+  res.setHeader('Cache-Control', isDraftImageAccess(access) ? 'private, no-store' : publicValue);
 }
 
 // True when an If-None-Match header value matches the given S3 ETag. Handles a
@@ -75,11 +117,12 @@ function createUploadController(s3Service = defaultS3Service) {
   const PUBLIC_READ_PREFIXES = [
     ...Object.values(folderMap).map((v) => (v.endsWith('/') ? v : `${v}/`)),
     'thumbnails/',
-    'previews/',
-    // Per-slide WebP previews (services/slide-images.js). A separate prefix from
-    // 'previews/' so the PDF and the image set can never collide, and so the image
-    // objects can be retired independently.
-    'previews-img/',
+    // Legacy and ownership-aware preview caches (services/preview-cache-key.js).
+    // The image namespaces are still checked by authorizeImageAccess before any
+    // S3 access; being in this list only allows the key through the generic prefix
+    // gate. Keeping the list in one module prevents a new namespace from being
+    // added to generation but forgotten at the public-read boundary.
+    ...PREVIEW_CACHE_NAMESPACES,
   ].filter(Boolean);
 
   // Writable prefixes: the set of S3 key prefixes that editors may delete/mutate.
@@ -151,6 +194,8 @@ function createUploadController(s3Service = defaultS3Service) {
         const { key, name } = req.query;
         if (!key) return res.status(400).send('key required');
         if (!isReadableKey(key, PUBLIC_READ_PREFIXES)) return res.status(403).json({ error: 'access denied' });
+        const imageAccess = await enforceImageAccess(req, res, key);
+        if (!imageAccess) return;
         const range = parseByteRangeHeader(req.headers.range);
         try {
           const { contentType, contentLength, contentRange, body } = await s3Service.getObjectForProxy(key, range);
@@ -161,7 +206,7 @@ function createUploadController(s3Service = defaultS3Service) {
             res.setHeader('Content-Range', contentRange);
           }
           if (contentLength) res.setHeader('Content-Length', contentLength);
-          res.setHeader('Cache-Control', 'public, max-age=3600');
+          applyImageCacheControl(res, imageAccess, 'public, max-age=3600');
           if (name) {
             res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(name)}"`);
           }
@@ -186,7 +231,10 @@ function createUploadController(s3Service = defaultS3Service) {
         const { key } = req.query;
         if (!key) return res.status(400).json({ error: 'key required' });
         if (!isReadableKey(key, PUBLIC_READ_PREFIXES)) return res.status(403).json({ error: 'access denied' });
-        const url = await s3Service.getPresignedGetUrl(key, 3600, null, { forceDownload: false });
+        const imageAccess = await enforceImageAccess(req, res, key);
+        if (!imageAccess) return;
+        const url = await s3Service.getPresignedGetUrl(key, isDraftImageAccess(imageAccess) ? 60 : 3600, null, { forceDownload: false });
+        if (isDraftImageAccess(imageAccess)) res.setHeader('Cache-Control', 'private, no-store');
         return res.json({ url });
       },
 
@@ -199,6 +247,8 @@ function createUploadController(s3Service = defaultS3Service) {
         const { key } = req.query;
         if (!key) return res.status(400).json({ error: 'key required' });
         if (!isReadableKey(key, PUBLIC_READ_PREFIXES)) return res.status(403).json({ error: 'access denied' });
+        const imageAccess = await enforceImageAccess(req, res, key);
+        if (!imageAccess) return;
         const range = parseByteRangeHeader(req.headers.range);
         try {
           const { contentType, contentLength, contentRange, body } = await s3Service.getObjectForProxy(key, range);
@@ -210,7 +260,7 @@ function createUploadController(s3Service = defaultS3Service) {
           }
           if (contentLength) res.setHeader('Content-Length', contentLength);
           res.setHeader('Content-Disposition', 'inline');
-          res.setHeader('Cache-Control', 'public, max-age=3600');
+          applyImageCacheControl(res, imageAccess, 'public, max-age=3600');
           if (body && typeof body.pipe === 'function') {
             body.pipe(res);
           } else if (body && typeof body.transformToByteArray === 'function') {
@@ -235,12 +285,14 @@ function createUploadController(s3Service = defaultS3Service) {
         const { key } = req.query;
         if (!key) return res.status(400).json({ error: 'key required' });
         if (!isReadableKey(key, PUBLIC_READ_PREFIXES)) return res.status(403).json({ error: 'access denied' });
+        const imageAccess = await enforceImageAccess(req, res, key);
+        if (!imageAccess) return;
         try {
           const { contentLength, body } = await s3Service.getObjectForProxy(key);
           res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
           if (contentLength) res.setHeader('Content-Length', contentLength);
           res.setHeader('Content-Disposition', 'inline; filename="presentation.pptx"');
-          res.setHeader('Cache-Control', 'public, max-age=3600');
+          applyImageCacheControl(res, imageAccess, 'public, max-age=3600');
           if (body && typeof body.pipe === 'function') {
             body.pipe(res);
           } else if (body && typeof body.transformToByteArray === 'function') {
@@ -262,9 +314,13 @@ function createUploadController(s3Service = defaultS3Service) {
         const { key } = req.query;
         if (!key) return res.status(400).send('key required');
         if (!isReadableKey(key, PUBLIC_READ_PREFIXES)) return res.status(403).json({ error: 'access denied' });
+        const imageAccess = await enforceImageAccess(req, res, key);
+        if (!imageAccess) return;
         const width = Math.min(1600, Math.max(50, parseInt(req.query.w) || 400));
         const thumbKey = `thumbnails/${width}/${key}`;
         try {
+          // Authorization above runs before this cache probe. A cached thumbnail
+          // for a now-unpublished image must not become an alternate public path.
           if (!(await s3Service.objectExists(thumbKey))) {
             if (!(await s3Service.objectExists(key))) {
               return res.status(404).send('original not found');
@@ -280,7 +336,7 @@ function createUploadController(s3Service = defaultS3Service) {
           const { contentType, contentLength, body } = await s3Service.getObjectForProxy(thumbKey);
           res.setHeader('Content-Type', contentType || 'image/jpeg');
           if (contentLength) res.setHeader('Content-Length', contentLength);
-          res.setHeader('Cache-Control', 'public, max-age=86400');
+          applyImageCacheControl(res, imageAccess, 'public, max-age=86400');
           if (body && typeof body.pipe === 'function') {
             body.pipe(res);
           } else if (body && typeof body.transformToByteArray === 'function') {
@@ -315,8 +371,12 @@ function createUploadController(s3Service = defaultS3Service) {
         const key = typeof req.body?.key === 'string' ? String(req.body.key).trim() : '';
         if (!key) return res.status(400).json({ error: 'key required' });
         if (!isReadableKey(key, PUBLIC_READ_PREFIXES)) return res.status(403).json({ error: 'access denied' });
+        const imageAccess = await enforceImageAccess(req, res, key);
+        if (!imageAccess) return;
         try {
-          const result = await generatePreviewForKey(key);
+          const result = await generatePreviewForKey(key, {
+            kind: previewOwnershipKind(imageAccess),
+          });
           return res.json(result);
         } catch (err) {
           if (err?.code === 'UNSUPPORTED_TYPE') {
@@ -340,11 +400,14 @@ function createUploadController(s3Service = defaultS3Service) {
         const { key } = req.query;
         if (!key) return res.status(400).json({ error: 'key required' });
         if (!isReadableKey(key, PUBLIC_READ_PREFIXES)) return res.status(403).json({ error: 'access denied' });
+        const imageAccess = await enforceImageAccess(req, res, key);
+        if (!imageAccess) return;
         if (!isPreviewableKey(key)) return res.status(415).json({ error: 'unsupported file type for preview' });
 
+        const kind = previewOwnershipKind(imageAccess);
         let previewKey;
         try {
-          ({ previewKey } = await ensurePreviewPdf(key));
+          ({ previewKey } = await ensurePreviewPdf(key, { kind }));
         } catch (err) {
           if (err?.code === 'CONVERTER_UNAVAILABLE') {
             // Deployment problem (no LibreOffice), not a bad request. Distinguish it
@@ -366,7 +429,7 @@ function createUploadController(s3Service = defaultS3Service) {
           // content had changed. Store it, but require revalidation, and expose the
           // S3 ETag/Last-Modified so unchanged clients get a cheap 304 instead of the
           // whole PDF (and no re-conversion).
-          res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+          applyImageCacheControl(res, imageAccess, 'public, max-age=0, must-revalidate');
           if (etag) res.setHeader('ETag', etag);
           if (lastModified) res.setHeader('Last-Modified', new Date(lastModified).toUTCString());
 
@@ -406,6 +469,52 @@ function createUploadController(s3Service = defaultS3Service) {
           if (res.headersSent) return res.destroy(err);
           return res.status(404).send('not found');
         }
+      },
+
+    // Per-slide image preview for a presentation, rendered on demand from the
+    // cached PDF with poppler's pdftoppm and cached in the ownership-aware slide
+    // namespace (or legacy previews-img/ for the File-row pipeline).
+    // Public (no auth) for the same reason as previewPdf: any visitor may preview
+    // a hymn, and the source key must still sit inside a public-read prefix.
+    // Returns a "{n}"-templated URL the client substitutes per slide, or a null
+    // template when images are unavailable (no poppler, an unsupported deck, or a
+    // render failure) — the client then links to the PDF, which is always right.
+    // query: ?key=<presentationObjectKey>
+      previewImages: async (req, res) => {
+        const { key } = req.query;
+        if (!key) return res.status(400).json({ error: 'key required' });
+        if (!isReadableKey(key, PUBLIC_READ_PREFIXES)) return res.status(403).json({ error: 'access denied' });
+        const imageAccess = await enforceImageAccess(req, res, key);
+        if (!imageAccess) return;
+        if (!isPreviewableKey(key)) return res.status(415).json({ error: 'unsupported file type for preview' });
+
+        const kind = previewOwnershipKind(imageAccess);
+        // Images are rendered from the cached PDF, so the PDF has to exist. Its
+        // failures are the same as previewPdf's: a missing converter is a
+        // deployment problem (503), anything else is a conversion failure (502).
+        try {
+          await ensurePreviewPdf(key, { kind });
+        } catch (err) {
+          if (err?.code === 'CONVERTER_UNAVAILABLE') {
+            return res.status(503).json({ error: 'preview converter unavailable' });
+          }
+          console.error('preview conversion error for key', key, '-', err?.message || err);
+          return res.status(502).json({ error: 'preview generation failed' });
+        }
+
+        // A render failure is non-fatal: the PDF is already stored, so answer with
+        // a null template and let the viewer fall back to it.
+        let images = null;
+        try {
+          images = await ensureSlideImages(key, { kind });
+        } catch (err) {
+          console.error('slide image generation error for key', key, '-', err?.message || err);
+        }
+        if (isDraftImageAccess(imageAccess)) res.setHeader('Cache-Control', 'private, no-store');
+        return res.json({
+          template: images?.template ?? null,
+          pages: images?.pages ?? null,
+        });
       },
 
     // Multipart endpoints

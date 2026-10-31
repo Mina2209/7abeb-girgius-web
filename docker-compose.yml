@@ -10,8 +10,8 @@ services:
     # DB port is intentionally NOT exposed to the host — only the api service on the
     # internal compose network reaches it. (Remove the comment and lines below only
     # for local debugging with a non-default port, e.g. "127.0.0.1:5433:5432".)
-    # ports:
-    #   - "127.0.0.1:5433:5432"
+    ports:
+      - "127.0.0.1:5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

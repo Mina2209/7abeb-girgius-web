@@ -189,13 +189,10 @@ describe('auth.service – updateUser username normalization', () => {
   });
 });
 
-describe('auth.service – requestPasswordReset normalization', () => {
+describe('auth.service – requestPasswordReset safety', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPrisma.user.findFirst.mockResolvedValue({ id: 'u1' });
-    mockPrisma.user.update.mockImplementation(({ data }) =>
-      Promise.resolve({ id: 'u1', username: 'nadia', role: 'VIEWER', updatedAt: new Date() }),
-    );
   });
 
   it('normalizes the identifier and keeps mode:insensitive on both branches', async () => {
@@ -213,33 +210,81 @@ describe('auth.service – requestPasswordReset normalization', () => {
     );
   });
 
-  it('resets to a temporary password and invalidates sessions', async () => {
+  it('does not change the password or return a secret for an existing account', async () => {
     const result = await authService.requestPasswordReset('nadia');
 
-    expect(result.temporaryPassword).toEqual(expect.any(String));
-    expect(result.temporaryPassword.length).toBeGreaterThan(0);
-    expect(mockPrisma.user.update).toHaveBeenCalled();
+    expect(result).toEqual({ userId: 'u1' });
+    expect(result).not.toHaveProperty('temporaryPassword');
+    expect(result).not.toHaveProperty('token');
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('returns a null userId for an unknown identifier without throwing', async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+
+    await expect(authService.requestPasswordReset('ghost')).resolves.toEqual({ userId: null });
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
 });
 
-describe('auth.controller – forgotPassword compatibility', () => {
+describe('auth.controller – forgotPassword safety', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPrisma.user.findFirst.mockResolvedValue({ id: 'u1' });
-    mockPrisma.user.update.mockImplementation(({ data }) =>
-      Promise.resolve({ id: 'u1', username: 'nadia', role: 'VIEWER', updatedAt: new Date() }),
-    );
   });
 
-  it('accepts a mixed-case email identifier and returns a temporary password', async () => {
+  it('returns a generic response with no password or token', async () => {
     const req = { body: { identifier: '  NADIA@CHURCH.COM  ' } };
     const res = fakeRes();
+    const next = vi.fn();
 
-    await authController.forgotPassword(req, res);
+    await authController.forgotPassword(req, res, next);
 
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({ ok: true, temporaryPassword: expect.any(String) }),
-    );
+    const payload = res.json.mock.calls[0][0];
+    expect(payload).toMatchObject({ ok: true });
+    expect(payload).not.toHaveProperty('temporaryPassword');
+    expect(payload).not.toHaveProperty('token');
+    expect(payload).not.toHaveProperty('password');
+    expect(payload).not.toHaveProperty('userId');
+    expect(next).not.toHaveBeenCalled();
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
     expect(mockLogService.createLog).toHaveBeenCalled();
+  });
+
+  it('returns the exact same response for unknown accounts (no enumeration)', async () => {
+    const knownRes = fakeRes();
+    const unknownRes = fakeRes();
+
+    mockPrisma.user.findFirst.mockResolvedValueOnce({ id: 'u1' });
+    mockPrisma.user.findFirst.mockResolvedValueOnce(null);
+
+    await authController.forgotPassword({ body: { identifier: 'nadia' } }, knownRes, vi.fn());
+    await authController.forgotPassword({ body: { identifier: 'ghost' } }, unknownRes, vi.fn());
+
+    expect(knownRes.status).not.toHaveBeenCalled();
+    expect(unknownRes.status).not.toHaveBeenCalled();
+    expect(unknownRes.json.mock.calls[0][0]).toEqual(knownRes.json.mock.calls[0][0]);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('does not leak database details when the lookup fails', async () => {
+    const { errorHandler } = await import('../middleware/errorHandler.js');
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const req = {
+      body: { identifier: 'nadia' },
+      method: 'POST',
+      originalUrl: '/api/auth/forgot-password',
+    };
+    const res = fakeRes();
+    const next = (err) => errorHandler(err, req, res, () => {});
+
+    mockPrisma.user.findFirst.mockRejectedValue(new Error('relation "User" does not exist'));
+
+    await authController.forgotPassword(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Internal server error' });
+    expect(JSON.stringify(res.json.mock.calls[0][0])).not.toContain('relation');
+    errorSpy.mockRestore();
   });
 });

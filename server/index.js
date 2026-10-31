@@ -19,24 +19,6 @@ function requestLogger(req, res, next) {
   next();
 }
 
-// Per-request timeout: if a handler hasn't finished within the deadline, send 504 and
-// close the connection. Skips streaming endpoints (zip downloads) where long durations
-// are normal — otherwise a large zip gets destroyed mid-stream exactly 30s after start.
-// Path check matches both the bare '/zip' and mounted routes like '/api/hymns/zip'.
-const REQUEST_TIMEOUT_MS = 30 * 1000;
-function requestTimeout(req, res, next) {
-  if (req.path === '/zip' || req.path.endsWith('/zip')) return next();
-  const timer = setTimeout(() => {
-    if (!res.headersSent) {
-      res.status(504).json({ error: 'Gateway timeout' });
-    }
-    req.destroy();
-  }, REQUEST_TIMEOUT_MS);
-  res.on('finish', () => clearTimeout(timer));
-  res.on('close', () => clearTimeout(timer));
-  next();
-}
-
 import hymnRoutes from './routes/hymn.routes.js';
 import tagRoutes from './routes/tag.routes.js';
 import tagSectionRoutes from './routes/tagSection.routes.js';
@@ -47,6 +29,9 @@ import profileRoutes from './routes/profile.routes.js';
 import settingsRoutes from './routes/settings.routes.js';
 import downloadRoutes from './routes/download.routes.js';
 import requestId from './middleware/requestId.js';
+// Per-request timeout policy: default 30s, streaming zip opt-out, and a longer
+// 180s budget for the on-demand PowerPoint image preview. See the module.
+import requestTimeout from './middleware/requestTimeout.js';
 
 import lyricRoutes from './routes/lyric.routes.js';
 import backupRoutes from './routes/backup.routes.js';

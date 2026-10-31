@@ -14,3 +14,13 @@ client/tsconfig.tsbuildinfo
 # python
 __pycache__/
 *.pyc
+
+# Local build artifacts and archives
+*.tar.gz
+*.tgz
+
+# Local environment files
+.env
+.env.*
+!.env.example
+SKILL.md

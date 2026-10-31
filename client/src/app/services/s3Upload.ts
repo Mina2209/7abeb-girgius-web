@@ -157,6 +157,44 @@ export function buildPreviewPdfUrl(storedUrl?: string | null): string | undefine
 }
 
 /**
+ * Build the on-demand per-slide image preview URL for a stored presentation.
+ *
+ * The server renders one WebP per slide from the cached preview PDF with
+ * poppler's pdftoppm — the engine that matches the native PDF viewer, so Arabic
+ * with diacritics stays correct — and returns a `{ template, pages }` payload.
+ * `template` is a "{n}"-templated URL to substitute per slide; a null template
+ * means images are unavailable and the caller should fall back to the PDF URL.
+ *
+ * Returns undefined for anything that is not a presentation.
+ */
+export function buildPreviewImagesUrl(storedUrl?: string | null): string | undefined {
+  if (!storedUrl) return undefined;
+  try {
+    const u = new URL(storedUrl, window.location.origin);
+    const key = u.searchParams.get('key');
+    if (!key || !PREVIEWABLE_EXT.test(key)) return undefined;
+    const origin = getApiBaseUrl() || window.location.origin;
+    return `${origin}/api/uploads/preview/images?key=${encodeURIComponent(key)}&v=${PREVIEW_PDF_CACHE_VERSION}`;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Resolve the server's "{n}" image template to a concrete slide URL, absolute
+ * against the API origin. The placeholder is substituted before parsing so it can
+ * never be percent-encoded into `%7Bn%7D` (which would 404 every slide).
+ */
+export function resolveSlideImageUrl(template: string, page: number): string {
+  const substituted = template.replace('{n}', String(page));
+  try {
+    return new URL(substituted, getApiBaseUrl() || window.location.origin).href;
+  } catch {
+    return substituted;
+  }
+}
+
+/**
  * Resolve a stored file URL (e.g. `/api/uploads/url?key=...`) to the app's own
  * streaming endpoint so the browser can fetch the raw file bytes.
  *

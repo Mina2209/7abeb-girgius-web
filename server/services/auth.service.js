@@ -1,7 +1,6 @@
 import { prisma } from './prisma.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { randomBytes } from 'node:crypto';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRY = '7d';
@@ -136,13 +135,16 @@ export const authService = {
     };
   },
 
-  // Search by username OR email, reset the password to a temporary one,
-  // and invalidate any outstanding sessions by bumping tokenVersion.
+  // Look up an account referenced by a self-service reset request WITHOUT
+  // changing any credentials. There is currently no secure proof-of-ownership
+  // mechanism (no verified email / one-time reset token), so knowing a
+  // username or email must never be enough to reset that account's password.
+  //
+  // Returns the internal user id (or null) so the controller can write an audit
+  // log. The returned id is internal only and must never be exposed to clients.
   async requestPasswordReset(identifier) {
     const trimmed = (identifier ?? '').trim();
-    if (!trimmed) {
-      throw new Error('يرجى إدخال اسم المستخدم أو البريد الإلكتروني');
-    }
+    if (!trimmed) return { userId: null };
 
     // Usernames are matched by their normalized local-part form, while emails
     // are matched by the full address (lowercased). Both remain insensitive.
@@ -159,17 +161,8 @@ export const authService = {
       select: { id: true },
     });
 
-    if (!user) {
-      throw new Error('لم يتم العثور على أي حساب بهذه البيانات');
-    }
-
-    const temporaryPassword = randomBytes(8).toString('hex');
-
-    // updateUser hashes the password and increments tokenVersion,
-    // which invalidates all outstanding JWTs for this user.
-    await this.updateUser(user.id, { password: temporaryPassword });
-
-    return { userId: user.id, temporaryPassword };
+    // Unknown identifiers are indistinguishable from known ones to the client.
+    return { userId: user?.id ?? null };
   },
 
   async verifyToken(token) {

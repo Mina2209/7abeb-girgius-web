@@ -4,6 +4,8 @@ import { TagMultiSelect } from './TagMultiSelect';
 import { useUniversalTopics } from '../hooks/useUniversalTopics';
 import type { GalleryImage } from '../types/content';
 import { getImageUrl } from '../utils/getImageUrl';
+import { useAuth } from '../contexts/AuthContext';
+import { AuthenticatedImage } from './AuthenticatedImage';
 
 interface AdminEditImageModalProps {
   isOpen: boolean;
@@ -145,6 +147,7 @@ export function AdminEditImageModal({
   onDeleteArtist,
   onDeleteType,
 }: AdminEditImageModalProps) {
+  const { accessToken } = useAuth();
   const { topicNames, topicsBySection } = useUniversalTopics(); // Get centralized topics
   const [formData, setFormData] = useState<GalleryImage>({
     id: 0,
@@ -567,12 +570,24 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                   >
                     {previewImage ? (
                       <>
-                        <img
+                        <AuthenticatedImage
                           src={getImageUrl(previewImage)}
+                          requiresAuth={Boolean(image && !image.published)}
+                          authToken={accessToken}
                           alt="Preview"
                           loading="lazy"
                           decoding="async"
                           className="w-full h-full object-cover"
+                          loadingFallback={<div className="w-full h-full bg-muted animate-pulse" />}
+                          errorFallback={
+                            <div
+                              className="w-full h-full bg-muted flex items-center justify-center text-muted-foreground"
+                              role="img"
+                              aria-label="تعذر تحميل الصورة"
+                            >
+                              <ImageIcon className="w-8 h-8" aria-hidden="true" />
+                            </div>
+                          }
                         />
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <div className="text-white text-center">

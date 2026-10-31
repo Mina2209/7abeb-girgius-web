@@ -4,19 +4,23 @@ import { EventEmitter } from 'node:events';
 import jwt from 'jsonwebtoken';
 
 // ── Hoisted: set env BEFORE the controller and auth middleware are imported ──
-const { previewGenerateMock, ensurePreviewPdfMock, isPreviewableKeyMock, getObjectForProxyMock, prismaUserMock } =
+const { previewGenerateMock, ensurePreviewPdfMock, isPreviewableKeyMock, getObjectForProxyMock, prismaUserMock, prismaImageMock, ensureSlideImagesMock } =
   vi.hoisted(() => {
     process.env.JWT_SECRET = 'preview-route-test-secret';
-    process.env.S3_FOLDER_MAP = JSON.stringify({ powerpoint: 'PowerPoints', hymn: 'Hymns' });
+    process.env.S3_FOLDER_MAP = JSON.stringify({ powerpoint: 'PowerPoints', hymn: 'Hymns', image: 'Images' });
     return {
       previewGenerateMock: vi.fn(),
       ensurePreviewPdfMock: vi.fn(),
       isPreviewableKeyMock: vi.fn((key) => /\.(ppsx|pptx|ppt)$/i.test(key || '')),
       getObjectForProxyMock: vi.fn(),
+      ensureSlideImagesMock: vi.fn(),
       prismaUserMock: {
         findUnique: vi.fn(async ({ where: { id } }) =>
           id === 'editor-1' || id === 'viewer-1' ? { tokenVersion: 0 } : null,
         ),
+      },
+      prismaImageMock: {
+        findMany: vi.fn(async () => []),
       },
     };
   });
@@ -27,10 +31,17 @@ vi.mock('../services/ppsx-converter.js', () => ({
   ensurePreviewPdf: ensurePreviewPdfMock,
   isPreviewableKey: isPreviewableKeyMock,
 }));
+// The image renderer is a separate module so the route can stay thin; mocked here
+// so the integration test never shells out to pdftoppm or touches S3.
+vi.mock('../services/slide-images.js', () => ({
+  ensureSlideImages: ensureSlideImagesMock,
+}));
 vi.mock('../services/s3.service.js', () => ({
   default: { getObjectForProxy: getObjectForProxyMock },
 }));
-vi.mock('../services/prisma.js', () => ({ prisma: { user: prismaUserMock } }));
+vi.mock('../services/prisma.js', () => ({
+  prisma: { user: prismaUserMock, image: prismaImageMock },
+}));
 
 // ── Imports (real, after mocks) ─────────────────────────────────────────
 import express from 'express';
@@ -91,7 +102,7 @@ describe('POST /api/uploads/preview – route integration (auth → validation �
     const res = await post('PowerPoints/sample.pdf', editor);
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('unsupported file type for preview');
-    expect(previewGenerateMock).toHaveBeenCalledWith('PowerPoints/sample.pdf');
+    expect(previewGenerateMock).toHaveBeenCalledWith('PowerPoints/sample.pdf', { kind: 'file' });
   });
 
   it('returns 200 with the preview object for a supported key', async () => {
@@ -106,7 +117,29 @@ describe('POST /api/uploads/preview – route integration (auth → validation �
     const res = await post(EDITOR_KEY, editor);
     expect(res.status).toBe(200);
     expect(res.body).toEqual(result);
-    expect(previewGenerateMock).toHaveBeenCalledWith(EDITOR_KEY);
+    expect(previewGenerateMock).toHaveBeenCalledWith(EDITOR_KEY, { kind: 'file' });
+  });
+
+  it('uses the image ownership namespace for a published image source', async () => {
+    const imageKey = 'Images/deck.pptx';
+    prismaImageMock.findMany.mockResolvedValueOnce([
+      {
+        id: 'image-1',
+        imageUrl: `/api/uploads/url?key=${encodeURIComponent(imageKey)}`,
+        published: true,
+      },
+    ]);
+    previewGenerateMock.mockResolvedValueOnce({
+      previewKey: 'previews-image/v2/abc/def.pdf',
+      previewUrl: '/api/uploads/url?key=previews-image%2Fv2%2Fabc%2Fdef.pdf',
+      slideCount: 2,
+    });
+    const editor = tokenFor({ id: 'editor-1', role: 'EDITOR' });
+
+    const res = await post(imageKey, editor);
+
+    expect(res.status).toBe(200);
+    expect(previewGenerateMock).toHaveBeenCalledWith(imageKey, { kind: 'image' });
   });
 
   it('returns 502 when preview generation fails with a generic error', async () => {
@@ -116,7 +149,7 @@ describe('POST /api/uploads/preview – route integration (auth → validation �
     const res = await post(EDITOR_KEY, editor);
     expect(res.status).toBe(502);
     expect(res.body.error).toBe('preview generation failed');
-    expect(previewGenerateMock).toHaveBeenCalledWith(EDITOR_KEY);
+    expect(previewGenerateMock).toHaveBeenCalledWith(EDITOR_KEY, { kind: 'file' });
   });
 
   it('returns 503 when the generator reports the converter is unavailable', async () => {
@@ -165,20 +198,19 @@ describe('GET /api/uploads/url – per-slide image readability', () => {
     return Readable.from([Buffer.from(body)]);
   }
 
-  it('serves a previews-img object to an unauthenticated visitor', async () => {
+  it('serves a new presentation slide-cache object to an unauthenticated visitor', async () => {
     getObjectForProxyMock.mockResolvedValue({
       contentLength: 4,
       body: streamable('WEBP'),
     });
+    const key = 'previews-file-img/v2/abcdef0123456789abcdef0123456789/1.webp';
 
     const res = await request(buildApp())
       .get('/api/uploads/url')
-      .query({ key: 'previews-img/abcdef0123456789abcdef0123456789/1.webp' });
+      .query({ key });
 
     expect(res.status).toBe(200);
-    expect(getObjectForProxyMock.mock.calls[0][0]).toBe(
-      'previews-img/abcdef0123456789abcdef0123456789/1.webp',
-    );
+    expect(getObjectForProxyMock.mock.calls[0][0]).toBe(key);
   });
 
   it('still refuses keys outside the readable prefixes', async () => {
@@ -245,7 +277,7 @@ describe('GET /api/uploads/preview/pdf – public on-demand preview', () => {
     expect(res.headers['etag']).toBe('"abc123"');
     expect(res.headers['last-modified']).toBe('Thu, 01 Oct 2026 00:00:00 GMT');
     expect(res.body.toString()).toBe('%PDF-1.7');
-    expect(ensurePreviewPdfMock).toHaveBeenCalledWith(EDITOR_KEY);
+    expect(ensurePreviewPdfMock).toHaveBeenCalledWith(EDITOR_KEY, { kind: 'file' });
   });
 
   it('answers 304 (and streams no bytes) when the client already has the ETag', async () => {
@@ -397,5 +429,98 @@ describe('GET /api/uploads/preview/pdf – public on-demand preview', () => {
       expect(res.status).not.toHaveBeenCalled();
       expect(res.json).not.toHaveBeenCalled();
     });
+  });
+});
+
+// The per-slide image endpoint drives the in-app viewer: it is the only place
+// that renders the cached PDF to WebP, so it must be reachable by plain visitors
+// (like the PDF endpoint) and must never fail hard when rendering is unavailable
+// — the client falls back to the PDF, which is produced independently.
+describe('GET /api/uploads/preview/images – public per-slide images', () => {
+  const TEMPLATE = '/api/uploads/url?key=previews-img%2Fabcdef0123456789abcdef0123456789%2F{n}.webp';
+
+  function getImages(key) {
+    const req = request(buildApp()).get('/api/uploads/preview/images');
+    return key === undefined ? req : req.query({ key });
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    isPreviewableKeyMock.mockImplementation((key) => /\.(ppsx|pptx|ppt)$/i.test(key || ''));
+  });
+
+  it('ensures the PDF first, then returns the image template and page count', async () => {
+    ensurePreviewPdfMock.mockResolvedValueOnce({ previewKey: 'previews/v2/abc.pdf', created: true });
+    ensureSlideImagesMock.mockResolvedValueOnce({ template: TEMPLATE, pages: 7 });
+
+    const res = await getImages(EDITOR_KEY); // no auth header on purpose
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ template: TEMPLATE, pages: 7 });
+    // The PDF must exist before the renderer reads it.
+    expect(ensurePreviewPdfMock).toHaveBeenCalledWith(EDITOR_KEY, { kind: 'file' });
+    expect(ensureSlideImagesMock).toHaveBeenCalledWith(EDITOR_KEY, { kind: 'file' });
+  });
+
+  it('answers with a null template (not an error) when the renderer is unavailable', async () => {
+    ensurePreviewPdfMock.mockResolvedValueOnce({ previewKey: 'previews/v2/abc.pdf', created: false });
+    ensureSlideImagesMock.mockResolvedValueOnce(null);
+
+    const res = await getImages(EDITOR_KEY);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ template: null, pages: null });
+  });
+
+  it('swallows a render failure and still offers the PDF fallback', async () => {
+    ensurePreviewPdfMock.mockResolvedValueOnce({ previewKey: 'previews/v2/abc.pdf', created: false });
+    ensureSlideImagesMock.mockRejectedValueOnce(new Error('pdftoppm exploded'));
+
+    const res = await getImages(EDITOR_KEY);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ template: null, pages: null });
+  });
+
+  it('returns 400 when the key is missing', async () => {
+    const res = await getImages();
+    expect(res.status).toBe(400);
+    expect(ensurePreviewPdfMock).not.toHaveBeenCalled();
+    expect(ensureSlideImagesMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 for a key outside the public read prefixes', async () => {
+    const res = await getImages('backups/secret.ppsx');
+    expect(res.status).toBe(403);
+    expect(ensurePreviewPdfMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 415 without rendering when the key is not a presentation', async () => {
+    const res = await getImages('Hymns/song.mp3');
+    expect(res.status).toBe(415);
+    expect(ensurePreviewPdfMock).not.toHaveBeenCalled();
+    expect(ensureSlideImagesMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 502 when the PDF conversion fails (so the client can retry)', async () => {
+    ensurePreviewPdfMock.mockRejectedValueOnce(new Error('soffice crashed'));
+
+    const res = await getImages(EDITOR_KEY);
+
+    expect(res.status).toBe(502);
+    expect(res.body.error).toBe('preview generation failed');
+    expect(ensureSlideImagesMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 503 (not 502) when the server has no converter installed', async () => {
+    ensurePreviewPdfMock.mockRejectedValueOnce(
+      Object.assign(new Error('preview converter unavailable'), { code: 'CONVERTER_UNAVAILABLE' }),
+    );
+
+    const res = await getImages(EDITOR_KEY);
+
+    expect(res.status).toBe(503);
+    expect(res.body.error).toBe('preview converter unavailable');
+    expect(ensureSlideImagesMock).not.toHaveBeenCalled();
   });
 });

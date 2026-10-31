@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { createHash } from 'node:crypto';
 import { access, readdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, extname, join } from 'node:path';
@@ -7,6 +8,12 @@ import { createPpsxConverter } from '../services/ppsx-converter.js';
 
 const SOURCE_KEY = 'PowerPoints/hymn.ppsx';
 const SOURCE_BYTES = Buffer.from('PPSX_BYTES');
+
+// Shape of a versioned preview key. Built from the exported constant so a future
+// PREVIEW_PIPELINE_VERSION bump does not leave these assertions testing an old key.
+const VERSIONED_PREVIEW_RE = new RegExp(
+  `^previews/v${ppsxConverter.PREVIEW_PIPELINE_VERSION}/[a-f0-9]{32}\\.pdf$`,
+);
 
 // Route tests mock this module wholesale, so nothing else would catch a named export
 // that controllers import but the module forgets to provide — a failure that only
@@ -18,6 +25,7 @@ describe('ppsx-converter – module surface', () => {
     }
     expect(typeof ppsxConverter.queuePpsxPreviews).toBe('function');
     expect(typeof ppsxConverter.previewKeyForSource).toBe('function');
+    expect(typeof ppsxConverter.previewKeyForOwnedSource).toBe('function');
   });
 
   it('the default converter exposes the same callables it exports', () => {
@@ -104,6 +112,36 @@ function createMocks({ slideImages = false, clipGuard = null, probeCsFont = asyn
   return { objects, s3Service, outdirs, execute, database, libreofficeCalls, converter };
 }
 
+describe('ppsx-converter – ownership-aware preview keys', () => {
+  it('puts image-derived previews in their own source-carrying namespace', () => {
+    const imageSource = 'Images/deck.pptx';
+    const imageKey = ppsxConverter.previewKeyForOwnedSource(imageSource, { kind: 'image' });
+    const match = new RegExp(
+      `^previews-image/v${ppsxConverter.PREVIEW_PIPELINE_VERSION}/([A-Za-z0-9_-]+)/[a-f0-9]{32}\\.pdf$`,
+    ).exec(imageKey);
+
+    expect(match).not.toBeNull();
+    expect(Buffer.from(match[1], 'base64url').toString('utf8')).toBe(imageSource);
+    expect(ppsxConverter.previewKeyForOwnedSource(imageSource, { kind: 'file' }))
+      .toMatch(new RegExp(`^previews-file/v${ppsxConverter.PREVIEW_PIPELINE_VERSION}/[a-f0-9]{32}\\.pdf$`));
+  });
+
+  it('writes a new ownership-aware preview when kind is supplied', async () => {
+    const { objects, s3Service, converter } = createMocks();
+    objects.set(SOURCE_KEY, SOURCE_BYTES);
+
+    const result = await converter.generatePreviewForKey(SOURCE_KEY, { kind: 'file' });
+
+    expect(result.previewKey).toMatch(
+      new RegExp(`^previews-file/v${ppsxConverter.PREVIEW_PIPELINE_VERSION}/[a-f0-9]{32}\\.pdf$`),
+    );
+    expect(result.previewKey).not.toBe(ppsxConverter.previewKeyForSource(SOURCE_KEY));
+    expect(objects.has(result.previewKey)).toBe(true);
+    expect(objects.get(SOURCE_KEY).toString()).toBe(SOURCE_BYTES.toString());
+    expect(s3Service.putObjectBuffer.mock.calls[0][0]).toBe(result.previewKey);
+  });
+});
+
 describe('ppsx-converter – on-demand preview generation', () => {
   it('converts a .ppsx source to a stable preview key and reports the page count', async () => {
     const { objects, s3Service, outdirs, libreofficeCalls, converter } = createMocks();
@@ -111,7 +149,7 @@ describe('ppsx-converter – on-demand preview generation', () => {
 
     const result = await converter.generatePreviewForKey(SOURCE_KEY);
 
-    expect(result.previewKey).toMatch(/^previews\/[a-f0-9]{32}\.pdf$/);
+    expect(result.previewKey).toMatch(VERSIONED_PREVIEW_RE);
     expect(result.previewUrl).toContain(encodeURIComponent(result.previewKey));
     expect(result.slideCount).toBe(3);
     expect(libreofficeCalls.count).toBe(1);
@@ -164,7 +202,7 @@ describe('ppsx-converter – on-demand preview generation', () => {
 
       const result = await converter.generatePreviewForKey(key);
 
-      expect(result.previewKey).toMatch(/^previews\/[a-f0-9]{32}\.pdf$/);
+      expect(result.previewKey).toMatch(VERSIONED_PREVIEW_RE);
       expect(libreofficeCalls.count).toBe(1);
       expect(s3Service.putObjectBuffer.mock.calls[0][0]).toMatch(/^previews\//);
     },
@@ -588,5 +626,101 @@ describe('ppsx-converter – Arabic CS font self-check', () => {
     } finally {
       restore();
     }
+  });
+});
+
+// The stored preview key carries an explicit conversion-pipeline version so a font or
+// toolchain change cannot keep serving PDFs produced by the old pipeline. These tests
+// pin that contract: the version is stable inside a deploy, a bump forces a fresh
+// conversion without deleting the old objects, and every preview path agrees on the key.
+describe('ppsx-converter – preview key pipeline version', () => {
+  const FILE = {
+    id: 'file-versioned',
+    type: 'POWERPOINT',
+    originalName: 'versioning.ppsx',
+    fileUrl: `/api/uploads/url?key=${encodeURIComponent(SOURCE_KEY)}`,
+  };
+
+  it('exposes a non-empty pipeline version constant', () => {
+    expect(typeof ppsxConverter.PREVIEW_PIPELINE_VERSION).toBe('string');
+    expect(ppsxConverter.PREVIEW_PIPELINE_VERSION.length).toBeGreaterThan(0);
+  });
+
+  it('derives the same key for the same source and the same version', () => {
+    expect(ppsxConverter.previewKeyForSource(SOURCE_KEY))
+      .toBe(ppsxConverter.previewKeyForSource(SOURCE_KEY));
+    expect(ppsxConverter.previewKeyForSource(SOURCE_KEY, '7'))
+      .toBe(ppsxConverter.previewKeyForSource(SOURCE_KEY, '7'));
+  });
+
+  it('derives different keys for the same source across two versions', () => {
+    const older = ppsxConverter.previewKeyForSource(SOURCE_KEY, '1');
+    const current = ppsxConverter.previewKeyForSource(SOURCE_KEY, '2');
+
+    expect(older).not.toBe(current);
+    // Only the version segment differs: the source-derived hash is unchanged, so the
+    // preview stays traceable to the same object and previews-img/ keeps its hash.
+    const hash = createHash('sha256').update(SOURCE_KEY).digest('hex').slice(0, 32);
+    expect(older).toBe(`previews/v1/${hash}.pdf`);
+    expect(current).toBe(`previews/v2/${hash}.pdf`);
+  });
+
+  it('defaults to the current version and embeds it as a path segment', () => {
+    const key = ppsxConverter.previewKeyForSource(SOURCE_KEY);
+    expect(key).toBe(`previews/v${ppsxConverter.PREVIEW_PIPELINE_VERSION}/${createHash('sha256')
+      .update(SOURCE_KEY).digest('hex').slice(0, 32)}.pdf`);
+    expect(key).toMatch(VERSIONED_PREVIEW_RE);
+  });
+
+  it('reuses a preview that already exists under the current version', async () => {
+    const { objects, s3Service, libreofficeCalls, converter } = createMocks();
+    objects.set(SOURCE_KEY, SOURCE_BYTES);
+    // Seed exactly what the current pipeline would have written.
+    objects.set(ppsxConverter.previewKeyForSource(SOURCE_KEY), Buffer.from('CACHED_PDF'));
+
+    const result = await converter.ensurePreviewPdf(SOURCE_KEY);
+
+    expect(result.created).toBe(false);
+    expect(result.previewKey).toBe(ppsxConverter.previewKeyForSource(SOURCE_KEY));
+    expect(libreofficeCalls.count).toBe(0);
+    expect(s3Service.putObjectBuffer).not.toHaveBeenCalled();
+  });
+
+  it('does not reuse a preview cached under an older version', async () => {
+    const { objects, s3Service, libreofficeCalls, converter } = createMocks();
+    objects.set(SOURCE_KEY, SOURCE_BYTES);
+    // A disconnected-Arabic PDF left behind by the previous pipeline version.
+    const staleKey = ppsxConverter.previewKeyForSource(SOURCE_KEY, '1');
+    objects.set(staleKey, Buffer.from('OLD_DISCONNECTED_PDF'));
+
+    const result = await converter.ensurePreviewPdf(SOURCE_KEY);
+
+    // The stale object must not satisfy the current version: a fresh conversion runs,
+    // writes under the new key, and never touches the old object.
+    expect(result.created).toBe(true);
+    expect(result.previewKey).not.toBe(staleKey);
+    expect(result.previewKey).toBe(ppsxConverter.previewKeyForSource(SOURCE_KEY));
+    expect(objects.get(result.previewKey).toString()).toBe('FAKE_PDF');
+    expect(objects.get(staleKey).toString()).toBe('OLD_DISCONNECTED_PDF');
+    expect(s3Service.putObjectBuffer.mock.calls[0][0]).toBe(result.previewKey);
+    expect(libreofficeCalls.count).toBe(1);
+  });
+
+  it('uses the same versioned key on every preview path', async () => {
+    const { objects, s3Service, database, converter } = createMocks();
+    objects.set(SOURCE_KEY, SOURCE_BYTES);
+    const expected = ppsxConverter.previewKeyForSource(SOURCE_KEY);
+
+    // generatePreviewForKey (POST /api/uploads/preview, editor flow)
+    const generated = await converter.generatePreviewForKey(SOURCE_KEY);
+    expect(generated.previewKey).toBe(expected);
+    expect(generated.previewUrl).toContain(encodeURIComponent(expected));
+    expect(s3Service.putObjectBuffer.mock.calls[0][0]).toBe(expected);
+
+    // convertFile (the File-row pipeline) must land on the same key.
+    const converted = await converter.convertFile(FILE);
+    expect(converted.previewKey).toBe(expected);
+    expect(database.file.update.mock.calls.at(-1)[0].data.previewUrl)
+      .toContain(encodeURIComponent(expected));
   });
 });

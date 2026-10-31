@@ -4,11 +4,15 @@ import {
   ChevronLeft,
   ChevronRight,
   Expand,
+  ExternalLink,
   Loader2,
   RefreshCw,
 } from 'lucide-react';
-import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
-import { buildPreviewPdfUrl } from '../services/s3Upload';
+import {
+  buildPreviewImagesUrl,
+  buildPreviewPdfUrl,
+  resolveSlideImageUrl,
+} from '../services/s3Upload';
 
 interface PptxViewerProps {
   /** Stored URL of the original presentation (`/api/uploads/url?key=Hymns/...ppsx`). */
@@ -18,105 +22,102 @@ interface PptxViewerProps {
 }
 
 // Nominal frame geometry, not the deck's aspect ratio. 696x345 is ~2.02:1 while
-// slides are 16:9 (1.78:1), so the rendered page letterboxes inside the frame and
+// slides are 16:9 (1.78:1), so the rendered slide letterboxes inside the frame and
 // leaves a dark band on each side; that is the intended fit-inside behaviour, not
 // a stretched render. Set FRAME_HEIGHT to 391 for a flush 16:9 frame.
 const FRAME_WIDTH = 696;
 const FRAME_HEIGHT = 345;
 
-// The very first open of a deck runs LibreOffice on the server (up to ~2 min).
-const PDF_FETCH_TIMEOUT_MS = 180_000;
+// The very first open of a deck runs LibreOffice on the server (up to ~2 min)
+// before the per-slide images can be rendered from the resulting PDF.
+const PREVIEW_FETCH_TIMEOUT_MS = 180_000;
 
-type ViewerState = 'loading' | 'ready' | 'error';
+// 'pdf-only' is the safe fallback when the image set is unavailable: it links to
+// the PDF, which the browser's native viewer renders correctly. The in-app PDF.js
+// canvas path is deliberately not used — it mis-positions Arabic clusters.
+type ViewerState = 'loading' | 'ready' | 'pdf-only' | 'error';
 
 export function PptxViewer({ src, slideCount, title }: PptxViewerProps) {
   const shellRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const docRef = useRef<PDFDocumentProxy | null>(null);
-  const renderTaskRef = useRef<RenderTask | null>(null);
 
   const [page, setPage] = useState(1);
   const [state, setState] = useState<ViewerState>('loading');
   // True when the server answered 503: it has no PowerPoint->PDF converter, so
   // retrying cannot help. Suppresses the retry button and names the real cause.
   const [converterMissing, setConverterMissing] = useState(false);
-  const [numPages, setNumPages] = useState<number | null>(null);
+  // "{n}"-templated image URL, or null when the server has no image set for this
+  // deck (no poppler, an unsupported deck, or a render failure).
+  const [template, setTemplate] = useState<string | null>(null);
+  const [pages, setPages] = useState<number | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   // Set while this element (rather than the document) is fullscreen, so the
   // toolbar can get out of the way and the frame can fill the screen.
   const [bare, setBare] = useState(false);
-  // Bumped by the ResizeObserver so a container resize re-runs the render pass.
-  const [frameSize, setFrameSize] = useState(0);
+  // A single slide that fails to load degrades to the PDF link, never to a
+  // broken-image icon.
+  const [imageFailed, setImageFailed] = useState(false);
 
   const pdfUrl = useMemo(() => buildPreviewPdfUrl(src), [src]);
-  // The rendered PDF is the authority for page count; `slideCount` is the fallback.
-  const total = numPages ?? (slideCount && slideCount > 0 ? slideCount : null);
+  const imagesUrl = useMemo(() => buildPreviewImagesUrl(src), [src]);
+  // The rendered set is the authority for page count; `slideCount` is the fallback.
+  const total = pages ?? (slideCount && slideCount > 0 ? slideCount : null);
+  const slideUrl = useMemo(
+    () => (template ? resolveSlideImageUrl(template, page) : undefined),
+    [template, page],
+  );
 
-  // Cancel any in-flight page paint and destroy the document. Called both when a
-  // new preview replaces the old one and on unmount, so nothing is left alive.
-  const releaseDocument = useCallback(() => {
-    renderTaskRef.current?.cancel();
-    renderTaskRef.current = null;
-    const doc = docRef.current;
-    docRef.current = null;
-    if (doc) void doc.destroy().catch(() => undefined);
-  }, []);
-
-  // The PDF is fetched here as bytes rather than handed to an <iframe>. The API is
-  // on a different origin from the app and its responses carry `X-Frame-Options:
-  // DENY`, which makes a cross-origin frame unrenderable — and a browser-native PDF
-  // frame would come back with Download/Print controls we do not want to expose.
-  // Holding the bytes also lets us see the HTTP status: an iframe cannot tell
-  // "still converting" from "no converter".
+  // Ask the server for the per-slide image set. The first open converts the deck
+  // to PDF and renders every slide; later opens are served from S3. The response's
+  // template is null when images cannot be produced — then we degrade to the PDF.
   useEffect(() => {
-    if (!pdfUrl) {
+    if (!imagesUrl) {
       setState('error');
       return undefined;
     }
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), PDF_FETCH_TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), PREVIEW_FETCH_TIMEOUT_MS);
     let abandoned = false;
 
     setState('loading');
     setConverterMissing(false);
-    setNumPages(null);
+    setTemplate(null);
+    setPages(null);
     setPage(1);
-    releaseDocument();
+    setImageFailed(false);
 
     (async () => {
       try {
-        const res = await fetch(pdfUrl, { signal: controller.signal, cache: 'no-cache' });
+        const res = await fetch(imagesUrl, { signal: controller.signal, cache: 'no-cache' });
+        // No converter at all is a deployment problem: keep the specific message
+        // and suppress a retry that could not possibly help.
         if (res.status === 503) {
           setConverterMissing(true);
           throw new Error('preview converter unavailable');
         }
-        if (!res.ok) throw new Error(`preview fetch failed with status ${res.status}`);
-
-        const buffer = await res.arrayBuffer();
-        if (controller.signal.aborted || abandoned) return;
-
-        // Loaded on demand: the PDF engine is ~1 MB, so it stays out of the
-        // initial bundle and only arrives with the first preview that opens.
-        const [pdfjs, workerModule] = await Promise.all([
-          import('pdfjs-dist'),
-          import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
-        ]);
-        pdfjs.GlobalWorkerOptions.workerSrc = workerModule.default;
-        if (controller.signal.aborted || abandoned) return;
-
-        const loadingTask = pdfjs.getDocument({ data: new Uint8Array(buffer) });
-        const doc = await loadingTask.promise;
-        if (controller.signal.aborted || abandoned) {
-          void doc.destroy();
+        // Any other non-OK — 404 when the endpoint is not deployed yet, 504 when a
+        // first render outran the server timeout, 502 when conversion failed, … —
+        // leaves the images unavailable but does not invalidate the PDF, which is
+        // rendered independently. Degrade to the PDF link instead of an error the
+        // visitor cannot act on. (Malformed JSON / a dropped connection still fall
+        // through to the error state, which also offers the PDF link.)
+        if (!res.ok) {
+          if (controller.signal.aborted || abandoned) return;
+          setState('pdf-only');
           return;
         }
 
-        docRef.current = doc;
-        setNumPages(doc.numPages);
-        setPage(1);
-        setState('ready');
+        const data = (await res.json()) as { template?: unknown; pages?: unknown };
+        if (controller.signal.aborted || abandoned) return;
+
+        const nextTemplate = typeof data?.template === 'string' ? data.template : null;
+        const nextPages =
+          typeof data?.pages === 'number' && data.pages > 0 ? data.pages : null;
+
+        setTemplate(nextTemplate);
+        setPages(nextPages);
+        setState(nextTemplate ? 'ready' : 'pdf-only');
       } catch (err) {
         if (controller.signal.aborted || abandoned) return;
         console.error('[PptxViewer] preview load failed:', err);
@@ -131,91 +132,13 @@ export function PptxViewer({ src, slideCount, title }: PptxViewerProps) {
       abandoned = true;
       controller.abort();
       clearTimeout(timer);
-      releaseDocument();
     };
-  }, [pdfUrl, reloadToken, releaseDocument]);
+  }, [imagesUrl, reloadToken]);
 
-  // Paint the requested page into the canvas. Every pass fits the page inside the
-  // frame (contain), which is what the old `#view=Fit` fragment asked the browser
-  // PDF viewer to do — so the letterboxing and the frame geometry are unchanged.
+  // A slide change is a fresh load, so clear a previous failure.
   useEffect(() => {
-    const doc = docRef.current;
-    const canvas = canvasRef.current;
-    const frame = frameRef.current;
-    if (state !== 'ready' || !doc || !canvas || !frame) return undefined;
-
-    let stale = false;
-    const target = Math.min(Math.max(page, 1), doc.numPages);
-
-    renderTaskRef.current?.cancel();
-    renderTaskRef.current = null;
-
-    (async () => {
-      try {
-        const pdfPage = await doc.getPage(target);
-        if (stale) return;
-
-        const cssWidth = frame.clientWidth;
-        const cssHeight = frame.clientHeight;
-        if (!cssWidth || !cssHeight) return;
-
-        const base = pdfPage.getViewport({ scale: 1 });
-        const scale = Math.min(cssWidth / base.width, cssHeight / base.height);
-        const viewport = pdfPage.getViewport({ scale });
-        // Render at device resolution so text stays crisp, while the CSS box keeps
-        // the layout size — a plain 1:1 canvas would look blurred on retina.
-        const outputScale = Math.max(window.devicePixelRatio || 1, 1);
-
-        canvas.width = Math.round(viewport.width * outputScale);
-        canvas.height = Math.round(viewport.height * outputScale);
-        canvas.style.width = `${Math.round(viewport.width)}px`;
-        canvas.style.height = `${Math.round(viewport.height)}px`;
-
-        const ctx = canvas.getContext('2d', { alpha: false });
-        if (!ctx) return;
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        const task = pdfPage.render({
-          canvasContext: ctx,
-          viewport,
-          transform:
-            outputScale === 1 ? undefined : [outputScale, 0, 0, outputScale, 0, 0],
-        });
-        renderTaskRef.current = task;
-        if (stale) {
-          task.cancel();
-          renderTaskRef.current = null;
-          return;
-        }
-        await task.promise;
-        if (renderTaskRef.current === task) renderTaskRef.current = null;
-      } catch (err) {
-        // A superseded paint is cancelled on purpose; only real failures matter.
-        if (err instanceof Error && err.name === 'RenderingCancelledException') return;
-        if (stale) return;
-        console.error('[PptxViewer] page render failed:', err);
-      }
-    })();
-
-    return () => {
-      stale = true;
-      renderTaskRef.current?.cancel();
-      renderTaskRef.current = null;
-    };
-  }, [state, page, numPages, frameSize]);
-
-  // The frame's on-screen box changes with the viewport and with fullscreen, so
-  // every size change re-fits the page instead of leaving it at the old scale.
-  useEffect(() => {
-    const frame = frameRef.current;
-    if (!frame || typeof ResizeObserver === 'undefined') return undefined;
-    const observer = new ResizeObserver(() => {
-      setFrameSize((n) => n + 1);
-    });
-    observer.observe(frame);
-    return () => observer.disconnect();
-  }, []);
+    setImageFailed(false);
+  }, [slideUrl]);
 
   const goNext = useCallback(() => setPage((p) => Math.min(p + 1, total ?? Infinity)), [total]);
   const goPrev = useCallback(() => setPage((p) => Math.max(p - 1, 1)), []);
@@ -281,10 +204,16 @@ export function PptxViewer({ src, slideCount, title }: PptxViewerProps) {
 
   // Blocks the browser menu over the slide itself; the toolbar stays right-clickable.
   const onContextMenu = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-    if (event.target === event.currentTarget || (event.target as HTMLElement).closest('canvas')) {
+    if (event.target === event.currentTarget || (event.target as HTMLElement).closest('img')) {
       event.preventDefault();
     }
   }, []);
+
+  const showSlide = state === 'ready' && !imageFailed && Boolean(slideUrl);
+  // A deck whose images are missing (or a slide that failed to load) still has a
+  // correct render available at the PDF URL — the native viewer shapes Arabic
+  // properly, so linking there is the safe fallback.
+  const showPdfFallback = state === 'pdf-only' || (state === 'ready' && imageFailed);
 
   return (
     <div
@@ -305,12 +234,16 @@ export function PptxViewer({ src, slideCount, title }: PptxViewerProps) {
           } as React.CSSProperties
         }
       >
-        {state === 'ready' && (
-          <canvas
-            ref={canvasRef}
-            role="img"
-            aria-label={title ? `معاينة: ${title}` : 'معاينة العرض التقديمي'}
-            className="block"
+        {showSlide && (
+          <img
+            key={slideUrl}
+            src={slideUrl}
+            alt={title ? `معاينة: ${title}` : 'معاينة العرض التقديمي'}
+            className="block max-h-full max-w-full object-contain"
+            onError={() => {
+              console.error('[PptxViewer] slide image failed to load:', slideUrl);
+              setImageFailed(true);
+            }}
           />
         )}
 
@@ -319,8 +252,31 @@ export function PptxViewer({ src, slideCount, title }: PptxViewerProps) {
             <Loader2 className="w-8 h-8 animate-spin" />
             <p className="text-sm text-muted-foreground">جاري تجهيز المعاينة...</p>
             <p className="max-w-[22rem] text-center text-xs text-muted-foreground/80">
-              أول فتح للعرض قد يستغرق لحظات لتحويله إلى PDF.
+              أول فتح للعرض قد يستغرق لحظات لتجهيز صور الشرائح.
             </p>
+          </div>
+        )}
+
+        {showPdfFallback && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-black/90 p-6 text-center text-background-foreground">
+            <AlertTriangle className="w-10 h-10 text-yellow-500" />
+            <div>
+              <p className="font-bold">المعاينة داخل الصفحة غير متاحة</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                يمكنك فتح العرض الأصلي في المتصفح لعرضه كاملاً.
+              </p>
+            </div>
+            {pdfUrl && (
+              <a
+                href={pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg border border-border px-5 py-3 font-bold"
+              >
+                <ExternalLink className="w-5 h-5" />
+                فتح المعاينة في المتصفح
+              </a>
+            )}
           </div>
         )}
 
@@ -334,24 +290,39 @@ export function PptxViewer({ src, slideCount, title }: PptxViewerProps) {
               <p className="mt-1 text-sm text-muted-foreground">
                 {converterMissing
                   ? 'المعاينة تحتاج إلى برنامج LibreOffice على الخادم.'
-                  : 'يمكنك إعادة المحاولة.'}
+                  : 'يمكنك إعادة المحاولة أو فتح العرض الأصلي في المتصفح.'}
               </p>
             </div>
-            {!converterMissing && pdfUrl && (
-              <button
-                type="button"
-                onClick={() => setReloadToken((token) => token + 1)}
-                className="inline-flex items-center gap-2 rounded-lg border border-border px-5 py-3 font-bold"
-              >
-                <RefreshCw className="w-5 h-5" />
-                إعادة المحاولة
-              </button>
+            {!converterMissing && (
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {imagesUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setReloadToken((token) => token + 1)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-border px-5 py-3 font-bold"
+                  >
+                    <RefreshCw className="w-5 h-5" />
+                    إعادة المحاولة
+                  </button>
+                )}
+                {pdfUrl && (
+                  <a
+                    href={pdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg border border-border px-5 py-3 font-bold"
+                  >
+                    <ExternalLink className="w-5 h-5" />
+                    فتح المعاينة في المتصفح
+                  </a>
+                )}
+              </div>
             )}
           </div>
         )}
       </div>
 
-      {state === 'ready' && !bare && (
+      {state === 'ready' && !imageFailed && !bare && (
         <div className="flex flex-wrap items-center justify-center gap-2">
           {title && <span className="max-w-[16rem] truncate text-sm font-bold">{title}</span>}
           <button

@@ -1,6 +1,7 @@
 import { prisma } from './prisma.js';
 import s3Service from './s3.service.js';
 import { normalizeArabic } from './normalize.js';
+import { resolveImageDeleteKey } from './image-s3-key.js';
 
 const includeRelations = { tags: { select: { id: true, name: true } }, author: true, type: true };
 
@@ -155,15 +156,16 @@ export const ImageService = {
     const image = await prisma.image.findUnique({ where: { id } });
     if (!image) return null;
 
-    // Delete S3 object if imageUrl contains a key
+    // Delete the S3 object only when the stored URL resolves to a key inside
+    // the configured image folder. A rejected/missing key still removes the DB
+    // row, preserving the existing delete behavior without touching S3.
     if (image.imageUrl) {
       try {
-        if (image.imageUrl.includes('key=')) {
-          const parts = image.imageUrl.split('key=');
-          const key = decodeURIComponent(parts[1] || '');
-          if (key) {
-            await s3Service.deleteObject(key);
-          }
+        const key = resolveImageDeleteKey(image.imageUrl);
+        if (key) {
+          await s3Service.deleteObject(key);
+        } else if (typeof image.imageUrl === 'string' && image.imageUrl.includes('/api/uploads/url')) {
+          console.warn(`Skipped S3 deletion for image ${id}: key is missing or outside the allowed image prefix`);
         }
       } catch (e) {
         console.error('Failed to delete image S3 object:', e.message || e);

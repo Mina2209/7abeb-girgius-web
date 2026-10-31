@@ -86,8 +86,8 @@ function createS3Service({ region, bucket, prefix = 'Uploads/' } = {}) {
       return url;
     },
 
-    async deleteObject(key) {
-      const command = new DeleteObjectCommand({ Bucket: bucket, Key: key });
+    async deleteObject(key, options = {}) {
+      const command = new DeleteObjectCommand({ Bucket: bucket, Key: key, ...options });
       return s3.send(command);
     },
 
@@ -136,6 +136,27 @@ function createS3Service({ region, bucket, prefix = 'Uploads/' } = {}) {
       }));
     },
 
+    // Attempt to write only if object does not exist (conditional put). Returns true if written, false if it already existed.
+    async putObjectIfNoneMatch(key, body, contentType, options = {}) {
+      try {
+        await s3.send(new PutObjectCommand({
+          Bucket: bucket,
+          Key: key,
+          Body: body,
+          ContentType: contentType,
+          IfNoneMatch: '*',
+          ...options,
+        }));
+        return true;
+      } catch (err) {
+        // S3 returns PreconditionFailed when IfNoneMatch fails
+        if (err?.name === 'PreconditionFailed' || err?.$metadata?.httpStatusCode === 412) {
+          return false;
+        }
+        throw err;
+      }
+    },
+
     // True if the object exists, false otherwise (used to serve cached thumbnails).
     async objectExists(key) {
       try {
@@ -143,6 +164,18 @@ function createS3Service({ region, bucket, prefix = 'Uploads/' } = {}) {
         return true;
       } catch {
         return false;
+      }
+    },
+
+    async headObject(key) {
+      try {
+        const res = await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+        return res;
+      } catch (err) {
+        if (err?.name === 'NotFound' || err?.$metadata?.httpStatusCode === 404) {
+          return null;
+        }
+        throw err;
       }
     },
 

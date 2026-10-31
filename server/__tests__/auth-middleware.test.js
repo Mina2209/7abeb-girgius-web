@@ -106,7 +106,7 @@ describe('optionalAuthenticate – tokenVersion enforcement', () => {
     expect(req.user).toBeUndefined();
   });
 
-  it('proceeds anonymously when legacy token has no tokenVersion field', async () => {
+  it('proceeds anonymously when tokenVersion is missing (legacy token)', async () => {
     dbTokens.set('u1', 0);
     const token = jwt.sign({ id: 'u1', username: 'alice', role: 'VIEWER' }, JWT_SECRET);
     const req = fakeReq(token);
@@ -114,6 +114,17 @@ describe('optionalAuthenticate – tokenVersion enforcement', () => {
     await optionalAuthenticate(req, fakeRes(), next);
     await flush();
     expect(next).toHaveBeenCalledOnce();
-    expect(req.user).toBeDefined();
+    expect(req.user).toBeUndefined();
+  });
+
+  it('proceeds anonymously when tokenVersion is invalid (non-numeric)', async () => {
+    dbTokens.set('u1', 0);
+    const token = sign({ tokenVersion: '0' });
+    const req = fakeReq(token);
+    const next = vi.fn();
+    await optionalAuthenticate(req, fakeRes(), next);
+    await flush();
+    expect(next).toHaveBeenCalledOnce();
+    expect(req.user).toBeUndefined();
   });
 });

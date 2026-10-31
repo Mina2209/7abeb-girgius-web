@@ -30,12 +30,13 @@ export async function authenticate(req, res, next) {
   try {
     // Verify tokenVersion matches the one stored in the database. If the user
     // changed their password or role (which bumps tokenVersion), old tokens are rejected.
+    // Tokens without the field are legacy/unsupported and are rejected as well.
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
       select: { tokenVersion: true },
     });
 
-    if (!user || (decoded.tokenVersion !== undefined && decoded.tokenVersion !== user.tokenVersion)) {
+    if (!user || decoded.tokenVersion !== user.tokenVersion) {
       return res.status(401).json({ error: 'Unauthorized - Token revoked' });
     }
 
@@ -57,12 +58,13 @@ export async function optionalAuthenticate(req, res, next) {
       const decoded = jwt.verify(authHeader.substring(7), JWT_SECRET);
       try {
         // Verify tokenVersion against DB so revoked tokens (post-password-change) don't
-        // attach stale identity. On failure, continue anonymously — never reject.
+        // attach stale identity. Tokens without the field are legacy/unsupported and
+        // are ignored. On failure, continue anonymously — never reject.
         const user = await prisma.user.findUnique({
           where: { id: decoded.id },
           select: { tokenVersion: true },
         });
-        if (user && (decoded.tokenVersion === undefined || decoded.tokenVersion === user.tokenVersion)) {
+        if (user && decoded.tokenVersion === user.tokenVersion) {
           req.user = decoded;
         }
       } catch {

@@ -1,4 +1,4 @@
-FROM node:22-alpine AS build
+FROM node:22-bookworm-slim AS build
 
 WORKDIR /app
 
@@ -10,9 +10,18 @@ RUN npx prisma generate
 
 COPY . .
 
-FROM node:22-alpine AS production
+FROM node:22-bookworm-slim AS production
 
-RUN apk add --no-cache openssl
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends libreoffice fonts-kacst fonts-dejavu poppler-utils openssl fontconfig \
+  && rm -rf /var/lib/apt/lists/*
+
+# Arabic shaping fix: decks declare cs="Times New Roman" for Arabic text.
+# Install Tajawal (OFL, also embedded in the decks) and alias exactly that one
+# family to it so LibreOffice shapes Arabic correctly. See fonts/*.conf.
+COPY fonts/Tajawal-Regular.ttf fonts/Tajawal-Bold.ttf fonts/OFL.txt /usr/share/fonts/truetype/tajawal/
+COPY fonts/90-tajawal-times-new-roman.conf /etc/fonts/conf.d/
+RUN fc-cache -f
 
 WORKDIR /app
 

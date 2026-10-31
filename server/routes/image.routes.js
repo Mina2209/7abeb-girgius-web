@@ -19,7 +19,7 @@ router.delete('/meta/types/:id', authenticate, requireEditor, ImageController.de
 router.get('/', optionalAuthenticate, ImageController.getAll);
 router.get('/ids', optionalAuthenticate, ImageController.getIds); // matching IDs for select-all; before /:id
 router.get('/facets', optionalAuthenticate, ImageController.getFacets); // faceted filter options; before /:id
-router.get('/:id', ImageController.getById);
+router.get('/:id', optionalAuthenticate, ImageController.getById);
 
 // Protected routes - require authentication and editor/admin role
 router.post('/', authenticate, requireEditor, validate({ title: 'string:255', imageUrl: 'string:2000', 'ai?': 'boolean', 'published?': 'boolean', 'authorId?': 'string:255', 'typeId?': 'string:255', 'tags?': 'array:100' }), ImageController.create);

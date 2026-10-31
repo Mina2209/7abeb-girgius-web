@@ -1,7 +1,6 @@
-import { X, Mail, KeyRound, Check, Copy } from 'lucide-react';
+import { X, Mail } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'sonner';
-import { apiPostJson } from '../services/apiClient';
+import { ApiError, apiPostJson } from '../services/apiClient';
 
 interface ForgotPasswordModalProps {
   isOpen: boolean;
@@ -11,20 +10,26 @@ interface ForgotPasswordModalProps {
 
 interface ResetResponse {
   ok: boolean;
-  temporaryPassword?: string;
+  message?: string;
 }
+
+const DEFAULT_SUCCESS_MESSAGE =
+  'تم استلام طلبك. إذا كان الحساب موجوداً، فسيتم التواصل معك من قبل المسؤول لإعادة تعيين كلمة المرور.';
+
+const GENERIC_ERROR_MESSAGE = 'تعذر إرسال الطلب. يرجى المحاولة لاحقاً.';
 
 export function ForgotPasswordModal({ isOpen, onClose, onBackToLogin }: ForgotPasswordModalProps) {
   const [identifier, setIdentifier] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [temporaryPassword, setTemporaryPassword] = useState('');
-  const [copied, setCopied] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
+
     setError('');
 
     if (!identifier.trim()) {
@@ -39,42 +44,44 @@ export function ForgotPasswordModal({ isOpen, onClose, onBackToLogin }: ForgotPa
         identifier: identifier.trim(),
       });
 
-      if (res?.ok && res.temporaryPassword) {
-        setTemporaryPassword(res.temporaryPassword);
+      // A resolved request means HTTP 2xx. Never treat an application-level
+      // failure as success.
+      if (res?.ok) {
+        const message =
+          typeof res.message === 'string' && res.message.trim()
+            ? res.message
+            : DEFAULT_SUCCESS_MESSAGE;
+        setSuccessMessage(message);
       } else {
-        setError('تعذر استعادة كلمة المرور. يرجى المحاولة لاحقاً.');
+        setError(GENERIC_ERROR_MESSAGE);
       }
-    } catch (err: any) {
-      setError(err.message || 'تعذر استعادة كلمة المرور. يرجى المحاولة لاحقاً.');
+    } catch (err) {
+      // Network failures and non-2xx HTTP responses (ApiError) land here.
+      // Keep user-facing validation messages; replace server-side 5xx details
+      // with a friendly generic message.
+      const message =
+        err instanceof ApiError && err.status < 500 && err.message
+          ? err.message
+          : GENERIC_ERROR_MESSAGE;
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(temporaryPassword);
-      setCopied(true);
-      toast.success('تم نسخ كلمة المرور بنجاح');
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error('تعذر نسخ كلمة المرور - الرجاء تحديدها ونسخها يدوياً');
-    }
+  const resetState = () => {
+    setIdentifier('');
+    setError('');
+    setSuccessMessage('');
   };
 
   const handleClose = () => {
-    setIdentifier('');
-    setError('');
-    setTemporaryPassword('');
-    setCopied(false);
+    resetState();
     onClose();
   };
 
   const handleBackToLogin = () => {
-    setIdentifier('');
-    setError('');
-    setTemporaryPassword('');
-    setCopied(false);
+    resetState();
     onBackToLogin();
   };
 
@@ -90,10 +97,10 @@ export function ForgotPasswordModal({ isOpen, onClose, onBackToLogin }: ForgotPa
 
         <h2 className="text-2xl font-bold mb-2 text-center">استعادة كلمة المرور</h2>
 
-        {!temporaryPassword ? (
+        {!successMessage ? (
           <>
             <p className="text-sm text-muted-foreground text-center mb-6">
-              أدخل اسم المستخدم أو البريد الإلكتروني المرتبط بحسابك وسنقوم بتوليد كلمة مرور مؤقتة لك
+              أدخل اسم المستخدم أو البريد الإلكتروني المرتبط بحسابك وسنراجع طلب إعادة التعيين
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -125,7 +132,7 @@ export function ForgotPasswordModal({ isOpen, onClose, onBackToLogin }: ForgotPa
                 disabled={loading}
                 className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
               >
-                {loading ? 'جارٍ استعادة كلمة المرور...' : 'استعادة كلمة المرور'}
+                {loading ? 'جارٍ إرسال الطلب...' : 'استعادة كلمة المرور'}
               </button>
             </form>
 
@@ -139,29 +146,10 @@ export function ForgotPasswordModal({ isOpen, onClose, onBackToLogin }: ForgotPa
         ) : (
           <div className="space-y-4">
             <div className="bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400 px-4 py-3 rounded-lg text-sm text-right">
-              تم استعادة كلمة المرور بنجاح
+              تم استلام طلبك بنجاح
             </div>
 
-            <p className="text-sm text-muted-foreground text-center">
-              استخدم كلمة المرور المؤقتة التالية لتسجيل الدخول، ثم غيّرها من صفحة ملفك الشخصي
-            </p>
-
-            <div className="relative">
-              <div className="flex items-center justify-center gap-2 bg-card border border-border rounded-lg py-4 px-4 text-center">
-                <KeyRound className="w-5 h-5 text-primary flex-shrink-0" />
-                <span dir="ltr" className="text-lg font-mono font-semibold tracking-wider break-all select-all">
-                  {temporaryPassword}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={handleCopy}
-                className="absolute top-1/2 -translate-y-1/2 left-3 text-muted-foreground hover:text-foreground transition-colors"
-                title="نسخ"
-              >
-                {copied ? <Check className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5" />}
-              </button>
-            </div>
+            <p className="text-sm text-muted-foreground text-center">{successMessage}</p>
 
             <button
               type="button"

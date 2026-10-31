@@ -33,6 +33,7 @@ import { ArtistProfileModal } from './ArtistProfileModal';
 import { getArtistByName, type Artist } from '../data/artists';
 import { useIsEditor } from '../utils/adminUtils';
 import { AdminEditImageModal } from './AdminEditImageModal';
+import { AuthenticatedImage } from './AuthenticatedImage';
 import { AdminEditArtistModal } from './AdminEditArtistModal';
 import { AdminBulkEditImagesModal, BulkImageUpdates } from './AdminBulkEditImagesModal';
 import { useGalleryImagesPaged } from '../hooks/useGalleryImagesPaged';
@@ -1092,13 +1093,30 @@ export function ImageLibrarySection({
                     const fullImageUrl = getImageUrl(image.src);
 
                     return (
-                      <img
+                      <AuthenticatedImage
                         src={toThumbUrl(fullImageUrl, 700)}
+                        requiresAuth={isEditor && !image.published}
+                        authToken={accessToken}
                         alt={image.title}
                         loading="lazy"
                         decoding="async"
                         className="w-full h-auto object-cover transition-transform duration-300 bg-muted min-h-[200px]"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        loadingFallback={
+                          <div
+                            className="w-full min-h-[200px] bg-muted animate-pulse"
+                            role="img"
+                            aria-label={image.title}
+                          />
+                        }
+                        errorFallback={
+                          <div
+                            className="w-full min-h-[200px] bg-muted flex items-center justify-center text-muted-foreground"
+                            role="img"
+                            aria-label={`تعذر تحميل ${image.title}`}
+                          >
+                            <ImageIcon className="w-6 h-6" aria-hidden="true" />
+                          </div>
+                        }
                       />
                     );
                   })()}
@@ -1362,10 +1380,22 @@ export function ImageLibrarySection({
               const fullLightboxUrl = getImageUrl(currentSrc);
 
               return (
-                <img
+                <AuthenticatedImage
                   src={fullLightboxUrl}
+                  requiresAuth={isEditor && !sortedImages[currentImageIndex].published}
+                  authToken={accessToken}
                   alt={sortedImages[currentImageIndex].title}
                   className="max-w-full max-h-full object-contain"
+                  loadingFallback={
+                    <div className="text-sm text-white/80" role="status">
+                      جارٍ تحميل الصورة...
+                    </div>
+                  }
+                  errorFallback={
+                    <div className="text-sm text-white/80" role="alert">
+                      تعذر تحميل الصورة
+                    </div>
+                  }
                 />
               );
             })()}

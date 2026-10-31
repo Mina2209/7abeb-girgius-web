@@ -2,6 +2,27 @@ import { authService, normalizeUsername, normalizeEmail } from '../services/auth
 import { logService } from '../services/log.service.js';
 import { validatePassword } from '../utils/password-policy.js';
 
+// Best-effort audit trail for reset requests. Fire-and-forget so the response
+// time does not depend on whether the account exists; any logging failure is
+// surfaced to the server logs instead of being silently swallowed.
+function auditPasswordResetRequest(userId) {
+  try {
+    Promise.resolve(
+      logService.createLog(
+        userId,
+        'UPDATE',
+        'USER',
+        userId,
+        'Password reset requested via forgot-password; self-service reset is disabled (no password change applied)'
+      )
+    ).catch((logError) => {
+      console.error('[forgotPassword] audit log failed:', logError);
+    });
+  } catch (logError) {
+    console.error('[forgotPassword] audit log failed:', logError);
+  }
+}
+
 export const authController = {
 
   async register(req, res) {
@@ -102,33 +123,37 @@ export const authController = {
     }
   },
 
-  async forgotPassword(req, res) {
+  async forgotPassword(req, res, next) {
+    const { identifier } = req.body ?? {};
+
+    if (!identifier || typeof identifier !== 'string') {
+      return res.status(400).json({ error: 'يجب إدخال اسم المستخدم أو البريد الإلكتروني' });
+    }
+
+    const trimmed = identifier.trim();
+    if (trimmed.length < 3 || trimmed.length > 100) {
+      return res.status(400).json({ error: 'يرجى إدخال اسم مستخدم أو بريد إلكتروني صحيح' });
+    }
+
     try {
-      const { identifier } = req.body;
-
-      if (!identifier || typeof identifier !== 'string') {
-        return res.status(400).json({ error: 'يجب إدخال اسم المستخدم أو البريد الإلكتروني' });
-      }
-
-      const trimmed = identifier.trim();
-      if (trimmed.length < 3 || trimmed.length > 100) {
-        return res.status(400).json({ error: 'يرجى إدخال اسم مستخدم أو بريد إلكتروني صحيح' });
-      }
-
+      // Self-service reset is intentionally disabled: no verified email or
+      // one-time reset-token flow exists yet, so knowing an identifier must
+      // never be enough to change that account's password.
       const result = await authService.requestPasswordReset(trimmed);
 
-      await logService.createLog(
-        result.userId,
-        'UPDATE',
-        'USER',
-        result.userId,
-        'User reset password via forgot-password flow'
-      );
+      if (result?.userId) auditPasswordResetRequest(result.userId);
 
-      res.json({ ok: true, temporaryPassword: result.temporaryPassword });
+      // Identical response for existing and non-existing accounts.
+      return res.json({
+        ok: true,
+        message: 'إذا كان الحساب موجوداً، فسيتم التواصل معك من قبل المسؤول لإعادة تعيين كلمة المرور.',
+      });
     } catch (error) {
-      console.error('Forgot password error:', error);
-      res.status(400).json({ error: error.message });
+      // Centralized handler logs the failure and returns a generic 500 without
+      // leaking database/internal details to the client.
+      console.error('[forgotPassword] request failed:', error);
+      if (typeof next === 'function') return next(error);
+      return res.status(500).json({ error: 'Internal server error' });
     }
   },
 
@@ -217,6 +242,15 @@ export const authController = {
         const ALLOWED_ROLES = ['ADMIN', 'EDITOR', 'VIEWER'];
         if (!ALLOWED_ROLES.includes(updates.role)) {
           return res.status(400).json({ error: `Invalid role. Allowed: ${ALLOWED_ROLES.join(', ')}` });
+        }
+      }
+
+      // Validate before touching the service/DB: an empty, non-string, or weak
+      // password must never be hashed or stored, and must not bump tokenVersion.
+      if (updates.password !== undefined) {
+        const passwordCheck = validatePassword(updates.password);
+        if (!passwordCheck.ok) {
+          return res.status(400).json({ error: passwordCheck.error });
         }
       }
 

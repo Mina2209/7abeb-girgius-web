@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate, requireEditor } from '../middleware/auth.js';
+import { authenticate, optionalAuthenticate, requireEditor } from '../middleware/auth.js';
 import UploadController from '../controllers/upload.controller.js';
 
 const router = Router();
@@ -8,12 +8,13 @@ const router = Router();
 // bind controller methods to routes
 router.post('/presign', authenticate, requireEditor, UploadController.presign);
 router.post('/preview', authenticate, requireEditor, UploadController.generatePreview); // Generate/reuse a PDF preview for a presentation
-router.get('/url', UploadController.url); // Public - for viewing files
-router.get('/preview', UploadController.preview); // Public - direct presigned URL for Office viewer
-router.get('/preview/pdf', UploadController.previewPdf); // Public - PDF preview, converted on demand and cached
-router.get('/proxy', UploadController.proxy); // Public - proxy file through server for Office viewer
-router.get('/office/:filename', UploadController.office); // Public - Office viewer target with a .pptx path extension
-router.get('/thumb', UploadController.thumb); // Public - resized thumbnails for the gallery grid
+router.get('/url', optionalAuthenticate, UploadController.url); // Public - for viewing files
+router.get('/preview', optionalAuthenticate, UploadController.preview); // Public - direct presigned URL for Office viewer
+router.get('/preview/pdf', optionalAuthenticate, UploadController.previewPdf); // Public - PDF preview, converted on demand and cached
+router.get('/preview/images', optionalAuthenticate, UploadController.previewImages); // Public - per-slide WebP preview, rendered on demand from the cached PDF
+router.get('/proxy', optionalAuthenticate, UploadController.proxy); // Public - proxy file through server for Office viewer
+router.get('/office/:filename', optionalAuthenticate, UploadController.office); // Public - Office viewer target with a .pptx path extension
+router.get('/thumb', optionalAuthenticate, UploadController.thumb); // Public - resized thumbnails for the gallery grid
 router.delete('/:key', authenticate, requireEditor, UploadController.remove);
 
 // multipart - require authentication

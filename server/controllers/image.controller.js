@@ -6,6 +6,11 @@ function csv(v) {
   return v ? String(v).split(',').map((s) => s.trim()).filter(Boolean) : undefined;
 }
 
+// Whether the request carries an authenticated editor/admin identity.
+function canSeeUnpublished(req) {
+  return !!(req.user && (req.user.role === 'ADMIN' || req.user.role === 'EDITOR'));
+}
+
 // Extract the supported image filters from a request (incl. editor visibility of unpublished).
 function parseImageFilters(req) {
   return {
@@ -15,7 +20,7 @@ function parseImageFilters(req) {
     types: csv(req.query.types ?? req.query.type),
     ai: req.query.ai || undefined,
     ids: csv(req.query.ids),
-    includeUnpublished: !!(req.user && (req.user.role === 'ADMIN' || req.user.role === 'EDITOR')),
+    includeUnpublished: canSeeUnpublished(req),
   };
 }
 
@@ -61,7 +66,12 @@ export const ImageController = {
   getById: async (req, res) => {
     try {
       const image = await ImageService.getById(req.params.id);
-      if (!image) return res.status(404).json({ error: 'Image not found' });
+      // Hidden images must be indistinguishable from missing ones for anyone
+      // without an editor/admin identity. optionalAuthenticate has already
+      // verified the tokenVersion, so a stale/revoked JWT cannot grant access.
+      if (!image || (!image.published && !canSeeUnpublished(req))) {
+        return res.status(404).json({ error: 'Image not found' });
+      }
       res.json(image);
     } catch (err) {
       console.error('Error fetching image:', err);
