@@ -24,3 +24,5 @@ __pycache__/
 .env.*
 !.env.example
 SKILL.md
+NODE
+node_modules
