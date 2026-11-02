@@ -182,15 +182,11 @@ export function createSlideImageGenerator({
     let pages = null;
     try {
       const marker = JSON.parse((await s3Service.getObjectBuffer(markerKey)).toString('utf8'));
-      if (Number.isInteger(marker?.pages) && marker.pages > 0) {
-        pages = marker.pages;
-      } else {
-        // Invalid marker content - do not treat as complete
-        return null;
-      }
+      if (Number.isInteger(marker?.pages) && marker.pages > 0) pages = marker.pages;
     } catch {
-      // Marker present but unreadable/invalid - do not treat as complete
-      return null;
+      // Marker present but unreadable: the slides themselves are still complete
+      // (the marker is written last), so reuse them and let the caller fall back
+      // to its own page count.
     }
     return { template: slideImageTemplateForSource(sourceKey, options), pages };
   }
@@ -292,92 +288,12 @@ export function createSlideImageGenerator({
   // One render per source key at a time: concurrent first-time viewers of the
   // same deck would otherwise run two pdftoppm passes against the same keys.
   const inFlight = new Map();
-  const LOCK_TTL_MS = 10 * 60 * 1000; // 10 minutes
-
-  function lockKeyForSource(sourceKey, options = {}) {
-    const prefix = slideImagePrefixForSource(sourceKey, options);
-    return `${prefix}.render.lock`;
-  }
-
-  function createLockToken() {
-    return `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  }
-
-  async function acquireLock(sourceKey, options = {}) {
-    if (typeof s3Service.putObjectIfNoneMatch !== 'function') {
-      throw new Error('slide-images: conditional put not supported by storage backend; cross-process locking unavailable');
-    }
-    const lockKey = lockKeyForSource(sourceKey, options);
-    const token = createLockToken();
-    try {
-      const acquired = await s3Service.putObjectIfNoneMatch(
-        lockKey,
-        Buffer.from(JSON.stringify({ pid: process.pid, token, ts: Date.now() })),
-        'application/json',
-        { CacheControl: 'no-store' }
-      );
-      if (acquired) return { acquired: true, lockKey, token };
-      // Cannot safely take over stale lock without atomic compare-and-delete or conditional delete
-      // Fail closed to avoid race conditions
-      return { acquired: false, lockKey, token: null };
-    } catch (err) {
-      if (err?.name === 'NotImplemented' || err?.$metadata?.httpStatusCode === 501) {
-        throw new Error('slide-images: conditional put not supported by storage backend; cross-process locking unavailable');
-      }
-      throw err;
-    }
-  }
-
-  async function releaseLock(lockKey, token) {
-    if (!lockKey || !token) return;
-    try {
-      // Try to delete only if we can verify ownership; cannot do atomic compare-and-delete with standard S3
-      if (typeof s3Service.getObjectBuffer === 'function') {
-        try {
-          const data = await s3Service.getObjectBuffer(lockKey);
-          const lock = JSON.parse(data.toString('utf8'));
-          if (lock?.token === token) {
-            if (typeof s3Service.deleteObject === 'function') {
-              try {
-                await s3Service.deleteObject(lockKey);
-              } catch {}
-            }
-          }
-        } catch {
-          // If can't read, don't delete
-        }
-      }
-    } catch {}
-  }
 
   async function generate(sourceKey, options = {}) {
     const runKey = `${options.kind || 'legacy'}:${sourceKey}`;
     const running = inFlight.get(runKey);
     if (running) return running;
-    const task = (async () => {
-      const existing = await peek(sourceKey, options);
-      if (existing) return existing;
-      let lock = await acquireLock(sourceKey, options);
-      if (!lock.acquired) {
-        for (let i = 0; i < 60; i++) {
-          await new Promise(r => setTimeout(r, 500));
-          const done = await peek(sourceKey, options);
-          if (done) return done;
-        }
-        // Still cannot acquire - fail closed
-        throw new Error('slide-images: lock held by another process; cannot safely proceed without proven ownership');
-      }
-      try {
-        const existing2 = await peek(sourceKey, options);
-        if (existing2) return existing2;
-        const result = await render(sourceKey, options);
-        return result;
-      } finally {
-        if (lock.acquired && lock.token) {
-          await releaseLock(lock.lockKey, lock.token);
-        }
-      }
-    })().finally(() => inFlight.delete(runKey));
+    const task = render(sourceKey, options).finally(() => inFlight.delete(runKey));
     inFlight.set(runKey, task);
     return task;
   }
