@@ -1,287 +1,291 @@
-# خدمة الأرشيدياكون حبيب جرجس للداتا شو ⛪
+# Archdeacon Habib Girgis Data Show Service ⛪
 
-منصة قبطية أرثوذكسية متكاملة لخدمة كنيسة السيدة العذراء مريم – النزهة الجديدة. تجمع المنصة المحتوى الكنسي الرقمي في مكانٍ واحد موثوق ومنظّم: بوربوينت الليتورجية، ومكتبة ترانيم جاهزة للعرض مع الكلمات، ومكتبة صور قبطية عالية الجودة، وكتب، وأقوال الآباء، وقسم لتعلم اللغة القبطية — بالإضافة إلى نظام مستخدمين كامل (أدوار، مفضلة، تحليلات، نسخ احتياطي) ولوحات إدارة متخصصة.
+An integrated Coptic Orthodox platform serving the Church of the Virgin Mary – New Nozha. This platform brings all digital church content together in one trusted and well-organized place: liturgical PowerPoint presentations, a ready-to-display hymns library with lyrics, a high-quality Coptic image library, books, sayings of the Church Fathers, and a section for learning the Coptic language. 
 
-> المشروع مبني على **Monorepo** يحتوي على: واجهة أمامية (React + Vite) + خادم API (Express + Prisma) مع نشر بيانات على AWS S3.
+It also includes a complete user management system (roles, favorites, analytics, backups), along with specialized administrative dashboards.
 
----
-
-## ✨ المميزات
-
-- **مكتبات وسائط متعددة**: ليتورجية، ترانيم (عرض + كلمات)، بوربوينت متنوعة، صور، كتب، أقوال الآباء والمؤلفين، ولغة قبطية.
-- **معاينة العروض** مباشرة عبر Microsoft Office Online (للعروض التقديمية)، مع معاينة داخل المتصفح أثناء التطوير.
-- **تحميلات مباشرة من AWS S3** عبر روابط مُوقّعة (Presigned URLs) مع دعم للملفات الكبيرة (Multipart upload) وضغط ZIP.
-- **بحث وفلاتر ذكية**: بحث عربي مُطبَّع (Normalization)، فلترة بالوسوم، فلاتر متعددة، وفرز عربي-aware.
-- **نظام مستخدمين وأدوار**: `ADMIN` / `EDITOR` / `VIEWER` مع صلاحيات تحكم دقيقة.
-- **المفضلة**: حفظ المحتوى لجميع الأنواع (ترنيمة / صورة / كتاب / قول).
-- **لوحات إدارة**: إدارة المستخدمين، الوسوم والأقسام، إعدادات الموقع، التحليلات، سجل النشاطات، وتصدير البيانات.
-- **تحليلات من طرفنا + Google Analytics**: أحداث مخصّصة (مشاهدات، تحميلات، بحث، مشاركة...) مع لوحات رسوم بيانية، وموافقة المستخدم قبل تحميل Google Analytics.
-- **الوضع الليلي/النهاري** وواجهة RTL بالكامل.
-- **صفحة BioLink / QR** مستقلة (`/qrcode`): بطاقة أعمال رقمية قابلة للمشاركة.
-- **نسخ احتياطي تلقائي** لقاعدة البيانات إلى S3 كل 24 ساعة (الاحتفاظ بآخر 7 نسخ).
+> This project is built as a **monorepo** containing: a frontend (React + Vite) and a backend API (Express + Prisma), with media files stored on AWS S3.
 
 ---
 
-## 🛠️ التقنيات المستخدمة
+## ✨ Features
 
-| الطبقة | التقنيات |
+- **Multi-media libraries**: Liturgy, hymns (display & lyrics), various PowerPoint presentations, images, books, sayings of the Church Fathers and authors, and Coptic language resources.
+- **Presentation previews**: View PowerPoint files directly via Microsoft Office Online, with in-browser preview available during development.
+- **Direct S3 downloads**: Secure, presigned URLs for direct downloads with support for large files via multipart uploads and ZIP compression.
+- **Smart search & filters**: Arabic-normalized search, tag-based filtering, multiple filters, and Arabic-aware sorting.
+- **User system & roles**: `ADMIN`, `EDITOR`, and `VIEWER` roles with fine-grained access control.
+- **Favorites**: Save any type of content (hymns, images, books, or sayings) to your personal favorites list.
+- **Admin dashboards**: Manage users, tags and sections, site settings, analytics, activity logs, and data exports.
+- **First-party analytics + Google Analytics**: Track custom events (views, downloads, searches, shares, etc.) with interactive charts and user consent before loading Google Analytics.
+- **Dark/Light mode** with full RTL support.
+- **Standalone BioLink/QR page** (`/qrcode`): A shareable digital business card, independent from the main app.
+- **Automated database backups**: Daily backups of the PostgreSQL database to S3 at midnight, retaining the last 7 backups.
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technologies |
 |---|---|
-| **الواجهة الأمامية** | React 18 · TypeScript · Vite 6 · Tailwind CSS v4 · React Router 7 · Radix UI · Lucide + Flaticon · Sonner · React Responsive Masonry · XLSX · pptx-preview |
-| **الخادم** | Node.js 22 · Express 5 · Prisma 6 · PostgreSQL · JSON Web Tokens (JWT) · bcrypt |
-| **التخزين/الوسائط** | AWS S3 · Presigned URLs · Sharp (تصغير الصور) · Archiver (ZIP) · الصور المصغّرة عند الطلب |
-| **التحليلات** | أحداث أول-طرفية (أوّل شخصية) + GA4 عبر gtag مع الموافقة |
-| **النشر والتشغيل** | Docker · GitHub Actions · Vercel · EC2 / Elastic Beanstalk · S3 + CloudFront (Terraform) |
+| **Frontend** | React 18 · TypeScript · Vite 6 · Tailwind CSS v4 · React Router 7 · Radix UI · Lucide Icons · Flaticon · Sonner · React Responsive Masonry · XLSX · pptx-preview |
+| **Backend** | Node.js 22 · Express 5 · Prisma 6 · PostgreSQL · JSON Web Tokens (JWT) · bcrypt |
+| **Storage & Media** | AWS S3 · Presigned URLs · Sharp (image resizing) · Archiver (ZIP generation) · On-demand thumbnails |
+| **Analytics** | First-party event tracking + GA4 via gtag with consent management |
+| **Deployment & Infra** | Docker · GitHub Actions · Vercel · EC2 / Elastic Beanstalk · S3 + CloudFront (Terraform) |
 
 ---
 
-## 📁 هيكل المشروع
+## 📁 Project Structure
 
-```
+```text
 7abeb-girgius-web/
-├── client/                    # الواجهة الأمامية (React + Vite + Tailwind)
-│   ├── public/                # logo.ico, robots.txt, خطوط Flaticon
-│   ├── scripts/               # optimize-logos.mjs (توليد أحجام الشعار), deploy-s3.sh (نشر S3)
+├── client/                    # Frontend (React + Vite + Tailwind)
+│   ├── public/                # logo.ico, robots.txt, Flaticon fonts
+│   ├── scripts/               # optimize-logos.mjs, deploy-s3.sh
 │   └── src/
-│       ├── app/               # App.tsx + الصفحات والمكونات والسياقات
-│       │   ├── components/    # المكونات (قائمة جانبية، أقسام المحتوى...)
-│       │   ├── pages/         # الصفحات (الإدارة، الملف الشخصي، BioLink...)
-│       │   ├── contexts/      # AuthContext, SectionsVisibilityContext, UploadProgress
-│       │   └── services/      # analytics.ts, ga4.ts, apiClient.ts ...
-│       ├── styles/            # index.css ← tailwind.css + theme.css + fonts.css
-│       └── assets/            # شعار الكنيسة بأحجام WebP متعددة
-├── server/                    # الخادم (Express + Prisma)
-│   ├── prisma/                # schema.prisma + migrations + seed.js
-│   ├── routes/                # مسارات API (auth, hymns, images, sayings, uploads ...)
-│   ├── controllers/           # منطق المعالجة
-│   ├── services/              # s3.service, analytics, backup, cache, normalize ...
-│   ├── middleware/            # مصادقة وأمان و rate limiting
-│   └── __tests__/             # اختبارات Vitest + Supertest (113 اختبارًا)
-├── infra/                     # Terraform: CloudFront + S3 (OAC) للواجهة
-├── docs/security/             # توثيق الأمان وخطط الإصلاح
-├── docker-compose.yml         # PostgreSQL + API
-└── .github/workflows/ci.yml   # CI: اختبارات الخادم + بناء الواجهة
+│       ├── app/               # App.tsx, pages, components, contexts, services
+│       ├── styles/            # Global styles (index.css, tailwind.css, theme.css, fonts.css)
+│       └── assets/            # Church logos in multiple WebP sizes
+├── server/                    # Backend (Express + Prisma)
+│   ├── prisma/                # schema.prisma, migrations, seed.js
+│   ├── routes/                # API routes
+│   ├── controllers/           # Request handlers
+│   ├── services/              # S3, analytics, backup, cache, normalization, etc.
+│   ├── middleware/            # Auth, security, rate limiting
+│   └── __tests__/             # Vitest + Supertest tests (113 tests)
+├── infra/                     # Terraform for S3 + CloudFront (OAC)
+├── docs/security/             # Security documentation & remediation plans
+├── docker-compose.yml         # PostgreSQL + API setup
+└── .github/workflows/ci.yml   # CI: backend tests + frontend build
 ```
 
 ---
 
-## 🖥️ الخادم (API)
+## 🖥️ Backend (API)
 
-خادم `Express 5` بقاعدة `PostgreSQL` عبر `Prisma`. يبدأ بـ `server/index.js` ويتوقع `NODE_ENV=production` إجباريًا وجود `JWT_SECRET` قوي (≥32 حرفًا) — وإلا يرفض الإقلاع.
+The server runs on **Express 5** with **PostgreSQL** via **Prisma ORM**. The entry point is `server/index.js`. In `production`, a strong `JWT_SECRET` (minimum 32 characters) is required, otherwise the server will refuse to start.
 
-### المصادقة والأدوار
+### Authentication & Roles
 
-- **JWT** بصلاحية 7 أيام، مُحمّل بـ `{ id, username, role, tokenVersion }`.
-- `tokenVersion` في قاعدة البيانات: تغيير كلمة المرور أو الدور يُبطل كل الرموز القديمة فورًا.
-- كلمات المرور مشفّرة بـ `bcrypt` (cost 10).
-- **حماية ضد التخمين**: تأخير تصاعدي بعد محاولات تسجيل الدخول الفاشلة (للمستخدمين الحقيقيين وغير الموجودين على حدٍ سواء).
+- **JWT-based auth**: Tokens are valid for 7 days and include `{ id, username, role, tokenVersion }`.
+- **Token invalidation**: The `tokenVersion` field in the database is incremented on password changes or role updates, instantly invalidating all previous tokens.
+- **Password hashing**: Uses `bcrypt` with a cost factor of 10.
+- **Brute-force protection**: Progressive delay is applied after failed login attempts for both existing and non-existing users.
 
-| الدور | الصلاحيات |
+| Role | Permissions |
 |---|---|
-| `VIEWER` | تصفح المكتبات، إضافة مفضلة، صفحة الملف الشخصي |
-| `EDITOR` | كل ما يخص المحتوى: إضافة/تعديل/حذف الترانيم والصور والأقوال والكتب والتحميلات |
-| `ADMIN` | كل شيء: إدارة المستخدمين، الوسوم والأقسام، الإعدادات، التحليلات، سجل النشاطات، التصدير، النسخ الاحتياطي |
+| `VIEWER` | Browse libraries, add to favorites, access profile page |
+| `EDITOR` | All content operations (add/edit/delete hymns, images, sayings, books, uploads) |
+| `ADMIN` | Full access (user management, tags/sections, site settings, analytics, activity logs, exports, backups) |
 
-### أبرز المسارات (Endpoints)
+### Key API Endpoints
 
-| المسار | الوصف |
+| Endpoint | Description |
 |---|---|
-| `POST /api/auth/register` · `/login` · `POST/GET /api/auth/users` | التسجيل، الدخول، وإدارة المستخدمين (أدمن) |
-| `PUT /api/auth/password` · `/api/auth/profile` | تغيير كلمة المرور، والملف الشخصي |
-| `GET /api/auth/settings/site` | أقسام الموقع الظاهرة/المخفية |
-| `GET/POST/PUT/DELETE /api/hymns` · `/api/hymns/zip` | مكتبة الترانيم + تحميل ZIP لملفات الترانيم |
-| `GET/POST/PUT/DELETE /api/sayings` · `/api/fathers` | الأقوال والمؤلفون |
-| `GET/POST/PUT/DELETE /api/images` · `/api/images/meta/*` · `/api/images/facets` | مكتبة الصور (فلاتر وأصنّاف) |
-| `*/api/uploads/*` | روابط S3 الموقعة، الصور المصغّرة `thumb`، proxy العرض، ومجمع `office` لعرض PowerPoint في Office Online، ورفع متعدد `multipart/*` |
-| `GET /api/lyrics/*` | كلمات الترانيم والبحث |
-| `GET/POST /api/favorites/*` | المفضلة لكل أنواع المحتوى |
-| `POST /api/analytics/events` · `/api/admin/analytics/*` | تسجيل الأحداث + لوحات/تصدير (أدمن) |
-| `POST /api/admin/activity/events` · `/api/admin/activity/*` | سجل «من فعل ماذا» (أدمن) |
-| `*/api/backup/*` | إنشاء/تحميل/حذف النسخ الاحتياطية (أدمن) |
-| `GET /health` | فحص حالة الخادم وقاعدة البيانات |
+| `POST /api/auth/register`, `POST /api/auth/login`, `GET/POST /api/auth/users` | Authentication and user management (Admin only) |
+| `PUT /api/auth/password`, `PUT /api/auth/profile` | Change password & update profile |
+| `GET /api/auth/settings/site` | Get visible/hidden site sections |
+| `GET/POST/PUT/DELETE /api/hymns`, `GET /api/hymns/zip` | Hymns library & ZIP download |
+| `GET/POST/PUT/DELETE /api/sayings`, `GET/POST/PUT/DELETE /api/fathers` | Sayings & Church Fathers |
+| `GET/POST/PUT/DELETE /api/images`, `GET /api/images/meta/*`, `GET /api/images/facets` | Image library with filters & metadata |
+| `*/api/uploads/*` | Presigned S3 URLs, thumbnails (`thumb`), proxy viewing, Office Online integration for PowerPoint, and multipart uploads (`multipart/*`) |
+| `GET /api/lyrics/*` | Hymn lyrics & search |
+| `GET/POST/DELETE /api/favorites/*` | Favorites for all content types |
+| `POST /api/analytics/events`, `GET /api/admin/analytics/*` | First-party event logging & analytics dashboards (Admin) |
+| `POST /api/admin/activity/events`, `GET /api/admin/activity/*` | Audit trail of user actions (Admin) |
+| `GET/POST/DELETE /api/backup/*` | Database backup management (Admin) |
+| `GET /health` | Server & database health check |
 
-### الوسائط و S3
+### Media & S3
 
-- **كل بيانات الوسائط تذهب إلى S3 مباشرة** عبر روابط موقّعة — لا يمر حجم الملف عبر الخادم (باستثناء توليد الصور المصغّرة).
-- الصور تُقدَّم بتصغير **عند الطلب**: `GET /api/uploads/thumb?key=...&w=400` يولّد صورة مصغّرة `JPEG` مخزّنة في S3 ويُعيد استخدامها.
-- معاينة PowerPoint تتم عبر **Microsoft Office Online** من خلال proxy يفرض نوع `pptx`؛ أثناء التطوير يُستخدم معاين داخل المتصفح (`pptx-preview`).
-- التحكم في صلاحيات الوصول للمفاتيح من خلال قواعد `isReadableKey / isWritableKey` وقوائم `S3_FOLDER_MAP` و`S3_ALLOWED_FOLDERS`.
+- **Direct-to-S3 uploads**: Files are uploaded directly to S3 via presigned URLs. Only thumbnails are processed through the server.
+- **On-demand thumbnails**: `GET /api/uploads/thumb?key=...&w=400` generates and caches a resized JPEG thumbnail in S3.
+- **PowerPoint previews**: Presentations are proxied for viewing via Microsoft Office Online. During development, the `pptx-preview` library is used for in-browser rendering.
+- **Access control**: All S3 keys are validated using `isReadableKey`, `isWritableKey`, `S3_FOLDER_MAP`, and `S3_ALLOWED_FOLDERS`.
 
-### النسخ الاحتياطي
+### Backups
 
-`pg_dump` يُجمع ويُرفع إلى `s3://.../backups/` تلقائيًا كل 24 ساعة (يُحتفظ بـ 7 نسخ)، مع لوحة إدارة للإنشاء والتنزيل والتنظيف.
+Automated `pg_dump` jobs run every 24 hours, compress and upload the dump to `s3://.../backups/`, and automatically remove older backups beyond the last 7. Backups can also be created, downloaded, or deleted manually from the admin panel.
 
 ---
 
-## 🗄️ قاعدة البيانات (Prisma)
+## 🗄️ Database (Prisma)
 
-النماذج الرئيسية:
+Key models include:
 
-- **Hymn** (ترنيمة) → مجموعة من **File** (فيديو / بوربوينت / صوت) + **Lyric** (كلمات).
-- **Tag / TagSection** — وسوم وأقسام ترتبط بالترانيم والأقوال والصور.
-- **Saying** (قول) و **Father** (أب) — للأقوال والمرجع.
-- **Image** الكلاسيكية + **ImageAuthor** + **ImageType** (مكتبة الصور مع ربط بالمؤلف والنوع وعلامة AI وحالة نشر).
-- **User** + **Log** + **Favorite** (بالأدوار الأربعة و`tokenVersion`).
-- **SiteSettings** (صف واحد) — يتحكم بإظهار/إخفاء الأقسام، وروابط الليتورجية/التحميل، ومعلومات PowerPoint.
-- **AnalyticsEvent** + **UserActivity** — تحليلات أول-طرفية وسجل تدقيق.
-
----
-
-## 🎨 الواجهة الأمامية (Client)
-
-SPA بالعربية و RTL بالكامل، مهيّأة للوضع الليلي/النهاري.
-
-### الصفحات الرئيسية
-
-| المسار | الصفحة |
+| Model | Purpose |
 |---|---|
-| `/` | الرئيسية (Hero + أقسام المنصة + شريط متحرك) |
-| `/liturgy` | بوربوينت الليتورجية + تحميل |
-| `/hymns` | مكتبة الترانيم (عرض + كلمات) |
-| `/various` · `/images` · `/books` · `/sayings` · `/coptic` | مكتبات متنوعة/صور/كتب/أقوال/قبطي |
-| `/artists` · `/artists/:id` · `/sayings/authors/:id` | تفاصيل المؤلفين والآباء |
-| `/profile` · `/favorites` | الملف الشخصي والمفضلة |
-| `/admin/users` · `/admin/topics` · `/admin/settings` | لوحات الإدارة |
-| `/admin/analytics` · `/admin/activity` · `/admin/export` | التحليلات وسجل النشاط والتصدير |
-| `/qrcode` | **BioLink**: بطاقة أعمال رقمية بصفحة مستقلة عن التطبيق الرئيسي |
-
-### سلوكيات وأدوات
-
-- التحميل الكسول لكل الصفحات + فصل `vendor-pptx` و`vendor-xlsx` بعيدًا عن التحميل الأولي (Manual chunks).
-- `apiClient` موحّد: إضافة `Authorization` تلقائيًا، إعادة محاولة مع backoff عند `429/502/503/504`، ومعالجة انتهاء الجلسة (`sessionExpired`).
-- رفع الملفات عبر `XMLHttpRequest` لعرض نسبة حقيقية في واجهة علوية ثابتة.
-- تحليلات أول-طرفية + GA4 (مع موافقة الزائر)، وتتبّع الأحداث عبر المسارات.
-- ملف `vite.config.ts` يتضمن معالجة CSS: حقن "Critical CSS" بسيط + تحميل ورقة الأنماط كاملة بشكل غير محظور للمرّ الأول (منع FOUC).
+| `Hymn`, `File`, `Lyric` | Hymns with associated media files and lyrics |
+| `Tag`, `TagSection` | Categorization for hymns, sayings, and images |
+| `Saying`, `Father` | Sayings of the Church Fathers with author references |
+| `Image`, `ImageAuthor`, `ImageType` | Image library with authors, types, AI flags, and publish status |
+| `User`, `Log`, `Favorite` | Users, audit logs, and favorites with role-based access & `tokenVersion` |
+| `SiteSettings` | Single-row config for toggling sections, liturgy/download links, and PowerPoint settings |
+| `AnalyticsEvent`, `UserActivity` | First-party analytics and detailed activity tracking |
 
 ---
 
-## 🚀 البدء السريع
+## 🎨 Frontend (Client)
 
-### المتطلبات
+A fully Arabic, RTL SPA built with React and Vite, supporting light and dark themes.
 
-- Node.js **22+** · npm
-- PostgreSQL (أو `docker compose up db`)
-- حساب AWS S3 (اختياري لمعالجة الوسائط)
+### Main Routes
 
-### الخادم (server)
+| Route | Page |
+|---|---|
+| `/` | Home (hero, platform sections, carousel) |
+| `/liturgy` | Liturgical PowerPoint presentations & downloads |
+| `/hymns` | Hymns library (display & lyrics) |
+| `/various`, `/images`, `/books`, `/sayings`, `/coptic` | Various libraries (images, books, sayings, Coptic learning) |
+| `/artists`, `/artists/:id`, `/sayings/authors/:id` | Authors & Church Fathers details |
+| `/profile`, `/favorites` | User profile & favorites |
+| `/admin/users`, `/admin/topics`, `/admin/settings` | Admin management panels |
+| `/admin/analytics`, `/admin/activity`, `/admin/export` | Analytics, activity logs & data export |
+| `/qrcode` | BioLink digital business card (standalone page) |
+
+### Key Features
+
+- **Code splitting**: Lazy-loaded routes with manual chunking to separate heavy vendors (`vendor-pptx`, `vendor-xlsx`) from the initial bundle.
+- **Unified API client**: Automatically attaches JWT tokens, retries failed requests with exponential backoff on `429/502/503/504`, and handles session expiration.
+- **File uploads with progress**: Uses `XMLHttpRequest` to show real-time upload progress in a fixed top bar.
+- **Analytics with consent**: First-party events are tracked by default, while GA4 is only loaded after user consent.
+- **Optimized CSS loading**: Generates critical CSS on build and loads the full stylesheet non-blockingly to prevent FOUC.
+- **Automatic logo optimization**: `prebuild` script generates multiple WebP logo sizes using `sharp`.
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js **22+** and npm
+- PostgreSQL (or use `docker compose up db`)
+- AWS S3 account (optional for full media functionality)
+
+### Backend Setup
 
 ```bash
 cd server
-cp .env.example .env        # ثم املأ القيم (DATABASE_URL, JWT_SECRET, AWS...)
+cp .env.example .env        # Fill in DATABASE_URL, JWT_SECRET, AWS credentials, etc.
 npm install
 npx prisma generate
-npx prisma migrate dev      # إنشاء الجداول
-npm run seed                # تعبئة بيانات تجريبية (خارج production)
-npm run dev                 # تشغيل التطوير
+npx prisma migrate dev      # Run migrations
+npm run seed                # Seed sample data (not for production)
+npm run dev                 # Start dev server
 ```
 
-### الواجهة الأمامية (client)
+### Frontend Setup
 
 ```bash
 cd client
-cp .env.example .env        # VITE_API_BASE_URL (مثال: http://localhost:8080)
+cp .env.example .env        # Set VITE_API_BASE_URL (e.g., http://localhost:8080)
 npm install
-npm run dev                 # http://localhost:5173 (مع proxy عام /api)
+npm run dev                 # Runs at http://localhost:5173 with /api proxy
 ```
 
-> عند البناء، يُنفَّذ `prebuild` لتوليد أحجام الشعار (`optimize:images`) عبر `sharp`.
+> During the build process, `prebuild` automatically runs `optimize:images` to generate optimized WebP logo variants.
 
-### التشغيل الكامل بـ Docker
+### Run with Docker
 
 ```bash
 docker compose up --build
-# api على المنفذ 8080، و postgres داخليًا
-# يتطلب تعيين JWT_SECRET في البيئة
+# API available at http://localhost:8080
+# PostgreSQL runs internally
+# Ensure JWT_SECRET is set in your environment
 ```
 
 ---
 
-## 🧪 الاختبارات
+## 🧪 Testing
 
 ```bash
+# Backend tests
 cd server
-npm test        # Vitest + Supertest — 113 اختبارًا عابرًا حاليًا
-```
+npm test        # Vitest + Supertest (113 passing tests)
 
-```bash
+# Frontend lint & build
 cd client
-npm run lint    # ESLint (بدون تحذيرات)
-npm run build   # tsc -b && vite build
+npm run lint    # ESLint (must pass with zero warnings)
+npm run build   # TypeScript check + Vite production build
 ```
 
 ---
 
-## ☁️ النشر
+## ☁️ Deployment
 
-### الواجهة (Client)
+### Frontend
 
-- **Vercel**: بدعم تكوين `client/vercel.json` (ترويسات أمنية + إعادة كتابة `/api/*` إلى الخادم + SPA).
-- **S3 + CloudFront**: عبر `infra/cloudfront.tf` (OAC خاص + CloudFront Function لإعادة توجيه مسارات SPA + HTTP/2/3 + ضغط Brotli + سياسات تخزين مؤقت منفصلة لـ `/assets/*`).
-- النشر إلى S3 بترويسات `Cache-Control` صحيحة عبر `client/scripts/deploy-s3.sh`:
+- **Vercel**: Configured via `client/vercel.json` with security headers, SPA rewrites, and API proxying to the backend.
+- **S3 + CloudFront**: Provisioned with `infra/cloudfront.tf` using Origin Access Control (OAC), CloudFront Functions for SPA routing, HTTP/2 & HTTP/3, Brotli compression, and optimized cache policies.
+- **Manual S3 deploy**: 
 
 ```bash
 cd client
 CLOUDFRONT_DISTRIBUTION_ID=XXXXXXXXXXXX bash scripts/deploy-s3.sh
 ```
 
-### الخادم (API)
+### Backend
 
-- على **EC2 / Elastic Beanstalk** خلف nginx أو Load Balancer، مع `NODE_ENV=production` و `JWT_SECRET` قوي.
-- قاعدة البيانات: PostgreSQL (ويمكن إدارتها عبر لوحة النسخ الاحتياطي في `/api/backup`).
+- Deploy to **EC2** or **Elastic Beanstalk** behind Nginx or an Application Load Balancer.
+- Must run with `NODE_ENV=production` and a strong `JWT_SECRET`.
+- PostgreSQL can be managed directly or via the built-in admin backup system.
 
-### CI
+### CI/CD
 
-`GitHub Actions` (`.github/workflows/ci.yml`) يعمل على `main` و`feature/optimizations`:
-- `backend`: `npm ci` → `prisma generate` → `npm test`.
-- `frontend`: `npm ci` → `npm run build`.
+GitHub Actions workflow (`.github/workflows/ci.yml`) runs on `main` and `feature/optimizations` branches:
 
----
-
-## 🔒 الأمان
-
-- ترويسات أمان (CSP · HSTS · X-Frame-Options ...). 
-- قيود معدل الطلبات (Rate limiting) على مستوى API العام وبشكل خاص لمسارات الدخول والتسجيل والتحميلات ZIP.
-- تحقق من صحة المدخلات وتنظيفها، و`requestId` للتتبع.
-- حاوية Docker بـ `USER node` وبلا صلاحيات الجذر، مع `HEALTHCHECK`.
-- توثيق كامل في `docs/security/` (الاستراتيجية، الخطة، الأدلة، وتقرير بوّابة الإصدار النهائي — 113/113 اختبارًا).
-
-> ⚠️ تذكير: استبدل `JWT_SECRET` قبل أي نشر إنتاجي — توجد قيمة تطويرية في `server/.env` (مُستبعدة من git) لا تجتاز فحص القوة.
+- **Backend job**: `npm ci` → `prisma generate` → `npm test`
+- **Frontend job**: `npm ci` → `npm run build`
 
 ---
 
-## ⚡ الأداء
+## 🔒 Security
 
-- HTTP/2 + HTTP/3 وضغط Brotli/Gzip عبر CloudFront.
-- تخزين مؤقت `immutable` لمدة عام لأصول `/assets/*`، و`no-cache` لملف `index.html`.
-- صور الشعار بأحجام WebP متعددة مع `srcSet`/`sizes`، و`fetchpriority="high"` لعنصر LCP.
-- تحميل CSS غير محظور + Critical CSS مضمّن لمنع FOUC.
-- تقسيم الحزم يدويًا وإبعاد المكتبات الثقيلة (echarts/xlsx/pptx) عن التحميل الأولي.
+- **Secure headers**: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, and more.
+- **Rate limiting**: Applied globally and more strictly on auth, registration, and ZIP download endpoints.
+- **Input validation & sanitization**: All user inputs are validated with request tracing via `requestId`.
+- **Hardened Docker image**: Runs as a non-root `node` user with `HEALTHCHECK` enabled.
+- **Comprehensive security docs**: Available in `docs/security/` (strategy, remediation plan, checklists, and final release gate report — all 113 tests passing).
+
+> ⚠️ **Important:** Replace the default `JWT_SECRET` before deploying to production. The development value in `server/.env` is git-ignored but must never be used in production.
 
 ---
 
-## 📦 الأوامر المفيدة
+## ⚡ Performance
+
+- **Modern protocols**: HTTP/2, HTTP/3, Brotli & Gzip compression via CloudFront.
+- **Smart caching**: `/assets/*` served with `Cache-Control: immutable` for 1 year, while `index.html` uses `no-cache` for instant updates.
+- **Image optimization**: Multi-size WebP logos with `srcSet`, `sizes`, and `fetchpriority="high"` for LCP elements.
+- **Faster first paint**: Critical CSS inlined with non-blocking full stylesheet loading.
+- **Bundle optimization**: Manual chunking and lazy loading keep heavy libraries (ECharts, XLSX, pptx) out of the main bundle.
+
+---
+
+## 📦 Useful Commands
 
 ```bash
-# Client
-npm run dev                # خادم تطوير Vite
-npm run build              # تيبس + بناء
-npm run optimize:images    # توليد أحجام شعار WebP (يعمل تلقائيًا قبل build)
-bash scripts/deploy-s3.sh  # نشر إلى S3 + تصفية CloudFront
+# Frontend
+npm run dev                # Vite dev server
+npm run build              # Type-check & production build
+npm run optimize:images    # Generate optimized logo sizes (runs automatically on prebuild)
+bash scripts/deploy-s3.sh  # Deploy to S3 & invalidate CloudFront
 
-# Server
-npm run dev                # تشغيل مع nodemon
-npm test                   # اختبارات Vitest
-npx prisma studio          # استعراض قاعدة البيانات
+# Backend
+npm run dev                # Run with nodemon
+npm test                   # Run tests with Vitest
+npx prisma studio          # Open Prisma DB viewer
 ```
 
 ---
 
-## 🏗️ البنية التحتية (Terraform)
+## 🏗️ Infrastructure (Terraform)
 
-`infra/cloudfront.tf` يُنشئ:
+The `infra/cloudfront.tf` configuration provisions:
 
-- **CloudFront distribution** أمام `s3://7abeb-frontend` (OAC — الدلو يبقى خاصًا وجميع القراءات عبر CloudFront فقط).
-- **CloudFront Function** لإعادة كتابة مسارات SPA إلى `index.html` مع تمرير `/assets/*` والملفات ذات الامتداد.
-- **سلوكان للتخزين**: `CachingDisabled` لـ HTML/المسارات، و`CachingOptimized` (سنة) لأصول `/assets/*`.
+- **CloudFront Distribution** in front of `s3://7abeb-frontend` using Origin Access Control (bucket remains private, accessed only via CloudFront).
+- **CloudFront Function** to rewrite SPA routes to `index.html` while preserving `/assets/*` and files with extensions.
+- **Cache behaviors**: `CachingDisabled` for HTML/routes, `CachingOptimized` (1 year) for static assets under `/assets/*`.
 
 ```bash
 cd infra
@@ -290,6 +294,6 @@ terraform init && terraform plan && terraform apply
 
 ---
 
-## 📄 الترخيص
+## 📄 License
 
-المنصة متاحة مجانًا لخدمة الكنيسة القبطية الأرثوذكسية. جميع المحتويات الكنسية مراجعة وتُنشر باسم «خدمة الأرشيدياكون حبيب جرجس» — كنيسة السيدة العذراء مريم بالنزهة الجديدة.
+This platform is provided free of charge for the service of the Coptic Orthodox Church. All church-related content is reviewed and published under the name **"Service of Archdeacon Habib Girgis" – Church of the Virgin Mary, New Nozha**.
